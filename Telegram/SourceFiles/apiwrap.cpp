@@ -1248,6 +1248,8 @@ void ApiWrap::gotChatFull(
 			LOG(("MTP Error: bad type in gotChatFull for chat: %1"
 				).arg(d.vfull_chat().type()));
 		}
+	}, [&](const MTPDcommunityFull &) {
+		LOG(("MTP Error: communityFull is not supported in gotChatFull."));
 	});
 
 	_fullPeerRequests.remove(peer);

@@ -364,6 +364,14 @@ bool ChannelData::monoforumDisabled() const {
 	return flags() & Flag::MonoforumDisabled;
 }
 
+void ChannelData::setLinkedCommunityId(ChannelId id) {
+	_linkedCommunityId = id;
+}
+
+ChannelId ChannelData::linkedCommunityId() const {
+	return _linkedCommunityId;
+}
+
 void ChannelData::setMembersCount(int newMembersCount) {
 	if (_membersCount != newMembersCount) {
 		if (isMegagroup()

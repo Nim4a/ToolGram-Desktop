@@ -509,6 +509,8 @@ FullReplyTo ReplyToFromMTP(
 		return FullReplyTo{
 			.monoforumPeerId = parsed ? parsed->id : PeerId(),
 		};
+	}, [&](const MTPDinputReplyToEphemeralMessage &) {
+		return FullReplyTo();
 	});
 }
 

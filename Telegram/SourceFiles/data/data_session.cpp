@@ -851,6 +851,10 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
 		return peer(peerFromChannel(data.vid().v));
 	}, [&](const MTPDchannelForbidden &data) {
 		return peer(peerFromChannel(data.vid().v));
+	}, [&](const MTPDcommunity &data) {
+		return peer(peerFromChannel(data.vid().v));
+	}, [&](const MTPDcommunityForbidden &data) {
+		return peer(peerFromChannel(data.vid().v));
 	});
 	auto minimal = false;
 
@@ -1111,6 +1115,8 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
 		applyMonoforumLinkedId(
 			channel,
 			data.vlinked_monoforum_id().value_or_empty());
+		channel->setLinkedCommunityId(
+			data.vlinked_community_id().value_or_empty());
 
 		if (wasInChannel != channel->amIn()) {
 			flags |= UpdateFlag::ChannelAmIn;
@@ -1173,6 +1179,73 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
 			|| canAddMembers != channel->canAddMembers()) {
 			flags |= UpdateFlag::Rights;
 		}
+	}, [&](const MTPDcommunity &data) {
+		const auto channel = result->asChannel();
+
+		minimal = data.is_min();
+		if (minimal && !result->isLoaded()) {
+			LOG(("API Warning: not loaded minimal community applied."));
+		}
+
+		if (const auto accessHash = data.vaccess_hash()) {
+			if (!minimal || !channel->accessHash()) {
+				channel->setAccessHash(accessHash->v);
+			}
+		}
+		if (const auto rights = data.vdefault_banned_rights()) {
+			channel->setDefaultRestrictions(
+				ChatRestrictionsInfo(*rights).flags);
+		} else {
+			channel->setDefaultRestrictions(ChatRestrictions());
+		}
+		if (!minimal) {
+			if (const auto rights = data.vadmin_rights()) {
+				channel->setAdminRights(ChatAdminRightsInfo(*rights).flags);
+			} else if (channel->hasAdminRights()) {
+				channel->setAdminRights(ChatAdminRights());
+			}
+			channel->date = data.vdate().v;
+		}
+		channel->setName(qs(data.vtitle()), QString());
+		channel->setPhoto(data.vphoto());
+
+		using Flag = ChannelDataFlag;
+		const auto flagsMask = Flag::Community
+			| Flag::CommunityCollapsed
+			| (!minimal ? (Flag::Left | Flag::Creator) : Flag());
+		const auto collapsed = data.vcollapsed_in_dialogs();
+		const auto flagsSet = Flag::Community
+			| ((collapsed && mtpIsTrue(*collapsed))
+				? Flag::CommunityCollapsed
+				: Flag())
+			| (!minimal
+				? ((data.is_left() ? Flag::Left : Flag())
+					| (data.is_creator() ? Flag::Creator : Flag()))
+				: Flag());
+		channel->setFlags((channel->flags() & ~flagsMask) | flagsSet);
+	}, [&](const MTPDcommunityForbidden &data) {
+		const auto channel = result->asChannel();
+
+		using Flag = ChannelDataFlag;
+		const auto flagsMask = Flag::Community | Flag::Forbidden;
+		const auto flagsSet = Flag::Community | Flag::Forbidden;
+		channel->setFlags((channel->flags() & ~flagsMask) | flagsSet);
+
+		if (channel->hasAdminRights()) {
+			channel->setAdminRights(ChatAdminRights());
+		}
+		if (channel->hasRestrictions()) {
+			channel->setRestrictions(ChatRestrictionsInfo());
+		}
+
+		channel->setName(qs(data.vtitle()), QString());
+
+		if (const auto accessHash = data.vaccess_hash()) {
+			channel->setAccessHash(accessHash->v);
+		}
+		channel->setPhoto(MTP_chatPhotoEmpty());
+		channel->date = 0;
+		channel->setMembersCount(0);
 	}, [](const MTPDchatEmpty &) {
 	});
 

@@ -86,6 +86,8 @@ enum class ChannelDataFlag : uint64 {
 	HasStarsPerMessage = (1ULL << 43),
 	StarsPerMessageKnown = (1ULL << 44),
 	HasActiveVideoStream = (1ULL << 45),
+	Community = (1ULL << 46),
+	CommunityCollapsed = (1ULL << 47),
 };
 inline constexpr bool is_flag_type(ChannelDataFlag) { return true; };
 using ChannelDataFlags = base::flags<ChannelDataFlag>;
@@ -263,7 +265,7 @@ public:
 		return flags() & Flag::SignatureProfiles;
 	}
 	[[nodiscard]] bool isForbidden() const {
-		return flags() & Flag::Forbidden;
+		return flags() & (Flag::Forbidden | Flag::Community);
 	}
 	[[nodiscard]] bool isVerified() const {
 		return flags() & Flag::Verified;
@@ -332,6 +334,9 @@ public:
 	}
 	[[nodiscard]] bool isMonoforum() const {
 		return flags() & Flag::Monoforum;
+	}
+	[[nodiscard]] bool isCommunity() const {
+		return flags() & Flag::Community;
 	}
 	[[nodiscard]] bool hasUsername() const {
 		return flags() & Flag::Username;
@@ -453,6 +458,9 @@ public:
 	void setMonoforumLink(ChannelData *link);
 	[[nodiscard]] ChannelData *monoforumLink() const;
 	[[nodiscard]] bool monoforumDisabled() const;
+
+	void setLinkedCommunityId(ChannelId id);
+	[[nodiscard]] ChannelId linkedCommunityId() const;
 
 	void ptsInit(int32 pts) {
 		_ptsWaiter.init(pts);
@@ -610,6 +618,7 @@ private:
 
 	ChannelData *_discussionLink = nullptr;
 	ChannelData *_monoforumLink = nullptr;
+	ChannelId _linkedCommunityId = 0;
 	bool _discussionLinkKnown = false;
 
 	int _peerGiftsCount = 0;
