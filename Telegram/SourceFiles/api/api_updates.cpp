@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "chat_helpers/stickers_dice_pack.h"
 #include "data/business/data_shortcut_messages.h"
 #include "data/components/credits.h"
+#include "data/components/ephemeral_messages.h"
 #include "data/components/gift_auctions.h"
 #include "data/components/promo_suggestions.h"
 #include "data/components/scheduled_messages.h"
@@ -1875,6 +1876,21 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 	case mtpc_updateDeleteScheduledMessages: {
 		const auto &d = update.c_updateDeleteScheduledMessages();
 		session().scheduledMessages().apply(d);
+	} break;
+
+	case mtpc_updateNewEphemeralMessage: {
+		const auto &d = update.c_updateNewEphemeralMessage();
+		session().ephemeralMessages().apply(d);
+	} break;
+
+	case mtpc_updateEditEphemeralMessage: {
+		const auto &d = update.c_updateEditEphemeralMessage();
+		session().ephemeralMessages().apply(d);
+	} break;
+
+	case mtpc_updateDeleteEphemeralMessages: {
+		const auto &d = update.c_updateDeleteEphemeralMessages();
+		session().ephemeralMessages().apply(d);
 	} break;
 
 	case mtpc_updateQuickReplies: {

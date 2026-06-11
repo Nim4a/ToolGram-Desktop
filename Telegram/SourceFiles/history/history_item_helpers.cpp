@@ -648,6 +648,27 @@ bool LookupReplyIsTopicPost(HistoryItem *replyTo) {
 		&& (replyTo->topicRootId() != Data::ForumTopic::kGeneralId);
 }
 
+bool ShowEphemeralReplyTextOnlyError(
+		std::shared_ptr<ChatHelpers::Show> show,
+		not_null<Main::Session*> session,
+		FullMsgId replyToId) {
+	const auto item = session->data().message(replyToId);
+	if (!item || !item->isEphemeral()) {
+		return false;
+	}
+	show->showToast(tr::lng_ephemeral_reply_text_only(tr::now));
+	return true;
+}
+
+void StripEphemeralReply(
+		not_null<Main::Session*> session,
+		FullReplyTo &replyTo) {
+	const auto item = session->data().message(replyTo.messageId);
+	if (item && item->isEphemeral()) {
+		replyTo.messageId = FullMsgId();
+	}
+}
+
 TextWithEntities DropDisallowedCustomEmoji(
 		not_null<PeerData*> to,
 		TextWithEntities text) {

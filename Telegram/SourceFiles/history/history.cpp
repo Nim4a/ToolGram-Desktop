@@ -840,7 +840,9 @@ not_null<HistoryItem*> History::addNewItem(
 	}
 
 	if (!loadedAtBottom() || peer->migrateTo()) {
-		setLastMessage(item);
+		if (!item->isEphemeral()) {
+			setLastMessage(item);
+		}
 		if (unread) {
 			const auto type = item->out()
 				? NewAddType::Outgoing
@@ -1214,7 +1216,9 @@ not_null<HistoryItem*> History::addNewToBack(
 		}
 	}
 
-	setLastMessage(item);
+	if (!item->isEphemeral()) {
+		setLastMessage(item);
+	}
 	if (unread) {
 		const auto type = item->out()
 			? NewAddType::Outgoing

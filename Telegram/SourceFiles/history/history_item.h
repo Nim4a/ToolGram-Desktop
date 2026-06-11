@@ -345,6 +345,9 @@ public:
 	[[nodiscard]] bool isLocal() const {
 		return _flags & MessageFlag::Local;
 	}
+	[[nodiscard]] bool isEphemeral() const {
+		return _flags & MessageFlag::Ephemeral;
+	}
 	[[nodiscard]] bool isFakeAboutView() const {
 		return _flags & MessageFlag::FakeAboutView;
 	}

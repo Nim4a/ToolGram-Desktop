@@ -42,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_websites.h"
 #include "data/business/data_shortcut_messages.h"
 #include "data/components/credits.h"
+#include "data/components/ephemeral_messages.h"
 #include "data/components/scheduled_messages.h"
 #include "data/notify/data_notify_settings.h"
 #include "data/data_changes.h"
@@ -2342,6 +2343,12 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
 		})
 		: std::shared_ptr<Callbacks>();
 
+	auto reply = draft.reply;
+	const auto replyItem = _session->data().message(reply.messageId);
+	if (replyItem && replyItem->isEphemeral()) {
+		reply.messageId = FullMsgId();
+	}
+
 	auto flags = MTPmessages_SaveDraft::Flags(0);
 	const auto &textWithTags = draft.textWithTags;
 	if (draft.webpage.removed) {
@@ -2349,9 +2356,9 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
 	} else if (!draft.webpage.url.isEmpty()) {
 		flags |= MTPmessages_SaveDraft::Flag::f_media;
 	}
-	if (draft.reply.messageId
-		|| draft.reply.topicRootId
-		|| draft.reply.monoforumPeerId) {
+	if (reply.messageId
+		|| reply.topicRootId
+		|| reply.monoforumPeerId) {
 		flags |= MTPmessages_SaveDraft::Flag::f_reply_to;
 	}
 	if (!textWithTags.tags.isEmpty()) {
@@ -2454,7 +2461,7 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
 			bool refreshed) -> mtpRequestId {
 		const auto requestId = request(MTPmessages_SaveDraft(
 			MTP_flags(flags),
-			ReplyToForMTP(history, draft.reply),
+			ReplyToForMTP(history, reply),
 			history->peer->input(),
 			MTP_string(textWithTags.text),
 			entities,
@@ -4181,7 +4188,8 @@ void ApiWrap::sendFiles(
 		Ui::PreparedList &&list,
 		SendMediaType type,
 		std::shared_ptr<SendingAlbum> album,
-		const SendAction &action) {
+		SendAction action) {
+	StripEphemeralReply(_session, action.replyTo);
 	const auto to = FileLoadTaskOptions(action);
 	if (album) {
 		album->options = to.options;
@@ -4569,8 +4577,15 @@ void ApiWrap::sendMessage(
 		? replyTo->topicRootId()
 		: Data::ForumTopic::kGeneralId;
 	const auto topic = peer->forumTopicFor(topicRootId);
-	if (!(topic ? Data::CanSendTexts(topic) : Data::CanSendTexts(peer))
-		|| Api::SendDice(message)) {
+	if (!(topic ? Data::CanSendTexts(topic) : Data::CanSendTexts(peer))) {
+		return;
+	} else if (_session->ephemeralMessages().trySend(message)) {
+		if (clearCloudDraft) {
+			history->clearCloudDraft(draftTopicRootId, draftMonoforumPeerId);
+		}
+		return;
+	}
+	if (Api::SendDice(message)) {
 		return;
 	}
 	local().saveRecentSentHashtags(textWithTags.text);
@@ -4859,6 +4874,7 @@ void ApiWrap::sendInlineResult(
 		SendAction action,
 		std::optional<MsgId> localMessageId,
 		Fn<void(bool)> done) {
+	StripEphemeralReply(_session, action.replyTo);
 	sendAction(action);
 
 	const auto history = action.history;
