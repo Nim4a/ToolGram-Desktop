@@ -53,6 +53,9 @@ namespace {
 				: Flag())
 			| (data.is_manage_ranks()
 				? Flag::ManageRanks
+				: Flag())
+			| (data.is_manage_linked_peers()
+				? Flag::ManageLinkedPeers
 				: Flag());
 	});
 }
@@ -80,7 +83,10 @@ namespace {
 			| (data.is_invite_users() ? Flag::AddParticipants : Flag())
 			| (data.is_pin_messages() ? Flag::PinMessages : Flag())
 			| (data.is_manage_topics() ? Flag::CreateTopics : Flag())
-			| (data.is_edit_rank() ? Flag::EditRank : Flag());
+			| (data.is_edit_rank() ? Flag::EditRank : Flag())
+			| (data.is_manage_linked_peers()
+				? Flag::ManageLinkedPeers
+				: Flag());
 	});
 }
 
@@ -122,6 +128,9 @@ MTPChatAdminRights AdminRightsToMTP(ChatAdminRightsInfo info) {
 			: Flag())
 		| ((flags & R::ManageRanks)
 			? Flag::f_manage_ranks
+			: Flag())
+		| ((flags & R::ManageLinkedPeers)
+			? Flag::f_manage_linked_peers
 			: Flag())));
 }
 
@@ -155,7 +164,10 @@ MTPChatBannedRights RestrictionsToMTP(ChatRestrictionsInfo info) {
 			| ((flags & R::AddParticipants) ? Flag::f_invite_users : Flag())
 			| ((flags & R::PinMessages) ? Flag::f_pin_messages : Flag())
 			| ((flags & R::CreateTopics) ? Flag::f_manage_topics : Flag())
-			| ((flags & R::EditRank) ? Flag::f_edit_rank : Flag())),
+			| ((flags & R::EditRank) ? Flag::f_edit_rank : Flag())
+			| ((flags & R::ManageLinkedPeers)
+				? Flag::f_manage_linked_peers
+				: Flag())),
 		MTP_int(info.until));
 }
 

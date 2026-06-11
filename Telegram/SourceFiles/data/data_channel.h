@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_pts_waiter.h"
 #include "data/data_location.h"
 #include "data/data_chat_participant_status.h"
+#include "data/data_community.h"
 #include "data/data_peer_bot_commands.h"
 #include "data/data_user_names.h"
 
@@ -462,6 +463,12 @@ public:
 	void setLinkedCommunityId(ChannelId id);
 	[[nodiscard]] ChannelId linkedCommunityId() const;
 
+	[[nodiscard]] Data::CommunityInfo *communityInfo() const {
+		return _communityInfo.get();
+	}
+	[[nodiscard]] bool canManageLinkedPeers() const;
+	[[nodiscard]] bool communityAnyoneCanAddPeers() const;
+
 	void ptsInit(int32 pts) {
 		_ptsWaiter.init(pts);
 	}
@@ -619,6 +626,7 @@ private:
 	ChannelData *_discussionLink = nullptr;
 	ChannelData *_monoforumLink = nullptr;
 	ChannelId _linkedCommunityId = 0;
+	std::unique_ptr<Data::CommunityInfo> _communityInfo;
 	bool _discussionLinkKnown = false;
 
 	int _peerGiftsCount = 0;
@@ -653,5 +661,9 @@ void ApplyChannelUpdate(
 void ApplyChannelUpdate(
 	not_null<ChannelData*> channel,
 	const MTPDchannelFull &update);
+
+void ApplyCommunityUpdate(
+	not_null<ChannelData*> channel,
+	const MTPDcommunityFull &update);
 
 } // namespace Data

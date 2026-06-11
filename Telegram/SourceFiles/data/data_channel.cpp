@@ -191,6 +191,9 @@ void ChannelData::setFlags(ChannelDataFlags which) {
 	if ((which & Flag::Megagroup) && !mgInfo) {
 		mgInfo = std::make_unique<MegagroupInfo>();
 	}
+	if ((which & Flag::Community) && !_communityInfo) {
+		_communityInfo = std::make_unique<Data::CommunityInfo>(this);
+	}
 
 	// Let Data::Forum live till the end of _flags.set.
 	// That way the data can be used in changes handler.
@@ -370,6 +373,17 @@ void ChannelData::setLinkedCommunityId(ChannelId id) {
 
 ChannelId ChannelData::linkedCommunityId() const {
 	return _linkedCommunityId;
+}
+
+bool ChannelData::canManageLinkedPeers() const {
+	return isCommunity()
+		&& (amCreator()
+			|| (adminRights() & AdminRight::ManageLinkedPeers));
+}
+
+bool ChannelData::communityAnyoneCanAddPeers() const {
+	return isCommunity()
+		&& !(defaultRestrictions() & Restriction::ManageLinkedPeers);
 }
 
 void ChannelData::setMembersCount(int newMembersCount) {
@@ -1535,6 +1549,21 @@ void ApplyChannelUpdate(
 
 	// For clearUpTill() call.
 	channel->owner().sendHistoryChangeNotifications();
+}
+
+void ApplyCommunityUpdate(
+		not_null<ChannelData*> channel,
+		const MTPDcommunityFull &update) {
+	channel->setUserpicPhoto(update.vchat_photo());
+	channel->setAbout(qs(update.vabout()));
+	channel->setAdminsCount(update.vadmins_count().value_or(1));
+	channel->setPendingRequestsCount(
+		update.vpending_requests().value_or_empty(),
+		QVector<MTPlong>());
+	if (const auto info = channel->communityInfo()) {
+		info->applyLinkedPeers(update.vlinked_peers().v);
+	}
+	channel->fullUpdated();
 }
 
 } // namespace Data

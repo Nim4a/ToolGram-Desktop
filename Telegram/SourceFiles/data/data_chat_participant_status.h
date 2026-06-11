@@ -40,6 +40,7 @@ enum class ChatAdminRight {
 	ManageDirect = (1 << 17),
 	ManageRanks = (1 << 18),
 	ProcessJoinRequests = (1 << 19),
+	ManageLinkedPeers = (1 << 20),
 };
 inline constexpr bool is_flag_type(ChatAdminRight) { return true; }
 using ChatAdminRights = base::flags<ChatAdminRight>;
@@ -68,6 +69,7 @@ enum class ChatRestriction {
 	CreateTopics = (1 << 18),
 	EditRank = (1 << 26),
 	SendReactions = (1 << 27),
+	ManageLinkedPeers = (1 << 28),
 };
 inline constexpr bool is_flag_type(ChatRestriction) { return true; }
 using ChatRestrictions = base::flags<ChatRestriction>;

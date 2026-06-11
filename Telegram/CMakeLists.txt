@@ -643,6 +643,8 @@ PRIVATE
     data/data_cloud_file.h
     data/data_cloud_themes.cpp
     data/data_cloud_themes.h
+    data/data_community.cpp
+    data/data_community.h
     data/data_document.cpp
     data/data_document.h
     data/data_document_media.cpp
