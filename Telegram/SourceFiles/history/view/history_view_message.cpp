@@ -772,6 +772,9 @@ bool Message::prepareRichPageTextRect(QRect &trect) const {
 		if (displayFromName()) {
 			trect.setTop(trect.top() + st::msgNameFont->height);
 		}
+		if (const auto badge = Get<EphemeralBadge>()) {
+			trect.setTop(trect.top() + badge->height);
+		}
 		if (displayedTopicButton()) {
 			trect.setTop(trect.top()
 				+ st::topicButtonSkip
@@ -1326,11 +1329,15 @@ QSize Message::performCountOptimalSize() {
 	const auto botTop = item->isFakeAboutView()
 		? Get<FakeBotAboutTop>()
 		: nullptr;
+	const auto ephemeralBadge = Get<EphemeralBadge>();
 	const auto bubble = drawBubble();
 	auto withVisibleText = false;
 	auto fullTextualWidth = 0;
 	if (botTop) {
 		botTop->init();
+	}
+	if (ephemeralBadge) {
+		ephemeralBadge->init(item);
 	}
 
 	auto maxWidth = 0;
@@ -1525,6 +1532,10 @@ QSize Message::performCountOptimalSize() {
 			accumulate_max(maxWidth, botTop->maxWidth);
 			accumulate_max(nonTextMax, botTop->maxWidth);
 			minHeight += botTop->height;
+		}
+		if (ephemeralBadge) {
+			accumulate_max(maxWidth, ephemeralBadge->maxWidth);
+			accumulate_max(nonTextMax, ephemeralBadge->maxWidth);
 		}
 		accumulate_max(maxWidth, minWidthForMedia());
 		accumulate_max(nonTextMax, minWidthForMedia());
@@ -1890,6 +1901,7 @@ void Message::draw(Painter &p, const PaintContext &context) const {
 			trect.setY(trect.y() - st::msgPadding.top());
 		} else {
 			paintFromName(p, trect, context);
+			paintEphemeralBadge(p, trect, context);
 			paintTopicButton(p, trect, context);
 			paintForwardedInfo(p, trect, context);
 			paintViaBotIdInfo(p, trect, context);
@@ -2606,6 +2618,30 @@ void Message::paintFromName(
 		}
 	}
 	trect.setY(trect.y() + st::msgNameFont->height);
+}
+
+void Message::paintEphemeralBadge(
+		Painter &p,
+		QRect &trect,
+		const PaintContext &context) const {
+	const auto badge = Get<EphemeralBadge>();
+	if (!badge || badge->text.isEmpty()) {
+		return;
+	}
+	const auto stm = context.messageStyle();
+	const auto &icon = stm->historyEphemeralIcon;
+	const auto iconTop = trect.y()
+		+ (st::msgNameStyle.font->height - icon.height()) / 2;
+	icon.paint(p, trect.x(), iconTop, width());
+	const auto skip = icon.width() + st::historyEphemeralIconSkip;
+	p.setPen(stm->msgServiceFg);
+	badge->text.drawLeftElided(
+		p,
+		trect.x() + skip,
+		trect.y(),
+		trect.width() - skip,
+		width());
+	trect.setY(trect.y() + badge->height);
 }
 
 void Message::paintTopicButton(
@@ -3829,6 +3865,9 @@ TextState Message::textState(
 		} else if (inBubble) {
 			if (getStateFromName(point, trect, &result)) {
 				return result;
+			}
+			if (const auto badge = Get<EphemeralBadge>()) {
+				trect.setTop(trect.top() + badge->height);
 			}
 			if (getStateTopicButton(point, trect, &result)) {
 				return result;
@@ -5983,6 +6022,7 @@ void Message::updateMediaInBubbleState() {
 			|| displayedTopicButton()
 			|| displayForwardedFrom()
 			|| Has<Reply>()
+			|| Has<EphemeralBadge>()
 			|| item->Has<HistoryMessageVia>();
 	};
 	const auto entry = logEntryOriginal();
@@ -6391,6 +6431,7 @@ int Message::resizeContentGetHeight(int newWidth) {
 	const auto botTop = item->isFakeAboutView()
 		? Get<FakeBotAboutTop>()
 		: nullptr;
+	const auto ephemeralBadge = Get<EphemeralBadge>();
 	if (bubble) {
 		auto reply = Get<Reply>();
 		auto via = item->Get<HistoryMessageVia>();
@@ -6474,6 +6515,10 @@ int Message::resizeContentGetHeight(int newWidth) {
 		} else if (via && !displayForwardedFrom()) {
 			via->resize(contentWidth - st::msgPadding.left() - st::msgPadding.right());
 			newHeight += st::msgNameFont->height;
+		}
+
+		if (ephemeralBadge) {
+			newHeight += ephemeralBadge->height;
 		}
 
 		if (displayedTopicButton()) {

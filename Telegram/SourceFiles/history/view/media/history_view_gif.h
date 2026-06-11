@@ -106,6 +106,9 @@ public:
 	void hideSpoilers() override;
 	bool needsBubble() const override;
 	bool unwrapped() const override;
+	bool drawsOwnEphemeralBadge() const override {
+		return true;
+	}
 	bool customInfoLayout() const override {
 		return true;
 	}
@@ -238,6 +241,11 @@ private:
 	mutable std::shared_ptr<Data::PhotoMedia> _videoCoverMedia;
 	mutable std::unique_ptr<Image> _videoThumbnailFrame;
 	QString _downloadSize;
+	struct {
+		Ui::Text::String text;
+		bool onTop = false;
+		int topAdded = 0;
+	} _ephemeral;
 	mutable QImage _thumbCache;
 	mutable QImage _roundingMask;
 	mutable crl::time _videoPosition = 0;

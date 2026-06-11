@@ -56,6 +56,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/painter.h"
 #include "ui/rect.h"
 #include "ui/round_rect.h"
+#include "data/components/ephemeral_messages.h"
 #include "data/components/sponsored_messages.h"
 #include "data/data_saved_sublist.h"
 #include "data/data_todo_list.h"
@@ -1182,6 +1183,35 @@ void FakeBotAboutTop::init() {
 	height = st::msgNameStyle.font->height + st::botDescSkip;
 }
 
+void EphemeralBadge::init(not_null<const HistoryItem*> item) {
+	if (!text.isEmpty()) {
+		return;
+	}
+	receiver = item->out()
+		? item->history()->session().ephemeralMessages().replyReceiver(item)
+		: nullptr;
+	if (item->out() && !receiver) {
+		return;
+	}
+	text.setText(
+		st::msgNameStyle,
+		(receiver
+			? tr::lng_ephemeral_visible_to(
+				tr::now,
+				lt_user,
+				(receiver->username().isEmpty()
+					? receiver->name()
+					: ('@' + receiver->username())))
+			: tr::lng_ephemeral_visible_you(tr::now)),
+		Ui::NameTextOptions());
+	maxWidth = st::msgPadding.left()
+		+ st::historyEphemeralIconIn.width()
+		+ st::historyEphemeralIconSkip
+		+ text.maxWidth()
+		+ st::msgPadding.right();
+	height = st::msgNameStyle.font->height + st::historyEphemeralBadgeBottom;
+}
+
 Element::Element(
 	not_null<ElementDelegate*> delegate,
 	not_null<HistoryItem*> data,
@@ -1214,6 +1244,9 @@ Element::Element(
 			&& !user->botManagerId()) {
 			AddComponents(FakeBotAboutTop::Bit());
 		}
+	}
+	if (data->isEphemeral()) {
+		AddComponents(EphemeralBadge::Bit());
 	}
 }
 
