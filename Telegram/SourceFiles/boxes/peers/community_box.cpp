@@ -18,12 +18,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_community.h"
 #include "data/data_peer_values.h"
 #include "data/data_session.h"
+#include "data/data_user.h"
 #include "info/profile/info_profile_values.h"
 #include "lang/lang_hardcoded.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
 #include "main/session/session_show.h"
 #include "settings/settings_common.h"
+#include "ui/boxes/confirm_box.h"
 #include "ui/layers/generic_box.h"
 #include "ui/text/text_utilities.h"
 #include "ui/vertical_list.h"
@@ -442,6 +444,49 @@ void BanFromCommunityWithWarning(
 				box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
 			}));
 		});
+}
+
+void ShowCommunityAdminBox(
+		not_null<Window::SessionNavigation*> navigation,
+		not_null<ChannelData*> community) {
+	navigation->uiShow()->showBox(Box([=](not_null<Ui::GenericBox*> box) {
+		box->setTitle(tr::lng_community_admin_title());
+		box->addRow(object_ptr<Ui::FlatLabel>(
+			box,
+			tr::lng_community_admin_about(
+				lt_community,
+				rpl::single(tr::bold(community->name())),
+				tr::marked),
+			st::boxLabel));
+		box->addButton(tr::lng_community_admin_continue(), [=] {
+			box->closeBox();
+		});
+		box->addButton(tr::lng_community_admin_decline(), [=] {
+			const auto sure = crl::guard(box, [=](Fn<void()> &&close) {
+				close();
+				const auto session = &community->session();
+				const auto show = box->uiShow();
+				session->api().request(MTPchannels_EditAdmin(
+					MTP_flags(MTPchannels_EditAdmin::Flags(0)),
+					community->inputChannel(),
+					session->user()->inputUser(),
+					AdminRightsToMTP(ChatAdminRightsInfo()),
+					MTPstring()
+				)).done([=](const MTPUpdates &result) {
+					session->api().applyUpdates(result);
+				}).fail([=](const MTP::Error &error) {
+					show->showToast(error.type());
+				}).send();
+				box->closeBox();
+			});
+			box->uiShow()->showBox(Ui::MakeConfirmBox({
+				.text = tr::lng_community_admin_dismiss_text(),
+				.confirmed = sure,
+				.confirmText = tr::lng_box_ok(),
+				.title = tr::lng_community_admin_dismiss_title(),
+			}));
+		});
+	}));
 }
 
 void ShowChooseChatToAddBox(

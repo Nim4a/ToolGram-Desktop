@@ -1199,12 +1199,21 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
 			channel->setDefaultRestrictions(ChatRestrictions());
 		}
 		if (!minimal) {
+			const auto wasLoaded = result->isLoaded();
+			const auto hadRights = channel->hasAdminRights();
 			if (const auto rights = data.vadmin_rights()) {
 				channel->setAdminRights(ChatAdminRightsInfo(*rights).flags);
 			} else if (channel->hasAdminRights()) {
 				channel->setAdminRights(ChatAdminRights());
 			}
 			channel->date = data.vdate().v;
+			if (wasLoaded
+				&& !hadRights
+				&& channel->hasAdminRights()
+				&& !data.is_creator()) {
+				_communityAdminPromotions.fire(
+					not_null<ChannelData*>(channel));
+			}
 		}
 		channel->setName(qs(data.vtitle()), QString());
 		channel->setPhoto(data.vphoto());
@@ -5216,6 +5225,11 @@ void Session::channelDifferenceTooLong(not_null<ChannelData*> channel) {
 
 rpl::producer<not_null<ChannelData*>> Session::channelDifferenceTooLong() const {
 	return _channelDifferenceTooLong.events();
+}
+
+auto Session::communityAdminPromotions() const
+-> rpl::producer<not_null<ChannelData*>> {
+	return _communityAdminPromotions.events();
 }
 
 void Session::registerItemView(not_null<ViewElement*> view) {

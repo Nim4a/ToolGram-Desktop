@@ -30,3 +30,7 @@ void BanFromCommunityWithWarning(
 	std::shared_ptr<Ui::Show> show,
 	not_null<ChannelData*> community,
 	not_null<PeerData*> participant);
+
+void ShowCommunityAdminBox(
+	not_null<Window::SessionNavigation*> navigation,
+	not_null<ChannelData*> community);

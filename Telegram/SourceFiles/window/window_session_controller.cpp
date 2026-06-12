@@ -1593,6 +1593,15 @@ SessionController::SessionController(
 		}
 	}, _lifetime);
 
+	if (_isPrimary) {
+		session->data().communityAdminPromotions(
+		) | rpl::on_next([=](not_null<ChannelData*> community) {
+			crl::on_main(this, [=] {
+				ShowCommunityAdminBox(this, community);
+			});
+		}, _lifetime);
+	}
+
 	_authedName = session->user()->name();
 	session->changes().peerUpdates(
 		Data::PeerUpdate::Flag::FullInfo
