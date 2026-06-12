@@ -7,7 +7,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "ui/text/text.h"
+
 class ChannelData;
+class History;
 class PeerData;
 
 namespace Data {
@@ -36,10 +39,51 @@ public:
 	}
 	[[nodiscard]] rpl::producer<> linkedPeersValue() const;
 
+	[[nodiscard]] bool collapsedInDialogs() const;
+	void collapsedChanged();
+	void ensureRowInChatList();
+
+	void registerOne(not_null<History*> history);
+	void unregisterOne(not_null<History*> history);
+	[[nodiscard]] auto histories() const
+	-> const base::flat_set<not_null<History*>> & {
+		return _histories;
+	}
+
+	[[nodiscard]] TimeId chatsListDate() const {
+		return _chatsListDate;
+	}
+	void oneChatsListDateChanged(TimeId was, TimeId now);
+	void oneListMessageChanged();
+	void oneUnreadStateChanged();
+
+	[[nodiscard]] auto lastHistories() const
+	-> const std::vector<not_null<History*>> & {
+		return _lastHistories;
+	}
+	void validateListEntryCache();
+	[[nodiscard]] const Ui::Text::String &listEntryCache() const {
+		return _listEntryCache;
+	}
+
 private:
+	void recountChatsListDate();
+	void reorderLastHistories();
+	void updateRowSortPosition();
+	void repaintRow();
+
 	const not_null<ChannelData*> _channel;
 	std::vector<CommunityLinkedPeer> _linkedPeers;
 	rpl::event_stream<> _linkedPeersChanges;
+
+	base::flat_set<not_null<History*>> _histories;
+	std::vector<not_null<History*>> _lastHistories;
+	Ui::Text::String _listEntryCache;
+	int _listEntryCacheVersion = 0;
+	int _chatListViewVersion = 0;
+	TimeId _chatsListDate = 0;
+
+	rpl::lifetime _lifetime;
 
 };
 

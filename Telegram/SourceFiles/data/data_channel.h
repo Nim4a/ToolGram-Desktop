@@ -466,6 +466,7 @@ public:
 	[[nodiscard]] Data::CommunityInfo *communityInfo() const {
 		return _communityInfo.get();
 	}
+	[[nodiscard]] not_null<Data::CommunityInfo*> ensuredCommunityInfo();
 	[[nodiscard]] bool canManageLinkedPeers() const;
 	[[nodiscard]] bool communityAnyoneCanAddPeers() const;
 

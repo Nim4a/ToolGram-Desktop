@@ -1219,10 +1219,11 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
 		channel->setPhoto(data.vphoto());
 
 		using Flag = ChannelDataFlag;
-		const auto flagsMask = Flag::Community
-			| Flag::CommunityCollapsed
-			| (!minimal ? (Flag::Left | Flag::Creator) : Flag());
 		const auto collapsed = data.vcollapsed_in_dialogs();
+		const auto flagsMask = Flag::Community
+			| Flag::Forbidden
+			| (collapsed ? Flag::CommunityCollapsed : Flag())
+			| (!minimal ? (Flag::Left | Flag::Creator) : Flag());
 		const auto flagsSet = Flag::Community
 			| ((collapsed && mtpIsTrue(*collapsed))
 				? Flag::CommunityCollapsed
@@ -1236,7 +1237,9 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
 		const auto channel = result->asChannel();
 
 		using Flag = ChannelDataFlag;
-		const auto flagsMask = Flag::Community | Flag::Forbidden;
+		const auto flagsMask = Flag::Community
+			| Flag::CommunityCollapsed
+			| Flag::Forbidden;
 		const auto flagsSet = Flag::Community | Flag::Forbidden;
 		channel->setFlags((channel->flags() & ~flagsMask) | flagsSet);
 

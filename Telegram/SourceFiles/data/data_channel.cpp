@@ -264,18 +264,14 @@ void ChannelData::setFlags(ChannelDataFlags which) {
 			}
 		}
 	}
-	if (diff & Flag::CommunityCollapsed) {
-		const auto communityId = peerToChannel(id);
-		const auto refresh = [&](not_null<PeerData*> peer) {
-			const auto channel = peer->asChannel();
-			if (channel && channel->linkedCommunityId() == communityId) {
-				if (const auto history = owner().historyLoaded(channel)) {
-					history->updateChatListExistence();
-				}
-			}
-		};
-		owner().enumerateGroups(refresh);
-		owner().enumerateBroadcasts(refresh);
+	if ((which & Flag::Community)
+		&& (diff & (Flag::Community
+			| Flag::CommunityCollapsed
+			| Flag::Forbidden
+			| Flag::Left))) {
+		if (const auto info = communityInfo()) {
+			info->collapsedChanged();
+		}
 	}
 	if (const auto raw = takenForum.get()) {
 		owner().forumIcons().clearUserpicsReset(raw);
@@ -386,8 +382,17 @@ void ChannelData::setLinkedCommunityId(ChannelId id) {
 	}
 	_linkedCommunityId = id;
 	if (const auto history = owner().historyLoaded(this)) {
+		history->updateCommunityRegistration();
+		history->updateChatListSortPosition();
 		history->updateChatListExistence();
 	}
+}
+
+not_null<Data::CommunityInfo*> ChannelData::ensuredCommunityInfo() {
+	if (!_communityInfo) {
+		_communityInfo = std::make_unique<Data::CommunityInfo>(this);
+	}
+	return _communityInfo.get();
 }
 
 ChannelId ChannelData::linkedCommunityId() const {

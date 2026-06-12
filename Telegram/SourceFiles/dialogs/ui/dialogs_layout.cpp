@@ -372,6 +372,45 @@ void PaintFolderEntryText(
 	});
 }
 
+[[nodiscard]] Data::CommunityInfo *CommunityListInfo(History *history) {
+	const auto channel = history ? history->peer->asChannel() : nullptr;
+	const auto info = (channel && channel->isCommunity())
+		? channel->communityInfo()
+		: nullptr;
+	return (info && !info->lastHistories().empty()) ? info : nullptr;
+}
+
+void PaintCommunityEntryText(
+		Painter &p,
+		not_null<Data::CommunityInfo*> info,
+		const PaintContext &context,
+		QRect rect) {
+	if (rect.isEmpty()) {
+		return;
+	}
+	info->validateListEntryCache();
+	p.setFont(st::dialogsTextFont);
+	p.setPen(context.active
+		? st::dialogsTextFgActive
+		: context.selected
+		? st::dialogsTextFgOver
+		: st::dialogsTextFg);
+	info->listEntryCache().draw(p, {
+		.position = rect.topLeft(),
+		.availableWidth = rect.width(),
+		.palette = &(context.active
+			? st::dialogsTextPaletteArchiveActive
+			: context.selected
+			? st::dialogsTextPaletteArchiveOver
+			: st::dialogsTextPaletteArchive),
+		.spoiler = Text::DefaultSpoilerCache(),
+		.now = context.now,
+		.pausedEmoji = context.paused || On(PowerSaving::kEmojiChat),
+		.pausedSpoiler = context.paused || On(PowerSaving::kChatSpoiler),
+		.elisionHeight = rect.height(),
+	});
+}
+
 enum class Flag {
 	SavedMessages    = 0x008,
 	RepliesMessages  = 0x010,
@@ -580,6 +619,20 @@ void PaintRow(
 			availableWidth,
 			st::dialogsTextFont->height);
 		PaintFolderEntryText(p, folder, context, rect);
+	} else if (const auto info = CommunityListInfo(history)) {
+		const auto availableWidth = PaintWideCounter(
+			p,
+			context,
+			badgesState,
+			texttop,
+			namewidth,
+			false);
+		const auto rect = QRect(
+			nameleft,
+			texttop,
+			availableWidth,
+			st::dialogsTextFont->height);
+		PaintCommunityEntryText(p, info, context, rect);
 	} else if (promoted && !history->topPromotionMessage().isEmpty()) {
 		auto availableWidth = namewidth;
 		p.setFont(st::dialogsTextFont);

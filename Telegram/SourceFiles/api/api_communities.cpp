@@ -179,6 +179,16 @@ void Communities::toggleCollapsedInDialogs(
 	if (!_collapseRequests.emplace(community).second) {
 		return;
 	}
+	const auto was = (community->flags()
+		& ChannelDataFlag::CommunityCollapsed) != 0;
+	const auto apply = [=](bool value) {
+		if (value) {
+			community->addFlags(ChannelDataFlag::CommunityCollapsed);
+		} else {
+			community->removeFlags(ChannelDataFlag::CommunityCollapsed);
+		}
+	};
+	apply(collapsed);
 	using Flag = MTPcommunities_ToggleCommunityCollapsedInDialogs::Flag;
 	_api.request(MTPcommunities_ToggleCommunityCollapsedInDialogs(
 		MTP_flags(collapsed ? Flag::f_collapsed : Flag()),
@@ -188,6 +198,7 @@ void Communities::toggleCollapsedInDialogs(
 		_session->api().applyUpdates(result);
 	}).fail([=] {
 		_collapseRequests.remove(community);
+		apply(was);
 	}).send();
 }
 

@@ -7,14 +7,103 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_community.h"
 
+#include "data/data_changes.h"
 #include "data/data_channel.h"
 #include "data/data_peer.h"
 #include "data/data_session.h"
+#include "history/history.h"
+#include "history/history_item.h"
+#include "lang/lang_keys.h"
+#include "main/main_session.h"
+#include "ui/text/text_options.h"
+#include "ui/text/text_utilities.h"
+#include "styles/style_dialogs.h"
 
 namespace Data {
+namespace {
+
+constexpr auto kShowChatNamesCount = 8;
+
+[[nodiscard]] TextWithEntities ComposeCommunityListEntryText(
+		not_null<CommunityInfo*> info) {
+	const auto &list = info->lastHistories();
+	if (list.empty()) {
+		return {};
+	}
+
+	const auto count = std::max(
+		int(list.size()),
+		int(info->histories().size()));
+
+	const auto throwAwayLastName = (list.size() > 1)
+		&& (count == list.size() + 1);
+	auto &&peers = ranges::views::all(
+		list
+	) | ranges::views::take(
+		list.size() - (throwAwayLastName ? 1 : 0)
+	);
+	const auto wrapName = [](not_null<History*> history) {
+		const auto name = history->peer->name();
+		return st::wrap_rtl(TextWithEntities{
+			.text = name,
+			.entities = (history->chatListBadgesState().unread
+				? EntitiesInText{
+					{
+						EntityType::Semibold,
+						0,
+						int(name.size()),
+						QString(),
+					},
+					{
+						EntityType::Colorized,
+						0,
+						int(name.size()),
+						QString(),
+					},
+				}
+				: EntitiesInText{}),
+		});
+	};
+	const auto shown = int(peers.size());
+	const auto accumulated = [&] {
+		Expects(shown > 0);
+
+		auto i = peers.begin();
+		auto result = wrapName(*i);
+		for (++i; i != peers.end(); ++i) {
+			result = tr::lng_archived_last_list(
+				tr::now,
+				lt_accumulated,
+				result,
+				lt_chat,
+				wrapName(*i),
+				tr::marked);
+		}
+		return result;
+	}();
+	return (shown < count)
+		? tr::lng_archived_last(
+			tr::now,
+			lt_count,
+			(count - shown),
+			lt_chats,
+			accumulated,
+			tr::marked)
+		: accumulated;
+}
+
+} // namespace
 
 CommunityInfo::CommunityInfo(not_null<ChannelData*> channel)
 : _channel(channel) {
+	_channel->session().changes().peerUpdates(
+		PeerUpdate::Flag::Name
+	) | rpl::filter([=](const PeerUpdate &update) {
+		return ranges::contains(_lastHistories, update.peer, &History::peer);
+	}) | rpl::on_next([=] {
+		++_chatListViewVersion;
+		repaintRow();
+	}, _lifetime);
 }
 
 void CommunityInfo::applyLinkedPeers(const QVector<MTPCommunityPeer> &list) {
@@ -32,16 +121,172 @@ void CommunityInfo::applyLinkedPeers(const QVector<MTPCommunityPeer> &list) {
 			.visible = visible,
 		});
 	}
-	if (_linkedPeers != now) {
-		_linkedPeers = std::move(now);
-		_linkedPeersChanges.fire({});
+	if (_linkedPeers == now) {
+		return;
 	}
+	_linkedPeers = std::move(now);
+
+	const auto communityId = peerToChannel(_channel->id);
+	for (const auto &linked : _linkedPeers) {
+		if (const auto channel = linked.peer->asChannel()) {
+			channel->setLinkedCommunityId(communityId);
+		}
+	}
+	const auto stillLinked = [&](not_null<History*> history) {
+		return ranges::contains(
+			_linkedPeers,
+			history->peer,
+			&CommunityLinkedPeer::peer);
+	};
+	for (const auto &history : base::duplicate(_histories)) {
+		if (!stillLinked(history)) {
+			const auto channel = history->peer->asChannel();
+			if (channel && channel->linkedCommunityId() == communityId) {
+				channel->setLinkedCommunityId(ChannelId());
+			}
+		}
+	}
+	_linkedPeersChanges.fire({});
 }
 
 rpl::producer<> CommunityInfo::linkedPeersValue() const {
 	return rpl::single(
 		rpl::empty
 	) | rpl::then(_linkedPeersChanges.events());
+}
+
+bool CommunityInfo::collapsedInDialogs() const {
+	return _channel->flags() & ChannelDataFlag::CommunityCollapsed;
+}
+
+void CommunityInfo::collapsedChanged() {
+	for (const auto &history : _histories) {
+		history->updateChatListSortPosition();
+		history->updateChatListExistence();
+	}
+	ensureRowInChatList();
+	repaintRow();
+}
+
+void CommunityInfo::ensureRowInChatList() {
+	const auto history = _channel->owner().history(_channel);
+	if (!history->folderKnown()) {
+		history->clearFolder();
+	}
+	history->requestChatListMessage();
+	history->updateChatListSortPosition();
+	history->updateChatListExistence();
+}
+
+void CommunityInfo::registerOne(not_null<History*> history) {
+	if (!_histories.emplace(history).second) {
+		return;
+	}
+	const auto date = history->chatListTimeId();
+	if (date > _chatsListDate) {
+		_chatsListDate = date;
+	}
+	reorderLastHistories();
+	if (collapsedInDialogs()) {
+		history->updateChatListExistence();
+	}
+	ensureRowInChatList();
+	updateRowSortPosition();
+}
+
+void CommunityInfo::unregisterOne(not_null<History*> history) {
+	if (!_histories.remove(history)) {
+		return;
+	}
+	if (history->chatListTimeId() >= _chatsListDate) {
+		recountChatsListDate();
+	}
+	reorderLastHistories();
+	updateRowSortPosition();
+}
+
+void CommunityInfo::oneChatsListDateChanged(TimeId was, TimeId now) {
+	if (now >= _chatsListDate) {
+		_chatsListDate = now;
+		updateRowSortPosition();
+	} else if (was >= _chatsListDate) {
+		recountChatsListDate();
+		updateRowSortPosition();
+	}
+}
+
+void CommunityInfo::oneListMessageChanged() {
+	reorderLastHistories();
+}
+
+void CommunityInfo::oneUnreadStateChanged() {
+	++_chatListViewVersion;
+	repaintRow();
+}
+
+void CommunityInfo::recountChatsListDate() {
+	auto result = TimeId(0);
+	for (const auto &history : _histories) {
+		const auto channel = history->peer->asChannel();
+		if (channel && !channel->amIn()) {
+			continue;
+		}
+		result = std::max(result, history->chatListTimeId());
+	}
+	_chatsListDate = result;
+}
+
+void CommunityInfo::reorderLastHistories() {
+	const auto pred = [](not_null<History*> a, not_null<History*> b) {
+		const auto aItem = a->chatListMessage();
+		const auto bItem = b->chatListMessage();
+		const auto aDate = aItem ? aItem->date() : TimeId(0);
+		const auto bDate = bItem ? bItem->date() : TimeId(0);
+		return aDate > bDate;
+	};
+	_lastHistories.clear();
+	_lastHistories.reserve(
+		std::min(int(_histories.size()), kShowChatNamesCount));
+	for (const auto &history : _histories) {
+		const auto channel = history->peer->asChannel();
+		if (channel && !channel->amIn()) {
+			continue;
+		}
+		const auto i = ranges::upper_bound(_lastHistories, history, pred);
+		if (int(_lastHistories.size()) < kShowChatNamesCount
+			|| i != end(_lastHistories)) {
+			_lastHistories.insert(i, history);
+		}
+		if (int(_lastHistories.size()) > kShowChatNamesCount) {
+			_lastHistories.pop_back();
+		}
+	}
+	++_chatListViewVersion;
+	repaintRow();
+}
+
+void CommunityInfo::updateRowSortPosition() {
+	if (const auto history = _channel->owner().historyLoaded(_channel)) {
+		history->updateChatListSortPosition();
+	}
+}
+
+void CommunityInfo::repaintRow() {
+	if (const auto history = _channel->owner().historyLoaded(_channel)) {
+		history->updateChatListEntry();
+	}
+}
+
+void CommunityInfo::validateListEntryCache() {
+	if (_listEntryCacheVersion == _chatListViewVersion) {
+		return;
+	}
+	_listEntryCacheVersion = _chatListViewVersion;
+	_listEntryCache.setMarkedText(
+		st::dialogsTextStyle,
+		ComposeCommunityListEntryText(this),
+		// Use rich options as long as the entry text does not have user text.
+		Ui::ItemTextDefaultOptions());
 }
 
 } // namespace Data
