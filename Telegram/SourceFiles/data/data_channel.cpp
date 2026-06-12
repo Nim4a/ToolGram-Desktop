@@ -264,6 +264,19 @@ void ChannelData::setFlags(ChannelDataFlags which) {
 			}
 		}
 	}
+	if (diff & Flag::CommunityCollapsed) {
+		const auto communityId = peerToChannel(id);
+		const auto refresh = [&](not_null<PeerData*> peer) {
+			const auto channel = peer->asChannel();
+			if (channel && channel->linkedCommunityId() == communityId) {
+				if (const auto history = owner().historyLoaded(channel)) {
+					history->updateChatListExistence();
+				}
+			}
+		};
+		owner().enumerateGroups(refresh);
+		owner().enumerateBroadcasts(refresh);
+	}
 	if (const auto raw = takenForum.get()) {
 		owner().forumIcons().clearUserpicsReset(raw);
 	}
@@ -368,7 +381,13 @@ bool ChannelData::monoforumDisabled() const {
 }
 
 void ChannelData::setLinkedCommunityId(ChannelId id) {
+	if (_linkedCommunityId == id) {
+		return;
+	}
 	_linkedCommunityId = id;
+	if (const auto history = owner().historyLoaded(this)) {
+		history->updateChatListExistence();
+	}
 }
 
 ChannelId ChannelData::linkedCommunityId() const {

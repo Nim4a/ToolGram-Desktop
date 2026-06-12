@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "dialogs/dialogs_entry.h"
 #include "dialogs/ui/dialogs_video_userpic.h"
 #include "dialogs/ui/dialogs_layout.h"
+#include "data/data_channel.h"
 #include "data/data_folder.h"
 #include "data/data_forum.h"
 #include "data/data_session.h"
@@ -368,7 +369,8 @@ void Row::updateCornerBadgeShown(
 			return kTopLayer;
 		} else if (channel
 			&& (Data::ChannelHasActiveCall(channel)
-				|| Data::ChannelHasSubscriptionUntilDate(channel))) {
+				|| Data::ChannelHasSubscriptionUntilDate(channel)
+				|| channel->linkedCommunityId())) {
 			return kTopLayer;
 		} else if (peer->messagesTTL()) {
 			return kBottomLayer;
@@ -396,7 +398,8 @@ void Row::PaintCornerBadgeFrame(
 		Ui::VideoUserpic *videoUserpic,
 		Ui::PeerUserpicView &view,
 		const Ui::PaintContext &context,
-		bool subscribed) {
+		bool subscribed,
+		bool communityMember) {
 	data->frame.fill(Qt::transparent);
 
 	Painter q(&data->frame);
@@ -483,6 +486,47 @@ void Row::PaintCornerBadgeFrame(
 		q.setCompositionMode(QPainter::CompositionMode_SourceOver);
 		q.resetTransform();
 		q.drawImage(x, y, SubscriptionIcon());
+		return;
+	}
+
+	if (communityMember) {
+		if (!hq) {
+			hq.emplace(q);
+		}
+		q.setCompositionMode(QPainter::CompositionMode_Source);
+		const auto size = st::dialogsCommunityBadgeSize;
+		const auto &skip = st::dialogsCommunityBadgeSkip;
+		const auto rect = QRectF(
+			photoSize - skip.x() - size,
+			photoSize - skip.y() - size,
+			size,
+			size);
+		auto pen = QPen(Qt::transparent);
+		pen.setWidthF(st::dialogsCommunityBadgeStroke);
+		q.setPen(pen);
+		q.setBrush(data->active
+			? st::dialogsVerifiedIconBgActive
+			: st::dialogsVerifiedIconBg);
+		q.drawEllipse(rect);
+		q.setCompositionMode(QPainter::CompositionMode_SourceOver);
+
+		const auto center = rect.center();
+		const auto radius = size / 5.;
+		auto arrow = QPen(data->active
+			? st::dialogsVerifiedIconFgActive
+			: st::dialogsVerifiedIconFg);
+		arrow.setWidthF(st::dialogsCommunityBadgeStroke / 2.);
+		arrow.setCapStyle(Qt::RoundCap);
+		arrow.setJoinStyle(Qt::RoundJoin);
+		q.setPen(arrow);
+		q.setBrush(Qt::NoBrush);
+		auto path = QPainterPath();
+		path.moveTo(center.x() - radius, center.y() + radius);
+		path.lineTo(center.x() + radius, center.y() - radius);
+		path.moveTo(center.x() - radius * 0.4, center.y() - radius);
+		path.lineTo(center.x() + radius, center.y() - radius);
+		path.lineTo(center.x() + radius, center.y() + radius * 0.4);
+		q.drawPath(path);
 		return;
 	}
 
@@ -612,8 +656,13 @@ void Row::paintUserpic(
 	if (keyChanged) {
 		_cornerBadgeUserpic->cacheTTL = QImage();
 	}
+	const auto badgeChannel = peer ? peer->asChannel() : nullptr;
 	const auto subscribed = Data::ChannelHasSubscriptionUntilDate(
-		peer ? peer->asChannel() : nullptr);
+		badgeChannel);
+	const auto communityMember = badgeChannel
+		&& badgeChannel->linkedCommunityId()
+		&& !Data::ChannelHasActiveCall(badgeChannel)
+		&& !subscribed;
 	if (keyChanged
 		|| !_cornerBadgeUserpic->layersManager.isFinished()
 		|| _cornerBadgeUserpic->active != active
@@ -638,7 +687,8 @@ void Row::paintUserpic(
 			videoUserpic,
 			userpicView(),
 			context,
-			subscribed);
+			subscribed,
+			communityMember);
 	}
 	p.drawImage(
 		context.st->padding.left() - framePadding,

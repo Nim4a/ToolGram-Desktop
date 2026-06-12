@@ -3268,6 +3268,17 @@ bool History::shouldBeInChatList() const {
 	} else if (isPinnedDialog(FilterId())) {
 		return true;
 	} else if (const auto channel = peer->asChannel()) {
+		if (channel->isCommunity()) {
+			return !(channel->flags() & ChannelDataFlag::Forbidden)
+				&& !channel->haveLeft();
+		} else if (const auto communityId = channel->linkedCommunityId()) {
+			const auto community = owner().channelLoaded(communityId);
+			if (community
+				&& (community->flags()
+					& ChannelDataFlag::CommunityCollapsed)) {
+				return false;
+			}
+		}
 		if (!channel->amIn()) {
 			return isTopPromoted();
 		}

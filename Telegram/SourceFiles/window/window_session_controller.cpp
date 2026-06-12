@@ -3034,6 +3034,14 @@ void SessionController::showPeerHistory(
 		PeerId peerId,
 		const SectionShow &params,
 		MsgId msgId) {
+	if (const auto peer = session().data().peerLoaded(peerId)) {
+		if (const auto channel = peer->asChannel()) {
+			if (channel->isCommunity()) {
+				ShowCommunityBox(this, channel);
+				return;
+			}
+		}
+	}
 	content()->showHistory(peerId, params, msgId);
 }
 
