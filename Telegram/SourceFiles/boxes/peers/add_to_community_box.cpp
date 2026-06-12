@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_communities.h"
 #include "apiwrap.h"
 #include "boxes/peer_list_box.h"
+#include "boxes/peers/manage_community_box.h"
 #include "data/data_changes.h"
 #include "data/data_channel.h"
 #include "data/data_community.h"
@@ -151,6 +152,7 @@ void CreateCommunityBox(
 			crl::guard(box, [=](not_null<ChannelData*> community) {
 				show->hideLayer();
 				show->showToast(tr::lng_community_created(tr::now));
+				ShowManageCommunityBox(navigation, community);
 			}),
 			crl::guard(box, [=](const QString &error) {
 				*creating = false;
