@@ -1081,7 +1081,8 @@ const style::icon *ChatTypeIcon(
 			st::dialogsChannelIcon,
 			context.active,
 			context.selected);
-	} else if (peer->displayAsForum()) {
+	} else if (peer->displayAsForum()
+		|| (peer->isChannel() && peer->asChannel()->isCommunity())) {
 		return &ThreeStateIcon(
 			st::dialogsForumIcon,
 			context.active,

@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/peers/manage_community_box.h"
 
+#include "api/api_peer_photo.h"
 #include "apiwrap.h"
 #include "boxes/peers/community_pending_requests_box.h"
 #include "boxes/peers/edit_participants_box.h"
@@ -18,12 +19,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "settings/settings_common.h"
 #include "ui/boxes/confirm_box.h"
+#include "ui/controls/userpic_button.h"
 #include "ui/layers/generic_box.h"
+#include "ui/ui_utility.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
+#include "ui/wrap/padding_wrap.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
@@ -114,14 +118,56 @@ void ManageCommunityBox(
 
 	const auto container = box->verticalLayout();
 
-	const auto field = container->add(
-		object_ptr<Ui::InputField>(
-			container,
-			st::defaultInputField,
-			tr::lng_community_create_name(),
-			community->name()),
-		st::boxRowPadding);
-	if (!canEdit) {
+	auto photo = (Ui::UserpicButton*)nullptr;
+	auto field = (Ui::InputField*)nullptr;
+	if (canEdit) {
+		const auto row = container->add(
+			object_ptr<Ui::RpWidget>(container));
+		const auto photoWrap = Ui::AttachParentChild(
+			row,
+			object_ptr<Ui::PaddingWrap<Ui::UserpicButton>>(
+				row,
+				object_ptr<Ui::UserpicButton>(
+					row,
+					navigation->parentController(),
+					community,
+					Ui::UserpicButton::Role::ChangePhoto,
+					Ui::UserpicButton::Source::PeerPhoto,
+					st::defaultUserpicButton,
+					Ui::PeerUserpicShape::Forum),
+				st::editPeerPhotoMargins));
+		photo = photoWrap->entity();
+		photo->showCustomOnChosen();
+		const auto titleWrap = Ui::AttachParentChild(
+			row,
+			object_ptr<Ui::PaddingWrap<Ui::InputField>>(
+				row,
+				object_ptr<Ui::InputField>(
+					row,
+					st::editPeerTitleField,
+					tr::lng_community_create_name(),
+					community->name()),
+				st::editPeerTitleMargins));
+		field = titleWrap->entity();
+		photoWrap->heightValue(
+		) | rpl::on_next([=](int height) {
+			row->resize(row->width(), height);
+		}, photoWrap->lifetime());
+		row->widthValue(
+		) | rpl::on_next([=](int width) {
+			const auto left = st::editPeerPhotoMargins.left()
+				+ st::defaultUserpicButton.size.width();
+			titleWrap->resizeToWidth(width - left);
+			titleWrap->moveToLeft(left, 0, width);
+		}, titleWrap->lifetime());
+	} else {
+		field = container->add(
+			object_ptr<Ui::InputField>(
+				container,
+				st::defaultInputField,
+				tr::lng_community_create_name(),
+				community->name()),
+			st::boxRowPadding);
 		field->setEnabled(false);
 	}
 
@@ -246,6 +292,11 @@ void ManageCommunityBox(
 				= !community->communityAnyoneCanAddPeers();
 			if (onlyAdmins != wasOnlyAdmins) {
 				SaveCommunityWhoCanAddChats(community, onlyAdmins);
+			}
+			if (auto image = photo->takeResultImage(); !image.isNull()) {
+				community->session().api().peerPhoto().upload(
+					community,
+					{ std::move(image) });
 			}
 			box->closeBox();
 		});
