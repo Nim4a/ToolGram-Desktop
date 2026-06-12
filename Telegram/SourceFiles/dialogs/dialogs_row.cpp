@@ -504,28 +504,22 @@ void Row::PaintCornerBadgeFrame(
 		auto pen = QPen(Qt::transparent);
 		pen.setWidthF(st::dialogsCommunityBadgeStroke);
 		q.setPen(pen);
-		q.setBrush(data->active
-			? st::dialogsVerifiedIconBgActive
-			: st::dialogsVerifiedIconBg);
+		q.setBrush(st::windowFg);
 		q.drawEllipse(rect);
 		q.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
 		const auto center = rect.center();
-		const auto radius = size / 5.;
-		auto arrow = QPen(data->active
-			? st::dialogsVerifiedIconFgActive
-			: st::dialogsVerifiedIconFg);
-		arrow.setWidthF(st::dialogsCommunityBadgeStroke / 2.);
+		const auto arm = size / 4.;
+		auto arrow = QPen(st::windowBg->c);
+		arrow.setWidthF(st::dialogsCommunityBadgeLine);
 		arrow.setCapStyle(Qt::RoundCap);
-		arrow.setJoinStyle(Qt::RoundJoin);
+		arrow.setJoinStyle(Qt::MiterJoin);
 		q.setPen(arrow);
 		q.setBrush(Qt::NoBrush);
 		auto path = QPainterPath();
-		path.moveTo(center.x() - radius, center.y() + radius);
-		path.lineTo(center.x() + radius, center.y() - radius);
-		path.moveTo(center.x() - radius * 0.4, center.y() - radius);
-		path.lineTo(center.x() + radius, center.y() - radius);
-		path.lineTo(center.x() + radius, center.y() + radius * 0.4);
+		path.moveTo(center.x() - arm, center.y() - arm / 2.);
+		path.lineTo(center.x(), center.y() + arm / 2.);
+		path.lineTo(center.x() + arm, center.y() - arm / 2.);
 		q.drawPath(path);
 		return;
 	}
@@ -695,7 +689,10 @@ void Row::paintUserpic(
 		context.st->padding.top() - framePadding,
 		_cornerBadgeUserpic->frame);
 	const auto history = _id.history();
-	if (!history || history->peer->isUser() || subscribed) {
+	if (!history
+		|| history->peer->isUser()
+		|| subscribed
+		|| communityMember) {
 		return;
 	}
 	const auto actionPainter = history->sendActionPainter();

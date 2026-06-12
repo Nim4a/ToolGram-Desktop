@@ -1673,7 +1673,7 @@ void Controller::fillManageSection() {
 					_peer,
 					ParticipantsBoxController::Role::Kicked);
 			},
-			{ &st::menuIconRemove });
+			{ &st::menuIconRemovedUsers });
 	}
 	if (hasRecentActions) {
 		auto callback = [=] {
@@ -1706,14 +1706,14 @@ void Controller::fillManageSection() {
 			tr::lng_community_add_button(),
 			rpl::single(QString()),
 			[=] { ShowAddToCommunityBox(_navigation, channel); },
-			{ &st::menuIconGroups });
+			{ &st::menuIconCommunity });
 		::AddSkip(_controls.buttonsLayout);
 		Ui::AddDividerText(
 			_controls.buttonsLayout,
 			tr::lng_community_add_about());
 	}
 
-	if (canEditStickers || canDeleteChannel) {
+	if ((canEditStickers || canDeleteChannel) && !canAddToCommunity) {
 		::AddSkip(_controls.buttonsLayout);
 	}
 

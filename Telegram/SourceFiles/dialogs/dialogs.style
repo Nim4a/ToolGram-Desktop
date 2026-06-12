@@ -157,6 +157,7 @@ dialogsSubscriptionBadgeSkip: point(-4px, -4px);
 dialogsCommunityBadgeSize: 16px;
 dialogsCommunityBadgeSkip: point(-3px, -3px);
 dialogsCommunityBadgeStroke: 2px;
+dialogsCommunityBadgeLine: 1px;
 
 dialogsTTLBadgeSize: 20px;
 dialogsTTLBadgeInnerMargins: margins(2px, 2px, 2px, 2px);

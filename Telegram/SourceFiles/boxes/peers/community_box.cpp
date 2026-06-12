@@ -143,8 +143,9 @@ void CommunityBox(
 	}
 	const auto container = box->verticalLayout();
 
+	box->addTopButton(st::boxTitleClose, [=] { box->closeBox(); });
 	if (community->canEditInformation()) {
-		box->addTopButton(st::infoTopBarMenu, [=] {
+		box->addTopButton(st::communityBoxManage, [=] {
 			ShowManageCommunityBox(navigation, community);
 		});
 	}
@@ -185,7 +186,7 @@ void CommunityBox(
 				lt_count,
 				rpl::duplicate(count) | tr::to_count()),
 			st::settingsButton,
-			{ &st::menuIconInvite }
+			{ &st::menuIconPendingRequests }
 		)->addClickHandler([=] {
 			ShowCommunityPendingRequestsBox(navigation, community);
 		});
@@ -265,15 +266,10 @@ void CommunityBox(
 			return c.requestable;
 		}));
 
-	const auto canAdd = community->canManageLinkedPeers()
-		|| community->communityAnyoneCanAddPeers();
-	if (canAdd) {
-		box->addButton(tr::lng_community_add_chat(), [=] {
-			ShowChooseChatToAddBox(navigation, community);
-		});
-	} else {
-		box->addButton(tr::lng_box_ok(), [=] { box->closeBox(); });
-	}
+	box->addButton(tr::lng_community_add_chat(), [=] {
+		ShowChooseChatToAddBox(navigation, community);
+	});
+	box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 
 	if (!community->wasFullUpdated()) {
 		community->session().api().requestFullPeer(community);
@@ -313,6 +309,7 @@ Main::Session &ChooseChatController::session() const {
 
 void ChooseChatController::prepare() {
 	delegate()->peerListSetTitle(tr::lng_community_add_chat());
+	delegate()->peerListSetSearchMode(PeerListSearchMode::Enabled);
 	auto candidates = std::vector<not_null<ChannelData*>>();
 	_session->data().enumerateGroups([&](not_null<PeerData*> peer) {
 		const auto channel = peer->asChannel();

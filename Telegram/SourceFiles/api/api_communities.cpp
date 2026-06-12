@@ -205,6 +205,9 @@ void Communities::requestPeerLinkRequests(
 		auto &owner = _session->data();
 		owner.processUsers(data.vusers());
 		owner.processChats(data.vchats());
+		community->setPendingRequestsCount(
+			data.vtotal_count().v,
+			QVector<MTPlong>());
 		auto slice = CommunityPeerRequestsSlice();
 		slice.totalCount = data.vtotal_count().v;
 		slice.nextOffset = qs(data.vnext_offset().value_or_empty());
@@ -241,6 +244,9 @@ void Communities::togglePeerLinkRequestApproval(
 		community->inputChannel(),
 		peer->input()
 	)).done([=] {
+		community->setPendingRequestsCount(
+			std::max(community->pendingRequestsCount() - 1, 0),
+			QVector<MTPlong>());
 		_session->api().requestFullPeer(community);
 		if (done) {
 			done();
@@ -262,6 +268,7 @@ void Communities::toggleAllPeerLinkRequestApproval(
 		MTP_flags(reject ? Flag::f_reject : Flag()),
 		community->inputChannel()
 	)).done([=] {
+		community->setPendingRequestsCount(0, QVector<MTPlong>());
 		_session->api().requestFullPeer(community);
 		if (done) {
 			done();

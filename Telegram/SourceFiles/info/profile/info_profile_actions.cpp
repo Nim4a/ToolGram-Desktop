@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/qt/qt_key_modifiers.h"
 #include "base/timer_rpl.h"
 #include "base/unixtime.h"
+#include "boxes/peer_list_box.h"
 #include "boxes/peers/add_bot_to_chat_box.h"
 #include "boxes/peers/community_box.h"
 #include "boxes/peers/edit_contact_box.h"
@@ -2546,25 +2547,72 @@ Section DetailsFiller::makeCommunityLink(not_null<ChannelData*> channel) {
 		parent,
 		object_ptr<Ui::VerticalLayout>(parent));
 	const auto raw = wrap.data();
+	const auto container = raw->entity();
 	const auto window = _controller->parentController();
 	const auto community = channel->owner().channel(
 		channel->linkedCommunityId());
-	AddMainButton(
-		raw->entity(),
-		tr::lng_community_profile_view(),
-		rpl::single(true),
-		[=] { ShowCommunityBox(window, community); },
-		nullptr,
-		nullptr);
 
-	const auto hiddenWrap = raw->entity()->add(
-		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
-			raw->entity(),
-			object_ptr<Ui::VerticalLayout>(raw->entity())));
-	Ui::AddDividerText(
-		hiddenWrap->entity(),
-		tr::lng_community_hidden_chat_about());
-	auto hiddenValue = rpl::single(rpl::empty) | rpl::then(
+	class Controller final : public PeerListController {
+	public:
+		Controller(not_null<ChannelData*> community, Fn<void()> open)
+		: _community(community)
+		, _open(std::move(open)) {
+			setStyleOverrides(&st::peerListSingleRow);
+		}
+
+		Main::Session &session() const override {
+			return _community->session();
+		}
+		void prepare() override {
+			auto row = std::make_unique<PeerListRow>(_community);
+			const auto rawRow = row.get();
+			const auto updateStatus = [=] {
+				const auto info = _community->communityInfo();
+				const auto count = info
+					? int(info->linkedPeers().size())
+					: 0;
+				rawRow->setCustomStatus(count
+					? tr::lng_community_profile_status(
+						tr::now,
+						lt_count,
+						count)
+					: tr::lng_community_title(tr::now));
+			};
+			updateStatus();
+			delegate()->peerListAppendRow(std::move(row));
+			delegate()->peerListRefreshRows();
+			_community->session().changes().peerUpdates(
+				_community,
+				Data::PeerUpdate::Flag::FullInfo
+			) | rpl::on_next([=] {
+				updateStatus();
+				delegate()->peerListUpdateRow(rawRow);
+			}, lifetime());
+		}
+		void rowClicked(not_null<PeerListRow*> row) override {
+			_open();
+		}
+
+	private:
+		const not_null<ChannelData*> _community;
+		Fn<void()> _open;
+
+	};
+
+	const auto delegate = container->lifetime().make_state<
+		PeerListContentDelegateSimple
+	>();
+	const auto controller = container->lifetime().make_state<Controller>(
+		community,
+		[=] { ShowCommunityBox(window, community); });
+	const auto content = container->add(object_ptr<PeerListContent>(
+		container,
+		controller));
+	AddSkip(container, st::infoProfileSkip);
+	delegate->setContent(content);
+	controller->setDelegate(delegate);
+
+	auto hidden = rpl::single(rpl::empty) | rpl::then(
 		channel->session().changes().peerUpdates(
 			community,
 			Data::PeerUpdate::Flag::FullInfo
@@ -2580,9 +2628,31 @@ Section DetailsFiller::makeCommunityLink(not_null<ChannelData*> channel) {
 			}
 		}
 		return false;
-	});
-	hiddenWrap->toggleOn(std::move(hiddenValue), anim::type::instant);
+	}) | rpl::start_spawning(container->lifetime());
+
+	const auto hiddenWrap = container->add(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			container,
+			object_ptr<Ui::VerticalLayout>(container)));
+	Ui::AddDividerText(
+		hiddenWrap->entity(),
+		tr::lng_community_hidden_chat_about());
+	hiddenWrap->toggleOn(rpl::duplicate(hidden), anim::type::instant);
 	hiddenWrap->finishAnimating();
+
+	const auto plainWrap = container->add(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			container,
+			object_ptr<Ui::VerticalLayout>(container)));
+	Ui::AddDivider(plainWrap->entity());
+	plainWrap->toggleOn(
+		std::move(hidden) | rpl::map(!rpl::mappers::_1),
+		anim::type::instant);
+	plainWrap->finishAnimating();
+
+	if (!community->wasFullUpdated()) {
+		community->session().api().requestFullPeer(community);
+	}
 
 	raw->toggle(true, anim::type::instant);
 	return Section{
@@ -2637,6 +2707,11 @@ void DetailsFiller::buildSections() {
 		_stack->add(makePersonalChannel(user));
 		_stack->addPlainSeparator();
 	}
+	if (const auto channel = _peer->asChannel()) {
+		if (channel->linkedCommunityId()) {
+			_stack->add(makeCommunityLink(channel));
+		}
+	}
 	_stack->add(makeInfo());
 	if (const auto user = _peer->asUser()) {
 		_stack->add(makeAddAsContact(user));
@@ -2664,9 +2739,6 @@ void DetailsFiller::buildSections() {
 		addBotVerify();
 		if (!channel->isMegagroup()) {
 			_stack->add(makeViewChannel(channel));
-		}
-		if (channel->linkedCommunityId()) {
-			_stack->add(makeCommunityLink(channel));
 		}
 		if (const auto forum = channel->forum()) {
 			_stack->add(makeTopicsList(forum));

@@ -1787,8 +1787,11 @@ void ParticipantsBoxController::loadMoreRows() {
 }
 
 void ParticipantsBoxController::refreshDescription() {
+	const auto channel = _peer->asChannel();
 	setDescriptionText((_role == Role::Kicked)
-		? ((_peer->isChat() || _peer->isMegagroup())
+		? ((channel && channel->isCommunity())
+			? tr::lng_community_removed_list_about
+			: (_peer->isChat() || _peer->isMegagroup())
 			? tr::lng_group_removed_list_about
 			: tr::lng_channel_removed_list_about)(tr::now)
 		: (delegate()->peerListFullRowsCount() > 0)

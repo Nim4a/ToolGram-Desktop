@@ -114,7 +114,6 @@ void ManageCommunityBox(
 
 	const auto container = box->verticalLayout();
 
-	Ui::AddSubsectionTitle(container, tr::lng_community_manage_name());
 	const auto field = container->add(
 		object_ptr<Ui::InputField>(
 			container,
@@ -126,7 +125,7 @@ void ManageCommunityBox(
 		field->setEnabled(false);
 	}
 
-	Ui::AddSkip(container);
+	Ui::AddSkip(container, st::defaultVerticalListSkip * 2);
 	Ui::AddDivider(container);
 	Ui::AddSkip(container);
 
@@ -156,16 +155,18 @@ void ManageCommunityBox(
 			radio->setDisabled(true);
 		}
 	};
+	Ui::AddSkip(container, st::defaultVerticalListSkip * 2);
 	addOption(
 		0,
 		tr::lng_community_manage_all_members(tr::now),
 		tr::lng_community_manage_all_members_about());
+	Ui::AddSkip(container, st::defaultVerticalListSkip * 2);
 	addOption(
 		1,
 		tr::lng_community_manage_only_admins(tr::now),
 		tr::lng_community_manage_only_admins_about());
+	Ui::AddSkip(container, st::defaultVerticalListSkip * 2);
 
-	Ui::AddSkip(container);
 	Ui::AddDivider(container);
 	Ui::AddSkip(container);
 
@@ -194,7 +195,7 @@ void ManageCommunityBox(
 			tr::lng_community_requests_title(),
 			PositiveNumberString(rpl::duplicate(count)),
 			st::settingsButton,
-			{ &st::menuIconInvite }
+			{ &st::menuIconPendingRequests }
 		)->addClickHandler([=] {
 			ShowCommunityPendingRequestsBox(navigation, community);
 		});
@@ -208,7 +209,7 @@ void ManageCommunityBox(
 		tr::lng_manage_peer_removed_users(),
 		PositiveNumberString(Info::Profile::KickedCountValue(community)),
 		st::settingsButton,
-		{ &st::menuIconRemove }
+		{ &st::menuIconRemovedUsers }
 	)->addClickHandler([=] {
 		ParticipantsBoxController::Start(
 			navigation,

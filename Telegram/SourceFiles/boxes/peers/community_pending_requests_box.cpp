@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_peer.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
+#include "info/profile/info_profile_values.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
 #include "ui/boxes/confirm_box.h"
@@ -215,6 +216,10 @@ public:
 		not_null<PeerListRow*> row,
 		int element) override;
 
+	void setCloseBox(Fn<void()> closeBox) {
+		_closeBox = std::move(closeBox);
+	}
+
 	QSize rowAcceptButtonSize() override;
 	QSize rowRejectButtonSize() override;
 	void rowPaintAccept(
@@ -246,6 +251,7 @@ private:
 
 	const not_null<Window::SessionNavigation*> _navigation;
 	const not_null<ChannelData*> _community;
+	Fn<void()> _closeBox;
 
 	QString _offset;
 	bool _allLoaded = false;
@@ -341,6 +347,20 @@ void Controller::process(not_null<PeerListRow*> row, bool reject) {
 				delegate()->peerListRemoveRow(row);
 				delegate()->peerListRefreshRows();
 			}
+			if (_allLoaded
+				&& !delegate()->peerListFullRowsCount()
+				&& _closeBox) {
+				_closeBox();
+			}
+			_navigation->uiShow()->showToast(reject
+				? tr::lng_community_request_declined_toast(
+					tr::now,
+					lt_count,
+					1)
+				: tr::lng_community_request_added_toast(
+					tr::now,
+					lt_count,
+					1));
 		}),
 		crl::guard(this, [=](const QString &error) {
 			delegate()->peerListUiShow()->showToast(error);
@@ -348,15 +368,19 @@ void Controller::process(not_null<PeerListRow*> row, bool reject) {
 }
 
 QSize Controller::rowAcceptButtonSize() {
-	return QSize(
-		_acceptTextWidth + st::requestsAcceptButton.width,
-		st::requestsAcceptButton.height);
+	const auto &st = st::requestsAcceptButton;
+	return {
+		(st.width <= 0) ? (_acceptTextWidth - st.width) : st.width,
+		st.height,
+	};
 }
 
 QSize Controller::rowRejectButtonSize() {
-	return QSize(
-		_rejectTextWidth + st::requestsRejectButton.width,
-		st::requestsRejectButton.height);
+	const auto &st = st::requestsRejectButton;
+	return {
+		(st.width <= 0) ? (_rejectTextWidth - st.width) : st.width,
+		st.height,
+	};
 }
 
 void Controller::rowPaintAccept(
@@ -433,16 +457,31 @@ void ShowCommunityPendingRequestsBox(
 		not_null<Window::SessionNavigation*> navigation,
 		not_null<ChannelData*> community) {
 	auto controller = std::make_unique<Controller>(navigation, community);
+	const auto raw = controller.get();
 	const auto init = [=](not_null<PeerListBox*> box) {
-		const auto count = std::max(community->pendingRequestsCount(), 1);
+		raw->setCloseBox(crl::guard(box, [=] { box->closeBox(); }));
 		const auto processAll = [=](bool reject) {
+			const auto count = std::max(
+				community->pendingRequestsCount(),
+				1);
 			const auto sure = [=](Fn<void()> &&close) {
 				close();
 				community->session().api().communities(
 				).toggleAllPeerLinkRequestApproval(
 					community,
 					reject,
-					crl::guard(box, [=] { box->closeBox(); }),
+					crl::guard(box, [=] {
+						box->closeBox();
+						navigation->uiShow()->showToast(reject
+							? tr::lng_community_request_declined_toast(
+								tr::now,
+								lt_count,
+								count)
+							: tr::lng_community_request_added_toast(
+								tr::now,
+								lt_count,
+								count));
+					}),
 					crl::guard(box, [=](const QString &error) {
 						box->uiShow()->showToast(error);
 					}));
@@ -466,9 +505,11 @@ void ShowCommunityPendingRequestsBox(
 					: tr::lng_community_requests_add_all_title()),
 			}));
 		};
+		box->addTopButton(st::boxTitleClose, [=] { box->closeBox(); });
 		box->addButton(
 			tr::lng_community_requests_add_all(),
 			[=] { processAll(false); });
+		box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
 		box->addLeftButton(
 			tr::lng_community_requests_decline_all(),
 			[=] { processAll(true); });
@@ -480,7 +521,11 @@ void ShowCommunityPendingRequestsBox(
 			above,
 			tr::lng_community_requests_count(
 				lt_count,
-				rpl::single(float64(count))));
+				Info::Profile::PendingRequestsCountValue(
+					community
+				) | rpl::map([](int count) {
+					return float64(std::max(count, 1));
+				})));
 		box->peerListSetAboveWidget(std::move(above));
 	};
 	navigation->uiShow()->showBox(Box<PeerListBox>(

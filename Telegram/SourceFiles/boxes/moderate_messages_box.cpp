@@ -1413,6 +1413,7 @@ void CreateModerateMessagesBox(
 				return nullptr;
 			}
 			Ui::AddSkip(inner);
+			Ui::AddSkip(inner);
 			const auto result = inner->add(
 				object_ptr<Ui::Checkbox>(
 					box,
@@ -1420,22 +1421,29 @@ void CreateModerateMessagesBox(
 					false,
 					st::defaultBoxCheckbox),
 				st::boxRowPadding + buttonPadding);
+			Ui::AddSkip(inner);
+			Ui::AddSkip(inner);
 			const auto info = community->communityInfo();
 			const auto chatsCount = info
 				? int(info->linkedPeers().size())
 				: 0;
 			if (chatsCount > 0) {
-				Ui::AddSkip(inner);
-				inner->add(object_ptr<Ui::DividerLabel>(
-					inner,
-					object_ptr<Ui::FlatLabel>(
+				const auto aboutWrap = inner->add(
+					object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
 						inner,
+						object_ptr<Ui::VerticalLayout>(inner)));
+				aboutWrap->entity()->add(object_ptr<Ui::DividerLabel>(
+					aboutWrap->entity(),
+					object_ptr<Ui::FlatLabel>(
+						aboutWrap->entity(),
 						tr::lng_community_ban_about(
 							tr::now,
 							lt_count,
 							chatsCount),
 						st::moderateBoxDividerLabel),
 					st::defaultBoxDividerLabelPadding));
+				aboutWrap->toggleOn(result->checkedValue());
+				aboutWrap->finishAnimating();
 			}
 			return result;
 		}();
