@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/peers/edit_peer_history_visibility_box.h"
 #include "boxes/peers/edit_peer_permissions_box.h"
 #include "boxes/peers/edit_peer_invite_links.h"
+#include "boxes/peers/add_to_community_box.h"
 #include "boxes/peers/edit_discussion_link_box.h"
 #include "boxes/peers/edit_peer_requests_box.h"
 #include "boxes/peers/edit_peer_reactions.h"
@@ -1493,6 +1494,11 @@ void Controller::fillManageSection() {
 			|| (channel->isBroadcast() && channel->canEditInformation()));
 	const auto canEditDirectMessages = isChannel
 		&& (channel->isBroadcast() && channel->canEditInformation());
+	const auto canAddToCommunity = isChannel
+		&& channel->isMegagroup()
+		&& !channel->isMonoforum()
+		&& channel->amCreator()
+		&& !channel->linkedCommunityId();
 
 	::AddSkip(_controls.buttonsLayout, 0);
 
@@ -1691,6 +1697,20 @@ void Controller::fillManageSection() {
 			rpl::single(QString()), // Empty count.
 			std::move(callback),
 			{ .icon = &st::menuIconStarRefShare });
+	}
+
+	if (canAddToCommunity) {
+		::AddSkip(_controls.buttonsLayout);
+		AddButtonWithCount(
+			_controls.buttonsLayout,
+			tr::lng_community_add_button(),
+			rpl::single(QString()),
+			[=] { ShowAddToCommunityBox(_navigation, channel); },
+			{ &st::menuIconGroups });
+		::AddSkip(_controls.buttonsLayout);
+		Ui::AddDividerText(
+			_controls.buttonsLayout,
+			tr::lng_community_add_about());
 	}
 
 	if (canEditStickers || canDeleteChannel) {

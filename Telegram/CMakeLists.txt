@@ -224,6 +224,8 @@ PRIVATE
     boxes/peers/add_bot_to_chat_box.h
     boxes/peers/add_participants_box.cpp
     boxes/peers/add_participants_box.h
+    boxes/peers/add_to_community_box.cpp
+    boxes/peers/add_to_community_box.h
     boxes/peers/channel_ownership_transfer.cpp
     boxes/peers/channel_ownership_transfer.h
     boxes/peers/choose_peer_box.cpp
