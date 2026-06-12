@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_cloud_password.h"
 #include "api/api_text_entities.h"
 #include "boxes/peers/add_bot_to_chat_box.h"
+#include "boxes/peers/community_box.h"
 #include "boxes/peers/edit_peer_info_box.h"
 #include "boxes/peers/replace_boost_box.h"
 #include "boxes/add_contact_box.h"
@@ -2702,6 +2703,12 @@ bool SessionController::canShowSeparateWindow(SeparateId id) const {
 }
 
 void SessionController::showPeer(not_null<PeerData*> peer, MsgId msgId) {
+	if (const auto channel = peer->asChannel()) {
+		if (channel->isCommunity()) {
+			ShowCommunityBox(this, channel);
+			return;
+		}
+	}
 	const auto currentPeer = activeChatCurrent().peer();
 	if (peer && peer->isChannel() && currentPeer != peer) {
 		const auto clickedChannel = peer->asChannel();
