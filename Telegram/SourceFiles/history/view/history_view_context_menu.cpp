@@ -631,7 +631,8 @@ bool AddReplyToMessageAction(
 	const auto topic = item ? item->topic() : nullptr;
 	const auto peer = item ? item->history()->peer.get() : nullptr;
 	if (!item
-		|| (!item->isRegular() && !item->isEphemeral())
+		|| (!item->isRegular()
+			&& (!item->isEphemeral() || item->out()))
 		|| (context != Context::History
 			&& context != Context::Replies
 			&& context != Context::Monoforum)) {

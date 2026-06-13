@@ -316,6 +316,9 @@ bool EphemeralMessages::trySend(const Api::MessageToSend &message) {
 	const auto replyToId = message.action.replyTo.messageId;
 	if (const auto replyTo = _session->data().message(replyToId)) {
 		if (replyTo->isEphemeral()) {
+			if (replyTo->out()) {
+				return true;
+			}
 			const auto entry = findByItem(replyTo);
 			const auto bot = entry ? botForSending(*entry) : nullptr;
 			if (bot) {

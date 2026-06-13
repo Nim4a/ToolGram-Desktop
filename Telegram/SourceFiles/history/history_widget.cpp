@@ -9889,7 +9889,8 @@ void HistoryWidget::processReply() {
 		return processCancel();
 #endif
 	} else if (!_processingReplyItem->isRegular()
-		&& !_processingReplyItem->isEphemeral()) {
+		&& (!_processingReplyItem->isEphemeral()
+			|| _processingReplyItem->out())) {
 		return processCancel();
 	} else if (const auto forum = _peer->forum()
 		; forum && _processingReplyItem->history() == _history) {
