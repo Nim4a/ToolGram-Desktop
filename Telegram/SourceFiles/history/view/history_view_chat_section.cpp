@@ -1221,11 +1221,6 @@ bool ChatWidget::confirmSendingFiles(
 		return true;
 	} else if (showSendingFilesError(list)) {
 		return false;
-	} else if (ShowEphemeralReplyTextOnlyError(
-			controller()->uiShow(),
-			&session(),
-			_composeControls->replyingToMessage().messageId)) {
-		return false;
 	}
 
 	auto box = Box<SendFilesBox>(
@@ -1414,12 +1409,6 @@ void ChatWidget::send() {
 }
 
 void ChatWidget::sendVoice(const ComposeControls::VoiceToSend &data) {
-	if (ShowEphemeralReplyTextOnlyError(
-			controller()->uiShow(),
-			&session(),
-			replyTo().messageId)) {
-		return;
-	}
 	const auto withPaymentApproved = [=](int approved) {
 		auto copy = data;
 		copy.options.starsApproved = approved;
@@ -1451,8 +1440,13 @@ void ChatWidget::send(Api::SendOptions options) {
 		sendRichDraft(page, options);
 		return;
 	}
-	if (!options.scheduled && showSlowmodeError()) {
-		return;
+	if (!options.scheduled) {
+		auto message = Api::MessageToSend(prepareSendAction(options));
+		message.textWithTags = _composeControls->getTextWithAppliedMarkdown();
+		if (!session().ephemeralMessages().wouldSend(message)
+			&& showSlowmodeError()) {
+			return;
+		}
 	}
 
 	sendTextWithTags(
@@ -1592,11 +1586,13 @@ void ChatWidget::sendTextWithTags(
 		return;
 	}
 
+	const auto ephemeral = session().ephemeralMessages().wouldSend(message);
 	auto request = SendingErrorRequest{
 		.topicRootId = _topic ? _topic->rootId() : MsgId(0),
 		.forward = &_composeControls->forwardItems(),
 		.text = &message.textWithTags,
 		.ignoreSlowmodeCountdown = (options.scheduled != 0),
+		.ignoreRestrictions = ephemeral,
 	};
 	request.messagesCount = ComputeSendingMessagesCount(_history, request);
 	const auto error = GetErrorForSending(_peer, request);
@@ -1898,11 +1894,6 @@ bool ChatWidget::sendExistingDocument(
 	} else if (showSlowmodeError()
 		|| ShowSendPremiumError(controller(), document)) {
 		return false;
-	} else if (ShowEphemeralReplyTextOnlyError(
-			controller()->uiShow(),
-			&session(),
-			messageToSend.action.replyTo.messageId)) {
-		return false;
 	}
 	const auto withPaymentApproved = [=](int approved) {
 		auto copy = messageToSend;
@@ -1941,11 +1932,6 @@ bool ChatWidget::sendExistingPhoto(
 		Data::ShowSendErrorToast(controller(), _peer, error);
 		return false;
 	} else if (showSlowmodeError()) {
-		return false;
-	} else if (ShowEphemeralReplyTextOnlyError(
-			controller()->uiShow(),
-			&session(),
-			replyTo().messageId)) {
 		return false;
 	}
 

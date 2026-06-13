@@ -537,7 +537,8 @@ private:
 		const TextWithTags &textWithTags,
 		bool ignoreSlowmodeCountdown,
 		Fn<void(int starsApproved)> withPaymentApproved = nullptr,
-		Api::SendOptions options = {});
+		Api::SendOptions options = {},
+		bool ignoreRestrictions = false);
 	bool showSendRichDraftError(
 		bool ignoreSlowmodeCountdown,
 		Fn<void(int starsApproved)> withPaymentApproved = nullptr,

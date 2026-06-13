@@ -2918,6 +2918,16 @@ QString HistoryItem::notificationHeader() const {
 	return QString();
 }
 
+void HistoryItem::markEphemeralSent() {
+	if (!(_flags & MessageFlag::BeingSent)) {
+		return;
+	}
+	_flags &= ~MessageFlag::BeingSent;
+	_history->owner().notifyItemDataChange(this);
+	_history->owner().requestItemResize(this);
+	_history->owner().requestItemRepaint(this);
+}
+
 void HistoryItem::markTextAppearingStarted() {
 	_flags |= MessageFlag::TextAppearingStarted;
 }

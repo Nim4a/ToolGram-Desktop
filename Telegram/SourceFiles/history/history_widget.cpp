@@ -5429,11 +5429,6 @@ Api::SendAction HistoryWidget::prepareSendAction(
 void HistoryWidget::sendVoice(const VoiceToSend &data) {
 	if (!canWriteMessage() || data.bytes.isEmpty() || !_history) {
 		return;
-	} else if (ShowEphemeralReplyTextOnlyError(
-			controller()->uiShow(),
-			&session(),
-			replyTo().messageId)) {
-		return;
 	}
 
 	const auto withPaymentApproved = [=](int approved) {
@@ -5468,9 +5463,18 @@ void HistoryWidget::send(Api::SendOptions options) {
 	} else if (const auto page = shownRichMessage()) {
 		sendRichDraft(page, options);
 		return;
-	} else if (!options.scheduled && showSlowmodeError()) {
-		return;
-	} else if (_voiceRecordBar->isListenState()) {
+	}
+	if (!options.scheduled) {
+		auto action = Api::SendAction(_history, options);
+		action.replyTo = replyTo();
+		auto message = Api::MessageToSend(std::move(action));
+		message.textWithTags = _field->getTextWithAppliedMarkdown();
+		if (!session().ephemeralMessages().wouldSend(message)
+			&& showSlowmodeError()) {
+			return;
+		}
+	}
+	if (_voiceRecordBar->isListenState()) {
 		_voiceRecordBar->requestToSendWithOptions(options);
 		return;
 	}
@@ -5607,8 +5611,8 @@ void HistoryWidget::sendTextWithTags(
 	if (useWebPageDraft && _preview) {
 		message.webPage = _preview->draft();
 	}
-	if (options.scheduled
-		&& session().ephemeralMessages().wouldSend(message)) {
+	const auto ephemeral = session().ephemeralMessages().wouldSend(message);
+	if (options.scheduled && ephemeral) {
 		controller()->showToast(tr::lng_ephemeral_cant_schedule(tr::now));
 		return;
 	}
@@ -5623,7 +5627,8 @@ void HistoryWidget::sendTextWithTags(
 			message.textWithTags,
 			ignoreSlowmodeCountdown,
 			withPaymentApproved,
-			message.action.options)) {
+			message.action.options,
+			ephemeral)) {
 		return;
 	}
 
@@ -6064,11 +6069,15 @@ void HistoryWidget::chooseAttach(
 
 	if (!_peer || !_canSendMessages) {
 		return;
-	} else if (const auto error = Data::AnyFileRestrictionError(_peer)) {
-		Data::ShowSendErrorToast(controller(), _peer, error);
-		return;
-	} else if (showSlowmodeError()) {
-		return;
+	}
+	if (!session().ephemeralMessages().isEphemeralBotReply(
+			replyTo().messageId)) {
+		if (const auto error = Data::AnyFileRestrictionError(_peer)) {
+			Data::ShowSendErrorToast(controller(), _peer, error);
+			return;
+		} else if (showSlowmodeError()) {
+			return;
+		}
 	}
 
 	const auto filter = (overrideSendImagesAsPhotos == true)
@@ -7377,7 +7386,8 @@ bool HistoryWidget::showSendMessageError(
 		const TextWithTags &textWithTags,
 		bool ignoreSlowmodeCountdown,
 		Fn<void(int starsApproved)> withPaymentApproved,
-		Api::SendOptions options) {
+		Api::SendOptions options,
+		bool ignoreRestrictions) {
 	if (!_canSendMessages) {
 		return false;
 	}
@@ -7387,6 +7397,7 @@ bool HistoryWidget::showSendMessageError(
 		.forward = &_forwardPanel->items(),
 		.text = &textWithTags,
 		.ignoreSlowmodeCountdown = ignoreSlowmodeCountdown,
+		.ignoreRestrictions = ignoreRestrictions,
 	};
 	request.messagesCount = ComputeSendingMessagesCount(_history, request);
 	const auto error = GetErrorForSending(_peer, request);
@@ -7451,13 +7462,6 @@ bool HistoryWidget::confirmSendingFiles(
 bool HistoryWidget::confirmSendingFiles(
 		Ui::PreparedList &&list,
 		const QString &insertTextOnCancel) {
-	if (!_editMsgId
-		&& ShowEphemeralReplyTextOnlyError(
-			controller()->uiShow(),
-			&session(),
-			replyTo().messageId)) {
-		return false;
-	}
 	if (_editMsgId) {
 		if (_canReplaceMedia || _canAddMedia) {
 			EditCaptionBox::StartMediaReplace(
@@ -9541,21 +9545,17 @@ bool HistoryWidget::sendExistingDocument(
 		not_null<DocumentData*> document,
 		Api::MessageToSend messageToSend,
 		std::optional<MsgId> localId) {
-	const auto error = _peer
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(messageToSend.action.replyTo.messageId);
+	const auto error = (_peer && !ephemeralReply)
 		? Data::RestrictionError(_peer, ChatRestriction::SendStickers)
 		: Data::SendError();
-	if (ShowEphemeralReplyTextOnlyError(
-			controller()->uiShow(),
-			&session(),
-			messageToSend.action.replyTo.messageId)) {
-		return false;
-	}
 	if (error) {
 		Data::ShowSendErrorToast(controller(), _peer, error);
 		return false;
 	} else if (!_peer
 		|| !_canSendMessages
-		|| showSlowmodeError()
+		|| (!ephemeralReply && showSlowmodeError())
 		|| ShowSendPremiumError(controller(), document)) {
 		return false;
 	}
@@ -9594,21 +9594,17 @@ bool HistoryWidget::sendExistingDocument(
 bool HistoryWidget::sendExistingPhoto(
 		not_null<PhotoData*> photo,
 		Api::SendOptions options) {
-	const auto error = _peer
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(replyTo().messageId);
+	const auto error = (_peer && !ephemeralReply)
 		? Data::RestrictionError(_peer, ChatRestriction::SendPhotos)
 		: Data::SendError();
-	if (ShowEphemeralReplyTextOnlyError(
-			controller()->uiShow(),
-			&session(),
-			replyTo().messageId)) {
-		return false;
-	}
 	if (error) {
 		Data::ShowSendErrorToast(controller(), _peer, error);
 		return false;
 	} else if (!_peer || !_canSendMessages) {
 		return false;
-	} else if (showSlowmodeError()) {
+	} else if (!ephemeralReply && showSlowmodeError()) {
 		return false;
 	}
 	const auto action = prepareSendAction(options);

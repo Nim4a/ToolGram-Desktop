@@ -127,7 +127,7 @@ Data::SendError GetErrorForSending(
 	}
 	const auto hasText = request.richMessage
 		|| (request.text && !request.text->empty());
-	if (hasText) {
+	if (hasText && !request.ignoreRestrictions) {
 		const auto error = Data::RestrictionError(
 			peer,
 			ChatRestriction::SendOther);
@@ -137,7 +137,7 @@ Data::SendError GetErrorForSending(
 			return tr::lng_forward_cant(tr::now);
 		}
 	}
-	if (peer->slowmodeApplied()) {
+	if (peer->slowmodeApplied() && !request.ignoreRestrictions) {
 		const auto count = request.messagesCount
 			? request.messagesCount
 			: ComputeSendingMessagesCount(thread->owningHistory(), request);
@@ -171,7 +171,7 @@ Data::SendError GetErrorForSending(
 		}
 	}
 	if (const auto left = peer->slowmodeSecondsLeft()) {
-		if (!request.ignoreSlowmodeCountdown) {
+		if (!request.ignoreSlowmodeCountdown && !request.ignoreRestrictions) {
 			return tr::lng_slowmode_enabled(
 				tr::now,
 				lt_left,

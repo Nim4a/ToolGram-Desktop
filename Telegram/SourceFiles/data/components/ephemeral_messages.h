@@ -43,6 +43,7 @@ public:
 		not_null<const HistoryItem*> item) const;
 
 	[[nodiscard]] bool wouldSend(const Api::MessageToSend &message) const;
+	[[nodiscard]] bool isEphemeralBotReply(FullMsgId replyToId) const;
 	[[nodiscard]] bool trySend(const Api::MessageToSend &message);
 	void send(
 		not_null<History*> history,
@@ -50,6 +51,9 @@ public:
 		TextWithEntities text,
 		int32 replyToEphemeralId = 0,
 		MsgId topicRootId = 0);
+	[[nodiscard]] bool sendMedia(
+		not_null<HistoryItem*> item,
+		const MTPInputMedia &media);
 	void noteCallbackTopic(
 		not_null<History*> history,
 		PeerId botId,
@@ -71,6 +75,15 @@ private:
 		const QString &text) const;
 	[[nodiscard]] FullMsgId realReplyId(
 		const Api::MessageToSend &message) const;
+	void request(
+		not_null<History*> history,
+		not_null<UserData*> bot,
+		TextWithEntities text,
+		const MTPInputMedia &media,
+		bool hasMedia,
+		int32 replyToEphemeralId,
+		MsgId topicRootId,
+		FullMsgId destroyOnResult = {});
 	[[nodiscard]] bool replyTargetMissing(
 		const MTPDephemeralMessage &data) const;
 	void drainPending(bool force = false);
@@ -89,6 +102,7 @@ private:
 	base::Timer _pendingTimer;
 	base::flat_map<not_null<History*>, List> _data;
 	std::vector<MTPEphemeralMessage> _pending;
+	FullMsgId _convertLocalMediaTarget;
 	base::flat_map<
 		not_null<History*>,
 		base::flat_map<PeerId, MsgId>> _callbackTopicHints;

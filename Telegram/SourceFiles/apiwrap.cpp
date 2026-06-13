@@ -4189,7 +4189,6 @@ void ApiWrap::sendFiles(
 		SendMediaType type,
 		std::shared_ptr<SendingAlbum> album,
 		SendAction action) {
-	StripEphemeralReply(_session, action.replyTo);
 	const auto to = FileLoadTaskOptions(action);
 	if (album) {
 		album->options = to.options;
@@ -4577,7 +4576,9 @@ void ApiWrap::sendMessage(
 		? replyTo->topicRootId()
 		: Data::ForumTopic::kGeneralId;
 	const auto topic = peer->forumTopicFor(topicRootId);
-	if (!(topic ? Data::CanSendTexts(topic) : Data::CanSendTexts(peer))) {
+	const auto ephemeral = _session->ephemeralMessages().wouldSend(message);
+	if (!ephemeral
+		&& !(topic ? Data::CanSendTexts(topic) : Data::CanSendTexts(peer))) {
 		return;
 	} else if (_session->ephemeralMessages().trySend(message)) {
 		if (clearCloudDraft) {
@@ -5096,6 +5097,13 @@ void ApiWrap::sendMediaWithRandomId(
 	const auto replyTo = item->replyTo();
 	const auto peer = history->peer;
 
+	if (_session->ephemeralMessages().sendMedia(item, media)) {
+		if (done) {
+			done(true);
+		}
+		return;
+	}
+
 	auto caption = item->originalText();
 	TextUtilities::Trim(caption);
 	auto sentEntities = Api::EntitiesToMTP(
@@ -5317,7 +5325,29 @@ void ApiWrap::sendAlbumIfReady(not_null<SendingAlbum*> album) {
 	if (!sample) {
 		_sendingAlbums.remove(groupId);
 		return;
-	} else if (album->options.price > 0) {
+	}
+	const auto replyTo = sample->replyTo();
+	if (const auto target = _session->data().message(replyTo.messageId)
+		; target && target->isEphemeral()) {
+		album->sent = true;
+		auto parts = std::vector<
+			std::pair<not_null<HistoryItem*>, MTPInputMedia>>();
+		parts.reserve(album->items.size());
+		for (const auto &part : album->items) {
+			const auto partItem = part.media
+				? _session->data().message(part.msgId)
+				: nullptr;
+			if (partItem) {
+				parts.emplace_back(partItem, part.media->data().vmedia());
+			}
+		}
+		_sendingAlbums.remove(groupId);
+		for (const auto &[partItem, media] : parts) {
+			(void)_session->ephemeralMessages().sendMedia(partItem, media);
+		}
+		return;
+	}
+	if (album->options.price > 0) {
 		sendMultiPaidMedia(sample, album);
 		return;
 	} else if (medias.size() < 2) {
@@ -5332,7 +5362,6 @@ void ApiWrap::sendAlbumIfReady(not_null<SendingAlbum*> album) {
 		return;
 	}
 	const auto history = sample->history();
-	const auto replyTo = sample->replyTo();
 	const auto sendAs = album->options.sendAs;
 	const auto starsPaid = std::min(
 		history->peer->starsPerMessageChecked() * int(medias.size()),
