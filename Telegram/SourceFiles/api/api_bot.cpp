@@ -98,6 +98,12 @@ void SendBotCallbackData(
 	if (item->isEphemeral() && (!ephemeralId || isGame || withPassword)) {
 		return;
 	}
+	if (ephemeralId) {
+		session->ephemeralMessages().noteCallbackTopic(
+			history,
+			item->from()->id,
+			item->topicRootId());
+	}
 	const auto weak = base::make_weak(controller);
 	const auto show = controller->uiShow();
 	const auto handleDone = [=](

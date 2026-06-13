@@ -48,7 +48,12 @@ public:
 		not_null<History*> history,
 		not_null<UserData*> bot,
 		TextWithEntities text,
-		int32 replyToEphemeralId = 0);
+		int32 replyToEphemeralId = 0,
+		MsgId topicRootId = 0);
+	void noteCallbackTopic(
+		not_null<History*> history,
+		PeerId botId,
+		MsgId topicRootId);
 	void deleteMessage(not_null<HistoryItem*> item);
 
 private:
@@ -64,11 +69,16 @@ private:
 	[[nodiscard]] UserData *findCommandBot(
 		not_null<PeerData*> peer,
 		const QString &text) const;
+	[[nodiscard]] FullMsgId realReplyId(
+		const Api::MessageToSend &message) const;
 	[[nodiscard]] bool replyTargetMissing(
 		const MTPDephemeralMessage &data) const;
 	void drainPending(bool force = false);
 	[[nodiscard]] const Entry *findByItem(
 		not_null<const HistoryItem*> item) const;
+	[[nodiscard]] MsgId takeCallbackTopic(
+		not_null<History*> history,
+		PeerId botId);
 	[[nodiscard]] UserData *botForSending(const Entry &entry) const;
 	void itemRemoved(not_null<const HistoryItem*> item);
 	void pruneOld();
@@ -79,6 +89,9 @@ private:
 	base::Timer _pendingTimer;
 	base::flat_map<not_null<History*>, List> _data;
 	std::vector<MTPEphemeralMessage> _pending;
+	base::flat_map<
+		not_null<History*>,
+		base::flat_map<PeerId, MsgId>> _callbackTopicHints;
 
 	rpl::lifetime _lifetime;
 

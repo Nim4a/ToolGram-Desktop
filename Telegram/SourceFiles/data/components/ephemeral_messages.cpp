@@ -14,6 +14,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/unixtime.h"
 #include "data/data_channel.h"
 #include "data/data_chat.h"
+#include "data/data_forum_topic.h"
+#include "data/data_histories.h"
 #include "data/data_peer_bot_command.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
@@ -189,15 +191,40 @@ HistoryItem *EphemeralMessages::applyNew(const MTPDephemeralMessage &data) {
 	}
 	if (const auto header = data.vreply_to()) {
 		header->match([&](const MTPDmessageReplyHeader &reply) {
+			if (const auto top = reply.vreply_to_top_id()) {
+				if (!replyTo.topicRootId) {
+					replyTo.topicRootId = top->v;
+				}
+			}
 			const auto replyToId = reply.vreply_to_msg_id();
 			if (reply.is_reply_to_ephemeral() && replyToId) {
 				const auto target = lookupItem(history->peer, replyToId->v);
 				if (target) {
 					replyTo.messageId = target->fullId();
+					if (!replyTo.topicRootId) {
+						replyTo.topicRootId = target->topicRootId();
+					}
 				}
+			} else if (replyToId) {
+				if (!replyTo.topicRootId) {
+					replyTo.topicRootId = replyToId->v;
+				}
+				replyTo.messageId = {
+					history->peer->id,
+					replyTo.topicRootId,
+				};
 			}
 		}, [](const MTPDmessageReplyStoryHeader &) {
 		});
+	}
+	if (!replyTo.topicRootId
+		&& !replyTo.messageId
+		&& !data.is_out()
+		&& fromId) {
+		if (const auto hinted = takeCallbackTopic(history, fromId)) {
+			replyTo.topicRootId = hinted;
+			replyTo.messageId = { history->peer->id, hinted };
+		}
 	}
 	const auto item = history->addNewLocalMessage(
 		{
@@ -280,15 +307,22 @@ bool EphemeralMessages::wouldSend(const Api::MessageToSend &message) const {
 	if (!peer->isChat() && !peer->isMegagroup()) {
 		return false;
 	}
-	const auto replyTo = _session->data().message(
-		message.action.replyTo.messageId);
-	if (replyTo && replyTo->isEphemeral()) {
-		return true;
-	} else if (message.action.replyTo) {
-		return false;
+	if (const auto replyToId = realReplyId(message)) {
+		const auto replyTo = _session->data().message(replyToId);
+		return replyTo && replyTo->isEphemeral();
 	}
 	return findCommandBot(peer, message.textWithTags.text.trimmed())
 		!= nullptr;
+}
+
+FullMsgId EphemeralMessages::realReplyId(
+		const Api::MessageToSend &message) const {
+	const auto &replyTo = message.action.replyTo;
+	const auto id = replyTo.messageId;
+	if (!id || (replyTo.topicRootId && id.msg == replyTo.topicRootId)) {
+		return FullMsgId();
+	}
+	return id;
 }
 
 bool EphemeralMessages::trySend(const Api::MessageToSend &message) {
@@ -313,9 +347,9 @@ bool EphemeralMessages::trySend(const Api::MessageToSend &message) {
 	if (text.text.isEmpty()) {
 		return false;
 	}
-	const auto replyToId = message.action.replyTo.messageId;
-	if (const auto replyTo = _session->data().message(replyToId)) {
-		if (replyTo->isEphemeral()) {
+	if (const auto replyToId = realReplyId(message)) {
+		const auto replyTo = _session->data().message(replyToId);
+		if (replyTo && replyTo->isEphemeral()) {
 			if (replyTo->out()) {
 				return true;
 			}
@@ -326,15 +360,18 @@ bool EphemeralMessages::trySend(const Api::MessageToSend &message) {
 			}
 			return true;
 		}
-	}
-	if (message.action.replyTo) {
 		return false;
 	}
 	const auto bot = findCommandBot(peer, text.text);
 	if (!bot) {
 		return false;
 	}
-	send(history, bot, std::move(text));
+	send(
+		history,
+		bot,
+		std::move(text),
+		0,
+		message.action.replyTo.topicRootId);
 	return true;
 }
 
@@ -373,16 +410,30 @@ void EphemeralMessages::send(
 		not_null<History*> history,
 		not_null<UserData*> bot,
 		TextWithEntities text,
-		int32 replyToEphemeralId) {
+		int32 replyToEphemeralId,
+		MsgId topicRootId) {
 	const auto session = _session;
 	const auto entities = Api::EntitiesToMTP(
 		session,
 		text.entities,
 		Api::ConvertOption::SkipLocal);
+	auto replyTo = MTPInputReplyTo();
+	auto hasReplyTo = false;
+	if (replyToEphemeralId) {
+		replyTo = MTP_inputReplyToEphemeralMessage(
+			MTP_int(replyToEphemeralId));
+		hasReplyTo = true;
+	} else if (topicRootId && topicRootId != Data::ForumTopic::kGeneralId) {
+		auto anchor = FullReplyTo();
+		anchor.messageId = { history->peer->id, topicRootId };
+		anchor.topicRootId = topicRootId;
+		replyTo = Data::ReplyToForMTP(history, anchor);
+		hasReplyTo = (replyTo.type() == mtpc_inputReplyToMessage);
+	}
 	using Flag = MTPephemeral_SendMessage::Flag;
 	const auto flags = Flag(0)
 		| (entities.v.isEmpty() ? Flag(0) : Flag::f_entities)
-		| (replyToEphemeralId ? Flag::f_reply_to : Flag(0));
+		| (hasReplyTo ? Flag::f_reply_to : Flag(0));
 	session->api().request(MTPephemeral_SendMessage(
 		MTP_flags(flags),
 		history->peer->input(),
@@ -394,7 +445,7 @@ void EphemeralMessages::send(
 		MTPReplyMarkup(),
 		MTPInputRichMessage(),
 		MTP_long(base::RandomValue<uint64>()),
-		MTP_inputReplyToEphemeralMessage(MTP_int(replyToEphemeralId))
+		replyTo
 	)).done([=](const MTPUpdates &result) {
 		session->api().applyUpdates(result);
 	}).fail([=](const MTP::Error &error) {
@@ -422,6 +473,35 @@ const EphemeralMessages::Entry *EphemeralMessages::findByItem(
 	}
 	const auto j = ranges::find(i->second, item.get(), &Entry::item);
 	return (j != end(i->second)) ? &*j : nullptr;
+}
+
+void EphemeralMessages::noteCallbackTopic(
+		not_null<History*> history,
+		PeerId botId,
+		MsgId topicRootId) {
+	if (!topicRootId || topicRootId == Data::ForumTopic::kGeneralId) {
+		return;
+	}
+	_callbackTopicHints[history][botId] = topicRootId;
+}
+
+MsgId EphemeralMessages::takeCallbackTopic(
+		not_null<History*> history,
+		PeerId botId) {
+	const auto i = _callbackTopicHints.find(history);
+	if (i == end(_callbackTopicHints)) {
+		return MsgId();
+	}
+	const auto j = i->second.find(botId);
+	if (j == end(i->second)) {
+		return MsgId();
+	}
+	const auto result = j->second;
+	i->second.erase(j);
+	if (i->second.empty()) {
+		_callbackTopicHints.erase(i);
+	}
+	return result;
 }
 
 UserData *EphemeralMessages::botForSending(const Entry &entry) const {
