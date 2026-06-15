@@ -129,23 +129,25 @@ void ChatsController::rowClicked(not_null<PeerListRow*> row) {
 	_callback(row->peer());
 }
 
-void CommunityBox(
-		not_null<Ui::GenericBox*> box,
-		not_null<Window::SessionNavigation*> navigation,
-		not_null<ChannelData*> community) {
-	box->setTitle(Info::Profile::NameValue(community));
-	box->setWidth(st::boxWideWidth);
+} // namespace
 
+void SetupCommunityContent(
+		not_null<Ui::VerticalLayout*> container,
+		not_null<Window::SessionNavigation*> navigation,
+		not_null<ChannelData*> community,
+		std::shared_ptr<Main::SessionShow> show) {
 	const auto info = community->communityInfo();
 	if (!info) {
-		box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 		return;
 	}
-	const auto container = box->verticalLayout();
 
-	box->addTopButton(st::boxTitleClose, [=] { box->closeBox(); });
 	if (community->canEditInformation()) {
-		box->addTopButton(st::communityBoxManage, [=] {
+		Settings::AddButtonWithIcon(
+			container,
+			tr::lng_community_manage(),
+			st::settingsButton,
+			{ &st::menuIconEdit }
+		)->addClickHandler([=] {
 			ShowManageCommunityBox(navigation, community);
 		});
 	}
@@ -199,7 +201,7 @@ void CommunityBox(
 	auto chats = info->linkedPeersValue(
 	) | rpl::map([=] {
 		return PartitionChats(info);
-	}) | rpl::start_spawning(box->lifetime());
+	}) | rpl::start_spawning(container->lifetime());
 
 	const auto openChat = [=](not_null<PeerData*> peer) {
 		navigation->showPeerHistory(
@@ -233,8 +235,7 @@ void CommunityBox(
 			const std::shared_ptr<Main::SessionShow> _show;
 
 		};
-		const auto delegate = inner->lifetime().make_state<Delegate>(
-			Main::MakeSessionShow(box->uiShow(), &community->session()));
+		const auto delegate = inner->lifetime().make_state<Delegate>(show);
 		const auto controller = inner->lifetime().make_state<
 			ChatsController
 		>(&community->session(), std::move(list), openChat);
@@ -266,15 +267,21 @@ void CommunityBox(
 			return c.requestable;
 		}));
 
-	box->addButton(tr::lng_community_add_chat(), [=] {
+	Settings::AddButtonWithIcon(
+		container,
+		tr::lng_community_add_chat(),
+		st::settingsButton,
+		{ &st::menuIconGroups }
+	)->addClickHandler([=] {
 		ShowChooseChatToAddBox(navigation, community);
 	});
-	box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 
 	if (!community->wasFullUpdated()) {
 		community->session().api().requestFullPeer(community);
 	}
 }
+
+namespace {
 
 class ChooseChatController final : public PeerListController {
 public:
@@ -350,13 +357,6 @@ void ChooseChatController::rowClicked(not_null<PeerListRow*> row) {
 }
 
 } // namespace
-
-void ShowCommunityBox(
-		not_null<Window::SessionNavigation*> navigation,
-		not_null<ChannelData*> community) {
-	navigation->uiShow()->showBox(
-		Box(CommunityBox, navigation, community));
-}
 
 void BanFromCommunityWithWarning(
 		std::shared_ptr<Ui::Show> show,

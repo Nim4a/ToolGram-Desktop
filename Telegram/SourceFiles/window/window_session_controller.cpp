@@ -2757,7 +2757,7 @@ bool SessionController::canShowSeparateWindow(SeparateId id) const {
 void SessionController::showPeer(not_null<PeerData*> peer, MsgId msgId) {
 	if (const auto channel = peer->asChannel()) {
 		if (channel->isCommunity()) {
-			ShowCommunityBox(this, channel);
+			showPeerInfo(channel, SectionShow());
 			return;
 		}
 	}
@@ -3089,7 +3089,7 @@ void SessionController::showPeerHistory(
 	if (const auto peer = session().data().peerLoaded(peerId)) {
 		if (const auto channel = peer->asChannel()) {
 			if (channel->isCommunity()) {
-				ShowCommunityBox(this, channel);
+				showPeerInfo(channel, SectionShow());
 				return;
 			}
 		}

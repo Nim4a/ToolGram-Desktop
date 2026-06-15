@@ -12,15 +12,22 @@ class PeerData;
 
 namespace Ui {
 class Show;
+class VerticalLayout;
 } // namespace Ui
+
+namespace Main {
+class SessionShow;
+} // namespace Main
 
 namespace Window {
 class SessionNavigation;
 } // namespace Window
 
-void ShowCommunityBox(
+void SetupCommunityContent(
+	not_null<Ui::VerticalLayout*> container,
 	not_null<Window::SessionNavigation*> navigation,
-	not_null<ChannelData*> community);
+	not_null<ChannelData*> community,
+	std::shared_ptr<Main::SessionShow> show);
 
 void ShowChooseChatToAddBox(
 	not_null<Window::SessionNavigation*> navigation,

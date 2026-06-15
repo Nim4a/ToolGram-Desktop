@@ -157,6 +157,7 @@ public:
 		CommonGroups,
 		SimilarPeers,
 		RequestsList,
+		Community,
 		ReactionsList,
 		SavedSublists,
 		PeerGifts,
