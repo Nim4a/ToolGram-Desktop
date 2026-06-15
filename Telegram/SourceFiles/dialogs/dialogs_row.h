@@ -105,7 +105,8 @@ public:
 	void updateCornerBadgeShown(
 		not_null<PeerData*> peer,
 		Fn<void()> updateCallback = nullptr,
-		bool hasUnreadBadgesAbove = false) const;
+		bool hasUnreadBadgesAbove = false,
+		bool insideCommunity = false) const;
 	void paintUserpic(
 		Painter &p,
 		not_null<Entry*> entry,

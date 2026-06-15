@@ -482,6 +482,8 @@ private:
 	[[nodiscard]] int communityViewableTop() const;
 	[[nodiscard]] int communityRequestableTop() const;
 	[[nodiscard]] int communitySectionsBottom() const;
+	[[nodiscard]] int communityListHeight(
+		const std::vector<std::unique_ptr<Row>> &rows) const;
 	[[nodiscard]] int communityRowCount() const;
 	[[nodiscard]] Row *communityRowAt(int index) const;
 	[[nodiscard]] int communityRowAbsoluteTop(int index) const;

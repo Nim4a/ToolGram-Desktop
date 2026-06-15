@@ -358,7 +358,8 @@ void Row::setCornerBadgeShown(
 void Row::updateCornerBadgeShown(
 		not_null<PeerData*> peer,
 		Fn<void()> updateCallback,
-		bool hasUnreadBadgesAbove) const {
+		bool hasUnreadBadgesAbove,
+		bool insideCommunity) const {
 	const auto user = peer->asUser();
 	const auto now = user ? base::unixtime::now() : TimeId();
 	const auto channel = user ? nullptr : peer->asChannel();
@@ -370,7 +371,7 @@ void Row::updateCornerBadgeShown(
 		} else if (channel
 			&& (Data::ChannelHasActiveCall(channel)
 				|| Data::ChannelHasSubscriptionUntilDate(channel)
-				|| channel->linkedCommunityId())) {
+				|| (!insideCommunity && channel->linkedCommunityId()))) {
 			return kTopLayer;
 		} else if (peer->messagesTTL()) {
 			return kBottomLayer;
@@ -576,8 +577,13 @@ void Row::paintUserpic(
 		Ui::VideoUserpic *videoUserpic,
 		const Ui::PaintContext &context,
 		bool hasUnreadBadgesAbove) const {
+	const auto insideCommunity = context.insideCommunity;
 	if (peer) {
-		updateCornerBadgeShown(peer, nullptr, hasUnreadBadgesAbove);
+		updateCornerBadgeShown(
+			peer,
+			nullptr,
+			hasUnreadBadgesAbove,
+			insideCommunity);
 	}
 
 	const auto cornerBadgeShown = !_cornerBadgeUserpic
@@ -656,7 +662,8 @@ void Row::paintUserpic(
 	const auto communityMember = badgeChannel
 		&& badgeChannel->linkedCommunityId()
 		&& !Data::ChannelHasActiveCall(badgeChannel)
-		&& !subscribed;
+		&& !subscribed
+		&& !insideCommunity;
 	if (keyChanged
 		|| !_cornerBadgeUserpic->layersManager.isFinished()
 		|| _cornerBadgeUserpic->active != active

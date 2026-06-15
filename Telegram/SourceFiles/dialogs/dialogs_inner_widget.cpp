@@ -91,6 +91,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat.h" // popupMenuExpandedSeparator
 #include "styles/style_chat_helpers.h"
 #include "styles/style_color_indices.h"
+#include "styles/style_layers.h"
 #include "styles/style_window.h"
 #include "styles/style_media_player.h"
 #include "styles/style_menu_icons.h"
@@ -616,7 +617,22 @@ void InnerWidget::setNarrowRatio(float64 narrowRatio) {
 	}
 	_geometryInited = true;
 	_narrowRatio = narrowRatio;
-	if (_shownList->updateHeights(_narrowRatio) || !height()) {
+	auto changed = _shownList->updateHeights(_narrowRatio);
+	if (_openedCommunity) {
+		const auto recount = [&](
+				const std::vector<std::unique_ptr<Row>> &rows) {
+			for (const auto &row : rows) {
+				const auto was = row->height();
+				row->recountHeight(_narrowRatio, FilterId());
+				if (row->height() != was) {
+					changed = true;
+				}
+			}
+		};
+		recount(_communityViewable);
+		recount(_communityRequestable);
+	}
+	if (changed || !height()) {
 		refresh();
 	}
 }
@@ -764,6 +780,15 @@ int InnerWidget::searchedOffset() const {
 	return result;
 }
 
+int InnerWidget::communityListHeight(
+		const std::vector<std::unique_ptr<Row>> &rows) const {
+	auto result = 0;
+	for (const auto &row : rows) {
+		result += row->height();
+	}
+	return result;
+}
+
 int InnerWidget::communityViewableTop() const {
 	return dialogsOffset() + _shownList->height();
 }
@@ -772,7 +797,7 @@ int InnerWidget::communityRequestableTop() const {
 	auto result = communityViewableTop();
 	if (!_communityViewable.empty()) {
 		result += st::searchedBarHeight
-			+ int(_communityViewable.size()) * st::defaultDialogRow.height;
+			+ communityListHeight(_communityViewable);
 	}
 	return result;
 }
@@ -781,7 +806,7 @@ int InnerWidget::communitySectionsBottom() const {
 	auto result = communityRequestableTop();
 	if (!_communityRequestable.empty()) {
 		result += st::searchedBarHeight
-			+ int(_communityRequestable.size()) * st::defaultDialogRow.height;
+			+ communityListHeight(_communityRequestable);
 	}
 	return result;
 }
@@ -802,13 +827,19 @@ Row *InnerWidget::communityRowAt(int index) const {
 
 int InnerWidget::communityRowAbsoluteTop(int index) const {
 	const auto viewable = int(_communityViewable.size());
-	return (index < viewable)
-		? (communityViewableTop()
-			+ st::searchedBarHeight
-			+ index * st::defaultDialogRow.height)
-		: (communityRequestableTop()
-			+ st::searchedBarHeight
-			+ (index - viewable) * st::defaultDialogRow.height);
+	const auto inViewable = (index < viewable);
+	const auto &rows = inViewable
+		? _communityViewable
+		: _communityRequestable;
+	const auto localIndex = inViewable ? index : (index - viewable);
+	auto result = (inViewable
+		? communityViewableTop()
+		: communityRequestableTop())
+		+ st::searchedBarHeight;
+	for (auto j = 0; j != localIndex; ++j) {
+		result += rows[j]->height();
+	}
+	return result;
 }
 
 void InnerWidget::changeOpenedFolder(Data::Folder *folder) {
@@ -977,6 +1008,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 		.width = fullWidth,
 		.paused = videoPaused,
 		.narrow = (fullWidth < st::columnMinimalWidthLeft / 2),
+		.insideCommunity = (_openedCommunity != nullptr),
 	};
 	const auto fillGuard = gsl::finally([&] {
 		// We translate painter down, but it'll be cropped below rect.
@@ -1269,7 +1301,13 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 		if (_openedCommunity) {
 			p.restore();
 			const auto paintBar = [&](const QString &text) {
-				p.setFont(st::searchedBarFont);
+				p.fillRect(
+					0,
+					0,
+					fullWidth,
+					st::searchedBarHeight,
+					currentBg());
+				p.setFont(st::defaultSubsectionTitle.style.font);
 				p.setPen(st::windowActiveTextFg);
 				p.drawTextLeft(
 					st::searchedBarPosition.x(),
@@ -1294,7 +1332,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 						? (_communityPressed == flatBase + i)
 						: (_communitySelected == flatBase + i);
 					paintRow(rows[i].get(), selected, false);
-					p.translate(0, st::defaultDialogRow.height);
+					p.translate(0, rows[i]->height());
 				}
 				p.restore();
 			};
@@ -2150,24 +2188,32 @@ void InnerWidget::selectByMouse(QPoint globalPosition) {
 			&& lookupIsInBotAppButton(selected, QPoint(local.x(), mappedY));
 		auto communitySelected = -1;
 		if (_openedCommunity && !selected && collapsedSelected < 0) {
-			const auto pick = [&](int sectionTop, int flatBase, int count) {
-				if (count <= 0) {
+			const auto pick = [&](
+					int sectionTop,
+					int flatBase,
+					const std::vector<std::unique_ptr<Row>> &rows) {
+				if (rows.empty()) {
 					return;
 				}
-				const auto rowsTop = sectionTop + st::searchedBarHeight;
-				if (mouseY >= rowsTop) {
-					const auto index =
-						(mouseY - rowsTop) / st::defaultDialogRow.height;
-					if (index >= 0 && index < count) {
-						communitySelected = flatBase + index;
+				auto rowTop = sectionTop + st::searchedBarHeight;
+				if (mouseY < rowTop) {
+					return;
+				}
+				const auto count = int(rows.size());
+				for (auto i = 0; i != count; ++i) {
+					const auto bottom = rowTop + rows[i]->height();
+					if (mouseY < bottom) {
+						communitySelected = flatBase + i;
+						return;
 					}
+					rowTop = bottom;
 				}
 			};
-			pick(communityViewableTop(), 0, int(_communityViewable.size()));
+			pick(communityViewableTop(), 0, _communityViewable);
 			pick(
 				communityRequestableTop(),
 				int(_communityViewable.size()),
-				int(_communityRequestable.size()));
+				_communityRequestable);
 		}
 		if (_collapsedSelected != collapsedSelected
 			|| _selected != selected
@@ -2453,11 +2499,12 @@ void InnerWidget::mousePressEvent(QMouseEvent *e) {
 	} else if (_communityPressed >= 0) {
 		if (const auto row = communityRowAt(_communityPressed)) {
 			const auto top = communityRowAbsoluteTop(_communityPressed);
+			const auto height = row->height();
 			row->addRipple(
 				e->pos() - QPoint(0, top),
-				QSize(width(), st::defaultDialogRow.height),
+				QSize(width(), height),
 				[=] {
-					update(0, top, width(), st::defaultDialogRow.height);
+					update(0, top, width(), height);
 				});
 		}
 	}
@@ -3639,11 +3686,13 @@ void InnerWidget::updateSelectedRow(Key key) {
 		} else if (_collapsedSelected >= 0) {
 			update(0, _collapsedSelected * st::dialogsImportantBarHeight, width(), st::dialogsImportantBarHeight);
 		} else if (_communitySelected >= 0) {
-			update(
-				0,
-				communityRowAbsoluteTop(_communitySelected),
-				width(),
-				st::defaultDialogRow.height);
+			if (const auto row = communityRowAt(_communitySelected)) {
+				update(
+					0,
+					communityRowAbsoluteTop(_communitySelected),
+					width(),
+					row->height());
+			}
 		}
 	} else if (_state == WidgetState::Filtered) {
 		if (key) {
