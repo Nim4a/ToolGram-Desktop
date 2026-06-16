@@ -18,6 +18,7 @@ namespace {
 
 constexpr auto kPeek = 0.3; // Tunable. Strip width to the left of the userpic.
 constexpr auto kCover = 0.5; // Tunable. How far the image reaches into the userpic.
+constexpr auto kPivotY = 0.75; // Tunable. Rotation point, fraction of size down.
 constexpr auto kCard1Scale = 0.82; // Tunable.
 constexpr auto kCard1Angle = -9.; // Tunable.
 constexpr auto kCard1Radius = 0.22; // Tunable. Less rounded than the userpic.
@@ -77,7 +78,7 @@ void PaintCommunityUserpicEffect(
 		// The userpic and every card share a pivot on the userpic's left edge
 		// where its bottom-left rounding starts; each card is pinned there and
 		// rotated, so only its top-left corner peeks out to the left.
-		const auto pivot = QPointF(peek, size * (1. - rounding));
+		const auto pivot = QPointF(peek, size * kPivotY);
 		const auto card = [&](
 				float64 scale,
 				float64 round,
@@ -114,10 +115,14 @@ void PaintCommunityUserpicEffect(
 		q.setBrush(color1);
 		card(kCard1Scale, kCard1Radius, kCard1Angle, 0.);
 
-		// Carve the userpic gap; the userpic is drawn by the caller.
+		// Carve the userpic gap at its real position; the userpic itself is
+		// drawn by the caller into the hole.
 		q.setCompositionMode(QPainter::CompositionMode_Source);
 		q.setBrush(Qt::transparent);
-		card(1., rounding, 0., gap);
+		q.drawRoundedRect(
+			QRectF(peek - gap, -gap, size + 2 * gap, size + 2 * gap),
+			size * rounding + gap,
+			size * rounding + gap);
 	}
 	p.drawImage(QPointF(x - peek, y), cache.image);
 }
