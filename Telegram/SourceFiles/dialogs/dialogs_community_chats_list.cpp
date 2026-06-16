@@ -57,15 +57,13 @@ CommunityChatsList::CommunityChatsList(
 CommunityChatsList::~CommunityChatsList() = default;
 
 void CommunityChatsList::rebuild() {
-	const auto wasCount = int(_rows.size());
-	_rows.clear();
+	const auto wasCount = _view.size();
+	_view.clear();
 	setSelected(-1);
 	setPressed(-1);
 	const auto owner = &_controller->session().data();
 	const auto add = [&](not_null<History*> history) {
-		auto row = std::make_unique<Row>(Key(history), 0, 0);
-		row->recountHeight(0., FilterId());
-		_rows.push_back(std::move(row));
+		_view.add(history, 0.);
 	};
 	if (_kind == CommunityChatsKind::Joined) {
 		for (const auto &row : *_community->chatsList()->indexed()) {
@@ -84,27 +82,16 @@ void CommunityChatsList::rebuild() {
 			add(owner->history(linked.peer));
 		}
 	}
-	_count = int(_rows.size());
-	if (int(_rows.size()) != wasCount) {
+	_view.finalize();
+	_count = _view.size();
+	if (_view.size() != wasCount) {
 		resizeToWidth(width());
 	}
 	update();
 }
 
-int CommunityChatsList::rowTop(int index) const {
-	auto result = 0;
-	for (auto i = 0; i != index; ++i) {
-		result += _rows[i]->height();
-	}
-	return result;
-}
-
 int CommunityChatsList::resizeGetHeight(int newWidth) {
-	auto result = 0;
-	for (const auto &row : _rows) {
-		result += row->height();
-	}
-	return result;
+	return _view.height();
 }
 
 void CommunityChatsList::paintEvent(QPaintEvent *e) {
@@ -112,7 +99,7 @@ void CommunityChatsList::paintEvent(QPaintEvent *e) {
 
 	const auto clip = e->rect();
 	p.fillRect(clip, st::dialogsBg);
-	if (_rows.empty()) {
+	if (_view.empty()) {
 		return;
 	}
 	const auto paused = _controller->isGifPausedAtLeastFor(
@@ -127,39 +114,19 @@ void CommunityChatsList::paintEvent(QPaintEvent *e) {
 		.insideCommunity = true,
 	};
 	const auto pressed = (_pressed >= 0);
-	auto top = 0;
-	for (auto i = 0, count = int(_rows.size()); i != count; ++i) {
-		const auto height = _rows[i]->height();
-		if (top + height <= clip.top()) {
-			top += height;
-			continue;
-		} else if (top >= clip.top() + clip.height()) {
-			break;
-		}
+	_view.paint(p, clip, [&](not_null<Row*> row, int index, int top) {
 		context.active = false;
 		context.selected = pressed
-			? (_pressed == i)
-			: (_selected == i);
+			? (_pressed == index)
+			: (_selected == index);
 		p.translate(0, top);
-		Ui::RowPainter::Paint(p, _rows[i].get(), nullptr, context);
+		Ui::RowPainter::Paint(p, row.get(), nullptr, context);
 		p.translate(0, -top);
-		top += height;
-	}
+	});
 }
 
 void CommunityChatsList::updateSelected(QPoint local) {
-	auto selected = -1;
-	if (local.y() >= 0) {
-		auto top = 0;
-		for (auto i = 0, count = int(_rows.size()); i != count; ++i) {
-			const auto bottom = top + _rows[i]->height();
-			if (local.y() < bottom) {
-				selected = i;
-				break;
-			}
-			top = bottom;
-		}
-	}
+	const auto selected = (local.y() >= 0) ? _view.indexByY(local.y()) : -1;
 	setSelected(selected);
 	setCursor((_selected >= 0) ? style::cur_pointer : style::cur_default);
 }
@@ -168,12 +135,12 @@ void CommunityChatsList::setSelected(int selected) {
 	if (_selected == selected) {
 		return;
 	}
-	if (_selected >= 0 && _selected < int(_rows.size())) {
-		update(0, rowTop(_selected), width(), _rows[_selected]->height());
+	if (const auto row = _view.rowAt(_selected)) {
+		update(0, _view.rowTop(_selected), width(), row->height());
 	}
 	_selected = selected;
-	if (_selected >= 0 && _selected < int(_rows.size())) {
-		update(0, rowTop(_selected), width(), _rows[_selected]->height());
+	if (const auto row = _view.rowAt(_selected)) {
+		update(0, _view.rowTop(_selected), width(), row->height());
 	}
 }
 
@@ -181,8 +148,8 @@ void CommunityChatsList::setPressed(int pressed) {
 	if (_pressed == pressed) {
 		return;
 	}
-	if (_pressed >= 0 && _pressed < int(_rows.size())) {
-		_rows[_pressed]->stopLastRipple();
+	if (const auto row = _view.rowAt(_pressed)) {
+		row->stopLastRipple();
 	}
 	_pressed = pressed;
 }
@@ -197,10 +164,10 @@ void CommunityChatsList::mousePressEvent(QMouseEvent *e) {
 	}
 	updateSelected(e->pos());
 	setPressed(_selected);
-	if (_pressed >= 0) {
-		const auto top = rowTop(_pressed);
-		const auto height = _rows[_pressed]->height();
-		_rows[_pressed]->addRipple(
+	if (const auto row = _view.rowAt(_pressed)) {
+		const auto top = _view.rowTop(_pressed);
+		const auto height = row->height();
+		row->addRipple(
 			e->pos() - QPoint(0, top),
 			QSize(width(), height),
 			[=] { update(0, top, width(), height); });
@@ -210,9 +177,11 @@ void CommunityChatsList::mousePressEvent(QMouseEvent *e) {
 void CommunityChatsList::mouseReleaseEvent(QMouseEvent *e) {
 	const auto pressed = _pressed;
 	setPressed(-1);
-	if (pressed >= 0 && pressed == _selected && pressed < int(_rows.size())) {
-		if (const auto history = _rows[pressed]->history()) {
-			_chatChosen.fire_copy(history);
+	if (pressed >= 0 && pressed == _selected) {
+		if (const auto row = _view.rowAt(pressed)) {
+			if (const auto history = row->history()) {
+				_chatChosen.fire_copy(history);
+			}
 		}
 	}
 }

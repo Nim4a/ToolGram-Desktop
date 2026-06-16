@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/timer.h"
 #include "data/data_messages.h"
 #include "dialogs/ui/dialogs_quick_action_context.h"
+#include "dialogs/dialogs_community_chats.h"
 #include "dialogs/dialogs_inner_widget_accessibility.h"
 #include "dialogs/dialogs_key.h"
 #include "lang/lang_keys.h"
@@ -482,8 +483,6 @@ private:
 	[[nodiscard]] int communityViewableTop() const;
 	[[nodiscard]] int communityRequestableTop() const;
 	[[nodiscard]] int communitySectionsBottom() const;
-	[[nodiscard]] int communityListHeight(
-		const std::vector<std::unique_ptr<Row>> &rows) const;
 	[[nodiscard]] int communityRowCount() const;
 	[[nodiscard]] Row *communityRowAt(int index) const;
 	[[nodiscard]] int communityRowAbsoluteTop(int index) const;
@@ -725,8 +724,8 @@ private:
 	int _searchedSelected = -1;
 	int _searchedPressed = -1;
 
-	std::vector<std::unique_ptr<Row>> _communityViewable;
-	std::vector<std::unique_ptr<Row>> _communityRequestable;
+	CommunityRowsView _communityViewable;
+	CommunityRowsView _communityRequestable;
 	int _communitySelected = -1;
 	int _communityPressed = -1;
 	rpl::lifetime _openedCommunityLifetime;

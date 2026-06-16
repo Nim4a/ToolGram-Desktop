@@ -619,14 +619,11 @@ void InnerWidget::setNarrowRatio(float64 narrowRatio) {
 	_narrowRatio = narrowRatio;
 	auto changed = _shownList->updateHeights(_narrowRatio);
 	if (_openedCommunity) {
-		const auto recount = [&](
-				const std::vector<std::unique_ptr<Row>> &rows) {
-			for (const auto &row : rows) {
-				const auto was = row->height();
-				row->recountHeight(_narrowRatio, FilterId());
-				if (row->height() != was) {
-					changed = true;
-				}
+		const auto recount = [&](CommunityRowsView &view) {
+			const auto was = view.height();
+			view.recountHeights(_narrowRatio);
+			if (view.height() != was) {
+				changed = true;
 			}
 		};
 		recount(_communityViewable);
@@ -780,15 +777,6 @@ int InnerWidget::searchedOffset() const {
 	return result;
 }
 
-int InnerWidget::communityListHeight(
-		const std::vector<std::unique_ptr<Row>> &rows) const {
-	auto result = 0;
-	for (const auto &row : rows) {
-		result += row->height();
-	}
-	return result;
-}
-
 int InnerWidget::communityViewableTop() const {
 	return dialogsOffset() + _shownList->height();
 }
@@ -796,8 +784,7 @@ int InnerWidget::communityViewableTop() const {
 int InnerWidget::communityRequestableTop() const {
 	auto result = communityViewableTop();
 	if (!_communityViewable.empty()) {
-		result += st::searchedBarHeight
-			+ communityListHeight(_communityViewable);
+		result += st::searchedBarHeight + _communityViewable.height();
 	}
 	return result;
 }
@@ -805,41 +792,37 @@ int InnerWidget::communityRequestableTop() const {
 int InnerWidget::communitySectionsBottom() const {
 	auto result = communityRequestableTop();
 	if (!_communityRequestable.empty()) {
-		result += st::searchedBarHeight
-			+ communityListHeight(_communityRequestable);
+		result += st::searchedBarHeight + _communityRequestable.height();
 	}
 	return result;
 }
 
 int InnerWidget::communityRowCount() const {
-	return int(_communityViewable.size() + _communityRequestable.size());
+	return _communityViewable.size() + _communityRequestable.size();
 }
 
 Row *InnerWidget::communityRowAt(int index) const {
 	if (index < 0 || index >= communityRowCount()) {
 		return nullptr;
 	}
-	const auto viewable = int(_communityViewable.size());
+	const auto viewable = _communityViewable.size();
 	return (index < viewable)
-		? _communityViewable[index].get()
-		: _communityRequestable[index - viewable].get();
+		? _communityViewable.rowAt(index)
+		: _communityRequestable.rowAt(index - viewable);
 }
 
 int InnerWidget::communityRowAbsoluteTop(int index) const {
-	const auto viewable = int(_communityViewable.size());
+	const auto viewable = _communityViewable.size();
 	const auto inViewable = (index < viewable);
-	const auto &rows = inViewable
+	const auto &view = inViewable
 		? _communityViewable
 		: _communityRequestable;
 	const auto localIndex = inViewable ? index : (index - viewable);
-	auto result = (inViewable
+	return (inViewable
 		? communityViewableTop()
 		: communityRequestableTop())
-		+ st::searchedBarHeight;
-	for (auto j = 0; j != localIndex; ++j) {
-		result += rows[j]->height();
-	}
-	return result;
+		+ st::searchedBarHeight
+		+ view.rowTop(localIndex);
 }
 
 void InnerWidget::changeOpenedFolder(Data::Folder *folder) {
@@ -919,14 +902,14 @@ void InnerWidget::rebuildCommunitySections() {
 		if (_shownList->getRow(Key(history))) {
 			continue;
 		}
-		auto row = std::make_unique<Row>(Key(history), 0, 0);
-		row->recountHeight(_narrowRatio, FilterId());
 		if (Data::IsCommunityChatViewable(linked)) {
-			_communityViewable.push_back(std::move(row));
+			_communityViewable.add(history, _narrowRatio);
 		} else {
-			_communityRequestable.push_back(std::move(row));
+			_communityRequestable.add(history, _narrowRatio);
 		}
 	}
+	_communityViewable.finalize();
+	_communityRequestable.finalize();
 }
 
 void InnerWidget::changeOpenedCommunity(Data::CommunityInfo *community) {
@@ -1318,23 +1301,31 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 			};
 			const auto paintSection = [&](
 					int sectionTop,
-					const std::vector<std::unique_ptr<Row>> &rows,
+					const CommunityRowsView &view,
 					const QString &text,
 					int flatBase) {
-				if (rows.empty()) {
+				if (view.empty()) {
 					return;
 				}
 				p.save();
 				p.translate(0, sectionTop);
 				paintBar(text);
-				p.translate(0, st::searchedBarHeight);
-				for (auto i = 0, count = int(rows.size()); i != count; ++i) {
+				const auto rowsTop = st::searchedBarHeight;
+				p.translate(0, rowsTop);
+				const auto localClip = r.translated(
+					0,
+					-(sectionTop + rowsTop));
+				view.paint(p, localClip, [&](
+						not_null<Row*> row,
+						int index,
+						int top) {
 					const auto selected = isPressed()
-						? (_communityPressed == flatBase + i)
-						: (_communitySelected == flatBase + i);
-					paintRow(rows[i].get(), selected, false);
-					p.translate(0, rows[i]->height());
-				}
+						? (_communityPressed == flatBase + index)
+						: (_communitySelected == flatBase + index);
+					p.translate(0, top);
+					paintRow(row, selected, false);
+					p.translate(0, -top);
+				});
 				p.restore();
 			};
 			if (!_shownList->empty()) {
@@ -1352,7 +1343,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 				communityRequestableTop(),
 				_communityRequestable,
 				tr::lng_community_chats_requestable(tr::now),
-				int(_communityViewable.size()));
+				_communityViewable.size());
 			p.translate(0, communitySectionsBottom());
 		}
 	} else if (_state == WidgetState::Filtered) {
@@ -2192,28 +2183,21 @@ void InnerWidget::selectByMouse(QPoint globalPosition) {
 			const auto pick = [&](
 					int sectionTop,
 					int flatBase,
-					const std::vector<std::unique_ptr<Row>> &rows) {
-				if (rows.empty()) {
+					const CommunityRowsView &view) {
+				if (view.empty()) {
 					return;
 				}
-				auto rowTop = sectionTop + st::searchedBarHeight;
-				if (mouseY < rowTop) {
-					return;
-				}
-				const auto count = int(rows.size());
-				for (auto i = 0; i != count; ++i) {
-					const auto bottom = rowTop + rows[i]->height();
-					if (mouseY < bottom) {
-						communitySelected = flatBase + i;
-						return;
-					}
-					rowTop = bottom;
+				const auto localY = mouseY
+					- (sectionTop + st::searchedBarHeight);
+				const auto index = view.indexByY(localY);
+				if (index >= 0) {
+					communitySelected = flatBase + index;
 				}
 			};
 			pick(communityViewableTop(), 0, _communityViewable);
 			pick(
 				communityRequestableTop(),
-				int(_communityViewable.size()),
+				_communityViewable.size(),
 				_communityRequestable);
 		}
 		if (_collapsedSelected != collapsedSelected

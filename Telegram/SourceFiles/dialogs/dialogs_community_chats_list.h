@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "dialogs/dialogs_community_chats.h"
 #include "ui/rp_widget.h"
 
 class History;
@@ -59,14 +60,13 @@ private:
 	void updateSelected(QPoint local);
 	void setSelected(int selected);
 	void setPressed(int pressed);
-	[[nodiscard]] int rowTop(int index) const;
 
 	const not_null<Window::SessionController*> _controller;
 	const not_null<Data::CommunityInfo*> _community;
 	const CommunityChatsKind _kind;
 	const not_null<const style::DialogRow*> _st;
 
-	std::vector<std::unique_ptr<Row>> _rows;
+	CommunityRowsView _view;
 	int _selected = -1;
 	int _pressed = -1;
 	rpl::variable<int> _count = 0;
