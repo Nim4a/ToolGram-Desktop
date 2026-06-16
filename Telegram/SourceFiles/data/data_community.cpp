@@ -91,6 +91,10 @@ constexpr auto kShowChatNamesCount = 20;
 
 } // namespace
 
+bool IsCommunityChatViewable(const CommunityLinkedPeer &linked) {
+	return (linked.visible == true);
+}
+
 CommunityInfo::CommunityInfo(not_null<ChannelData*> channel)
 : _channel(channel)
 , _chatsList(

@@ -65,7 +65,11 @@ InnerWidget::InnerWidget(
 , _controller(controller)
 , _peer(peer) {
 	if (const auto community = peer->asChannel()) {
-		SetupCommunityContent(this, controller, community, controller->uiShow());
+		SetupCommunityContent(
+			this,
+			controller->parentController(),
+			community,
+			controller->uiShow());
 	}
 }
 

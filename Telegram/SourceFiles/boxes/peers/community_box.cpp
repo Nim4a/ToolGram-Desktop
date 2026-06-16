@@ -18,6 +18,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_peer_values.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
+#include "dialogs/dialogs_community_chats_list.h"
+#include "history/history.h"
 #include "info/profile/info_profile_values.h"
 #include "lang/lang_hardcoded.h"
 #include "lang/lang_keys.h"
@@ -40,28 +42,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_settings.h"
 
 namespace {
-
-struct PartitionedChats {
-	std::vector<not_null<PeerData*>> joined;
-	std::vector<not_null<PeerData*>> viewable;
-	std::vector<not_null<PeerData*>> requestable;
-};
-
-[[nodiscard]] PartitionedChats PartitionChats(
-		not_null<Data::CommunityInfo*> info) {
-	auto result = PartitionedChats();
-	for (const auto &linked : info->linkedPeers()) {
-		const auto channel = linked.peer->asChannel();
-		if (channel && channel->amIn()) {
-			result.joined.push_back(linked.peer);
-		} else if (channel && channel->isPublic()) {
-			result.viewable.push_back(linked.peer);
-		} else {
-			result.requestable.push_back(linked.peer);
-		}
-	}
-	return result;
-}
 
 class ChatsController final : public PeerListController {
 public:
@@ -132,7 +112,7 @@ void ChatsController::rowClicked(not_null<PeerListRow*> row) {
 
 void SetupCommunityContent(
 		not_null<Ui::VerticalLayout*> container,
-		not_null<Window::SessionNavigation*> navigation,
+		not_null<Window::SessionController*> controller,
 		not_null<ChannelData*> community,
 		std::shared_ptr<Main::SessionShow> show) {
 	const auto info = community->communityInfo();
@@ -179,7 +159,7 @@ void SetupCommunityContent(
 			st::settingsButton,
 			{ &st::menuIconPendingRequests }
 		)->addClickHandler([=] {
-			ShowCommunityPendingRequestsBox(navigation, community);
+			ShowCommunityPendingRequestsBox(controller, community);
 		});
 		wrap->toggleOn(
 			std::move(count) | rpl::map(rpl::mappers::_1 > 0),
@@ -187,19 +167,57 @@ void SetupCommunityContent(
 		wrap->finishAnimating();
 	}
 
-	auto chats = info->linkedPeersValue(
+	const auto addDialogsSection = [&](
+			rpl::producer<QString> title,
+			Dialogs::CommunityChatsKind kind) {
+		const auto wrap = container->add(
+			object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+				container,
+				object_ptr<Ui::VerticalLayout>(container)));
+		const auto inner = wrap->entity();
+		Ui::AddSkip(inner);
+		Ui::AddSubsectionTitle(inner, std::move(title));
+		const auto list = inner->add(object_ptr<Dialogs::CommunityChatsList>(
+			inner,
+			controller,
+			info,
+			kind));
+		list->chatChosen(
+		) | rpl::on_next([=](not_null<History*> history) {
+			controller->showPeerHistory(
+				history,
+				Window::SectionShow::Way::ClearStack,
+				ShowAtUnreadMsgId);
+		}, list->lifetime());
+		wrap->toggleOn(
+			list->countValue() | rpl::map(rpl::mappers::_1 > 0),
+			anim::type::instant);
+		wrap->finishAnimating();
+	};
+
+	auto requestable = info->linkedPeersValue(
 	) | rpl::map([=] {
-		return PartitionChats(info);
+		auto result = std::vector<not_null<PeerData*>>();
+		for (const auto &linked : info->linkedPeers()) {
+			const auto channel = linked.peer->asChannel();
+			if (channel && channel->amIn()) {
+				continue;
+			} else if (Data::IsCommunityChatViewable(linked)) {
+				continue;
+			}
+			result.push_back(linked.peer);
+		}
+		return result;
 	}) | rpl::start_spawning(container->lifetime());
 
 	const auto openChat = [=](not_null<PeerData*> peer) {
-		navigation->showPeerHistory(
+		controller->showPeerHistory(
 			peer,
 			Window::SectionShow::Way::ClearStack,
 			ShowAtUnreadMsgId);
 	};
 
-	const auto addSection = [&](
+	const auto addPeerListSection = [&](
 			rpl::producer<QString> title,
 			rpl::producer<std::vector<not_null<PeerData*>>> list) {
 		const auto wrap = container->add(
@@ -225,36 +243,30 @@ void SetupCommunityContent(
 
 		};
 		const auto delegate = inner->lifetime().make_state<Delegate>(show);
-		const auto controller = inner->lifetime().make_state<
+		const auto chatsController = inner->lifetime().make_state<
 			ChatsController
 		>(&community->session(), std::move(list), openChat);
 		const auto content = inner->add(object_ptr<PeerListContent>(
 			inner,
-			controller));
+			chatsController));
 		delegate->setContent(content);
-		controller->setDelegate(delegate);
+		chatsController->setDelegate(delegate);
 
 		wrap->toggleOn(
-			controller->countValue() | rpl::map(rpl::mappers::_1 > 0),
+			chatsController->countValue() | rpl::map(rpl::mappers::_1 > 0),
 			anim::type::instant);
 		wrap->finishAnimating();
 	};
 
-	addSection(
+	addDialogsSection(
 		tr::lng_community_chats_joined(),
-		rpl::duplicate(chats) | rpl::map([](const PartitionedChats &c) {
-			return c.joined;
-		}));
-	addSection(
+		Dialogs::CommunityChatsKind::Joined);
+	addDialogsSection(
 		tr::lng_community_chats_viewable(),
-		rpl::duplicate(chats) | rpl::map([](const PartitionedChats &c) {
-			return c.viewable;
-		}));
-	addSection(
+		Dialogs::CommunityChatsKind::Viewable);
+	addPeerListSection(
 		tr::lng_community_chats_requestable(),
-		rpl::duplicate(chats) | rpl::map([](const PartitionedChats &c) {
-			return c.requestable;
-		}));
+		rpl::duplicate(requestable));
 
 	Settings::AddButtonWithIcon(
 		container,
@@ -262,7 +274,7 @@ void SetupCommunityContent(
 		st::settingsButton,
 		{ &st::menuIconGroups }
 	)->addClickHandler([=] {
-		ShowChooseChatToAddBox(navigation, community);
+		ShowChooseChatToAddBox(controller, community);
 	});
 
 	if (!community->wasFullUpdated()) {

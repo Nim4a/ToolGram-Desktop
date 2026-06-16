@@ -20,12 +20,13 @@ class SessionShow;
 } // namespace Main
 
 namespace Window {
+class SessionController;
 class SessionNavigation;
 } // namespace Window
 
 void SetupCommunityContent(
 	not_null<Ui::VerticalLayout*> container,
-	not_null<Window::SessionNavigation*> navigation,
+	not_null<Window::SessionController*> controller,
 	not_null<ChannelData*> community,
 	std::shared_ptr<Main::SessionShow> show);
 

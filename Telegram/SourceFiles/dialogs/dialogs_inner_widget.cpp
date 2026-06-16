@@ -921,7 +921,7 @@ void InnerWidget::rebuildCommunitySections() {
 		}
 		auto row = std::make_unique<Row>(Key(history), 0, 0);
 		row->recountHeight(_narrowRatio, FilterId());
-		if (linked.visible == true) {
+		if (Data::IsCommunityChatViewable(linked)) {
 			_communityViewable.push_back(std::move(row));
 		} else {
 			_communityRequestable.push_back(std::move(row));
