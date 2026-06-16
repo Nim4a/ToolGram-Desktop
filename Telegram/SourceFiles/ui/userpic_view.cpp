@@ -16,18 +16,18 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Ui {
 namespace {
 
-constexpr auto kPeekLeft = 0.18; // Tunable.
-constexpr auto kPeekTop = 0.10; // Tunable.
+constexpr auto kPeek = 0.26; // Tunable. Strip width to the left of the userpic.
 constexpr auto kCard1Scale = 0.94; // Tunable.
-constexpr auto kCard1Dx = 0.07; // Tunable.
-constexpr auto kCard1Dy = 0.05; // Tunable.
-constexpr auto kCard1Angle = -9.; // Tunable.
+constexpr auto kCard1Dx = 0.12; // Tunable.
+constexpr auto kCard1Angle = -7.; // Tunable.
+constexpr auto kCard1Radius = 0.25; // Tunable. Less rounded than the userpic.
+constexpr auto kCard1Opacity = 0.5; // Tunable.
 constexpr auto kCard2Scale = 0.86; // Tunable.
-constexpr auto kCard2Dx = 0.14; // Tunable.
-constexpr auto kCard2Dy = 0.10; // Tunable.
-constexpr auto kCard2Angle = -18.; // Tunable.
-constexpr auto kGap = 0.04; // Tunable.
-constexpr auto kCard2Opacity = 0.7; // Tunable.
+constexpr auto kCard2Dx = 0.22; // Tunable.
+constexpr auto kCard2Angle = -14.; // Tunable.
+constexpr auto kCard2Radius = 0.18; // Tunable. Even less rounded.
+constexpr auto kCard2Opacity = 0.3; // Tunable.
+constexpr auto kGap = 0.02; // Tunable.
 
 } // namespace
 
@@ -48,8 +48,7 @@ void PaintCommunityUserpicEffect(
 	const auto dpr = style::DevicePixelRatio();
 	const auto version = style::PaletteVersion();
 	const auto rgba = color.rgba();
-	const auto peekLeft = size * kPeekLeft;
-	const auto peekTop = size * kPeekTop;
+	const auto peek = size * kPeek;
 	const auto regenerate = cache.image.isNull()
 		|| (cache.size != size)
 		|| (cache.color != rgba)
@@ -61,8 +60,8 @@ void PaintCommunityUserpicEffect(
 		cache.paletteVersion = version;
 		cache.dpr = dpr;
 
-		const auto imageW = int(std::ceil((peekLeft + size) * dpr));
-		const auto imageH = int(std::ceil((peekTop + size) * dpr));
+		const auto imageW = int(std::ceil(peek * dpr));
+		const auto imageH = int(std::ceil(size * dpr));
 		if (cache.image.size() != QSize(imageW, imageH)) {
 			cache.image = QImage(
 				QSize(imageW, imageH),
@@ -73,13 +72,16 @@ void PaintCommunityUserpicEffect(
 
 		auto q = QPainter(&cache.image);
 		auto hq = PainterHighQualityEnabler(q);
-		const auto U = QRectF(peekLeft, peekTop, size, size);
-		const auto Cu = U.center();
+		const auto Cu = QPointF(peek + size / 2., size / 2.);
 		const auto gap = size * kGap;
 
-		const auto card = [&](QPointF center, float64 side, float64 angle) {
+		const auto card = [&](
+				QPointF center,
+				float64 side,
+				float64 angle,
+				float64 rounding) {
 			const auto half = side / 2.;
-			const auto radius = side * Ui::ForumUserpicRadiusMultiplier();
+			const auto radius = side * rounding;
 			q.save();
 			q.translate(center);
 			q.rotate(angle);
@@ -91,31 +93,33 @@ void PaintCommunityUserpicEffect(
 		};
 
 		const auto s1 = size * kCard1Scale;
-		const auto C1 = Cu + QPointF(-size * kCard1Dx, -size * kCard1Dy);
+		const auto C1 = Cu - QPointF(size * kCard1Dx, 0.);
 		const auto s2 = size * kCard2Scale;
-		const auto C2 = Cu + QPointF(-size * kCard2Dx, -size * kCard2Dy);
+		const auto C2 = Cu - QPointF(size * kCard2Dx, 0.);
 
 		q.setPen(Qt::NoPen);
 
 		auto color2 = color;
 		color2.setAlphaF(color.alphaF() * kCard2Opacity);
 		q.setBrush(color2);
-		card(C2, s2, kCard2Angle);
+		card(C2, s2, kCard2Angle, kCard2Radius);
 
 		// Carve a transparent gap, then draw card1 on top.
 		q.setCompositionMode(QPainter::CompositionMode_Source);
 		q.setBrush(Qt::transparent);
-		card(C1, s1 + 2 * gap, kCard1Angle);
+		card(C1, s1 + 2 * gap, kCard1Angle, kCard1Radius);
 		q.setCompositionMode(QPainter::CompositionMode_SourceOver);
-		q.setBrush(color);
-		card(C1, s1, kCard1Angle);
+		auto color1 = color;
+		color1.setAlphaF(color.alphaF() * kCard1Opacity);
+		q.setBrush(color1);
+		card(C1, s1, kCard1Angle, kCard1Radius);
 
-		// Carve the userpic gap (axis-aligned); the userpic is drawn by caller.
+		// Carve the userpic gap; the userpic is drawn by the caller.
 		q.setCompositionMode(QPainter::CompositionMode_Source);
 		q.setBrush(Qt::transparent);
-		card(Cu, size + 2 * gap, 0.);
+		card(Cu, size + 2 * gap, 0., Ui::ForumUserpicRadiusMultiplier());
 	}
-	p.drawImage(QPointF(x - peekLeft, y - peekTop), cache.image);
+	p.drawImage(QPointF(x - peek, y), cache.image);
 }
 
 bool PeerUserpicLoading(const PeerUserpicView &view) {
