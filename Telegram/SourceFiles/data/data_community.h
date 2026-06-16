@@ -39,6 +39,7 @@ public:
 		return _linkedPeers;
 	}
 	[[nodiscard]] rpl::producer<> linkedPeersValue() const;
+	[[nodiscard]] bool isHidden(not_null<PeerData*> peer) const;
 
 	[[nodiscard]] bool collapsedInDialogs() const;
 	void collapsedChanged();
@@ -78,6 +79,7 @@ private:
 
 	const not_null<ChannelData*> _channel;
 	std::vector<CommunityLinkedPeer> _linkedPeers;
+	base::flat_set<not_null<PeerData*>> _hiddenPeers;
 	rpl::event_stream<> _linkedPeersChanges;
 
 	base::flat_set<not_null<History*>> _histories;

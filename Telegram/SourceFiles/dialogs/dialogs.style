@@ -159,6 +159,13 @@ dialogsCommunityBadgeSkip: point(-3px, -3px);
 dialogsCommunityBadgeStroke: 2px;
 dialogsCommunityBadgeLine: 1px;
 
+dialogsCommunityHiddenBadgeSize: 16px;
+dialogsCommunityHiddenBadgeSkip: point(-3px, -3px);
+dialogsCommunityHiddenBadgeStroke: 2px;
+dialogsCommunityHiddenBadgeLine: 1px;
+dialogsCommunityHiddenBadgePupil: 1px;
+dialogsCommunityHiddenBadgeFg: menuIconFg;
+
 dialogsTTLBadgeSize: 20px;
 dialogsTTLBadgeInnerMargins: margins(2px, 2px, 2px, 2px);
 // Relative to a photo place, not a whole userpic place.

@@ -106,7 +106,8 @@ public:
 		not_null<PeerData*> peer,
 		Fn<void()> updateCallback = nullptr,
 		bool hasUnreadBadgesAbove = false,
-		bool insideCommunity = false) const;
+		bool insideCommunity = false,
+		bool hidden = false) const;
 	void paintUserpic(
 		Painter &p,
 		not_null<Entry*> entry,
@@ -189,6 +190,7 @@ private:
 		uint32 storiesUnreadCount : 7 = 0;
 		uint32 storiesHasVideoStream : 1 = 0;
 		uint32 active : 1 = 0;
+		uint32 hidden : 1 = 0;
 	};
 
 	void setCornerBadgeShown(
@@ -204,7 +206,8 @@ private:
 		Ui::PeerUserpicView &view,
 		const Ui::PaintContext &context,
 		bool subscribed,
-		bool communityMember);
+		bool communityMember,
+		bool hidden);
 
 	Key _id;
 	mutable std::unique_ptr<CornerBadgeUserpic> _cornerBadgeUserpic;

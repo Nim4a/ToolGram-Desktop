@@ -1002,6 +1002,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 		.topicJumpCache = _topicJumpCache.get(),
 		.folder = _openedFolder,
 		.forum = _openedForum,
+		.community = _openedCommunity,
 		.currentBg = currentBg(),
 		.filter = _filterId,
 		.now = ms,

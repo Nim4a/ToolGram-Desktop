@@ -132,6 +132,13 @@ void CommunityInfo::applyLinkedPeers(const QVector<MTPCommunityPeer> &list) {
 	}
 	_linkedPeers = std::move(now);
 
+	_hiddenPeers.clear();
+	for (const auto &linked : _linkedPeers) {
+		if (linked.visible.has_value() && !*linked.visible) {
+			_hiddenPeers.emplace(linked.peer);
+		}
+	}
+
 	const auto communityId = peerToChannel(_channel->id);
 	for (const auto &linked : _linkedPeers) {
 		if (const auto channel = linked.peer->asChannel()) {
@@ -161,6 +168,10 @@ rpl::producer<> CommunityInfo::linkedPeersValue() const {
 	return rpl::single(
 		rpl::empty
 	) | rpl::then(_linkedPeersChanges.events());
+}
+
+bool CommunityInfo::isHidden(not_null<PeerData*> peer) const {
+	return _hiddenPeers.contains(peer);
 }
 
 bool CommunityInfo::collapsedInDialogs() const {
