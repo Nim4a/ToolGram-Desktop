@@ -21,7 +21,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/boxes/confirm_box.h"
 #include "ui/controls/userpic_button.h"
 #include "ui/layers/generic_box.h"
+#include "ui/painter.h"
+#include "ui/rp_widget.h"
 #include "ui/ui_utility.h"
+#include "ui/userpic_view.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
@@ -138,6 +141,21 @@ void ManageCommunityBox(
 				st::editPeerPhotoMargins));
 		photo = photoWrap->entity();
 		photo->showCustomOnChosen();
+		const auto cache = row->lifetime().make_state<
+			Ui::CommunityUserpicEffect>();
+		row->paintRequest(
+		) | rpl::on_next([=] {
+			const auto size = photo->width();
+			const auto origin = photo->mapTo(row, QPoint());
+			auto p = QPainter(row);
+			Ui::PaintCommunityUserpicEffect(
+				p,
+				*cache,
+				origin.x(),
+				origin.y(),
+				size,
+				st::windowSubTextFg->c);
+		}, row->lifetime());
 		const auto titleWrap = Ui::AttachParentChild(
 			row,
 			object_ptr<Ui::PaddingWrap<Ui::InputField>>(

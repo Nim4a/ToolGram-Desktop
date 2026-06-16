@@ -577,6 +577,22 @@ void Row::paintUserpic(
 		Ui::VideoUserpic *videoUserpic,
 		const Ui::PaintContext &context,
 		bool hasUnreadBadgesAbove) const {
+	const auto communityChannel = peer ? peer->asChannel() : nullptr;
+	if (communityChannel && communityChannel->isCommunity()) {
+		if (!_communityUserpicEffect) {
+			_communityUserpicEffect
+				= std::make_unique<Ui::CommunityUserpicEffect>();
+		}
+		Ui::PaintCommunityUserpicEffect(
+			p,
+			*_communityUserpicEffect,
+			context.st->padding.left(),
+			context.st->padding.top(),
+			context.st->photoSize,
+			st::windowSubTextFg->c);
+	} else if (_communityUserpicEffect) {
+		_communityUserpicEffect = nullptr;
+	}
 	const auto insideCommunity = context.insideCommunity;
 	if (peer) {
 		updateCornerBadgeShown(

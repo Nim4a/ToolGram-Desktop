@@ -208,6 +208,7 @@ private:
 
 	Key _id;
 	mutable std::unique_ptr<CornerBadgeUserpic> _cornerBadgeUserpic;
+	mutable std::unique_ptr<Ui::CommunityUserpicEffect> _communityUserpicEffect;
 	int _top = 0;
 	int _height = 0;
 	uint32 _index : 30 = 0;
