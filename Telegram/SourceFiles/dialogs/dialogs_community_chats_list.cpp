@@ -52,27 +52,21 @@ CommunityChatsList::CommunityChatsList(
 	_controller->session().data().chatListEntryRefreshes(
 	) | rpl::filter([=](const Event &event) {
 		const auto history = event.key.history();
-		return history && (history->communityListInfo() == _community);
-	}) | rpl::on_next([=](const Event &event) {
-		if (event.existenceChanged) {
-			rebuild();
-		} else {
-			update();
-		}
+		return event.existenceChanged
+			&& history
+			&& (history->communityListInfo() == _community);
+	}) | rpl::on_next([=] {
+		rebuild();
 	}, lifetime());
 
 	_controller->session().changes().entryUpdates(
-		Data::EntryUpdate::Flag::Repaint
-		| Data::EntryUpdate::Flag::Height
+		Data::EntryUpdate::Flag::Height
 	) | rpl::filter([=](const Data::EntryUpdate &update) {
 		const auto history = update.entry->asHistory();
 		return history && _view.contains(history);
-	}) | rpl::on_next([=](const Data::EntryUpdate &entryUpdate) {
-		if (entryUpdate.flags & Data::EntryUpdate::Flag::Height) {
-			_view.recountHeights(0.);
-			resizeToWidth(width());
-		}
-		update();
+	}) | rpl::on_next([=] {
+		_view.recountHeights(0.);
+		resizeToWidth(width());
 	}, lifetime());
 }
 
@@ -81,10 +75,18 @@ CommunityChatsList::~CommunityChatsList() = default;
 void CommunityChatsList::rebuild() {
 	const auto wasCount = _view.size();
 	_view.clear();
+	_forumsLifetime.destroy();
 	setSelected(-1);
 	setPressed(-1);
 	const auto owner = &_controller->session().data();
 	const auto add = [&](not_null<History*> history) {
+		if (const auto forum = history->peer->forum()) {
+			forum->preloadTopics();
+			forum->chatsListChanges(
+			) | rpl::on_next([=] {
+				update();
+			}, _forumsLifetime);
+		}
 		_view.add(history, 0.);
 	};
 	if (_kind == CommunityChatsKind::Joined) {
@@ -142,10 +144,6 @@ void CommunityChatsList::paintEvent(QPaintEvent *e) {
 			? (_pressed == index)
 			: (_selected == index);
 		context.st = &Row::ComputeSt(row->entry(), FilterId());
-		const auto history = row->history();
-		if (const auto forum = history ? history->peer->forum() : nullptr) {
-			forum->preloadTopics();
-		}
 		p.translate(0, top);
 		Ui::RowPainter::Paint(p, row.get(), nullptr, context);
 		p.translate(0, -top);
