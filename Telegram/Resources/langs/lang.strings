@@ -2199,6 +2199,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_manage_discussion_group_warning" = "\"Chat history for new members\" will be switched to **Visible**.";
 
 "lng_community_title" = "Community";
+"lng_community_view" = "View";
 "lng_community_manage" = "Manage Community";
 "lng_community_add_button" = "Add Group to a Community";
 "lng_community_add_about" = "Make your group part of a community with multiple related chats.";

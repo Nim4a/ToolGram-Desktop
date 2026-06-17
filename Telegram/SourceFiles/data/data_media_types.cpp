@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/media/history_view_todo_list.h"
 #include "history/view/media/history_view_slot_machine.h"
 #include "history/view/media/history_view_dice.h"
+#include "history/view/media/history_view_community_added.h"
 #include "history/view/media/history_view_service_box.h"
 #include "history/view/media/history_view_story_mention.h"
 #include "history/view/media/history_view_premium_gift.h"
@@ -2774,6 +2775,51 @@ std::unique_ptr<HistoryView::Media> MediaGiftBox::createView(
 	return std::make_unique<HistoryView::ServiceBox>(
 		message,
 		std::make_unique<HistoryView::PremiumGift>(message, this));
+}
+
+MediaCommunityAdded::MediaCommunityAdded(
+	not_null<HistoryItem*> parent,
+	not_null<ChannelData*> community)
+: Media(parent)
+, _community(community) {
+}
+
+std::unique_ptr<Media> MediaCommunityAdded::clone(
+		not_null<HistoryItem*> parent) {
+	return std::make_unique<MediaCommunityAdded>(parent, _community);
+}
+
+not_null<ChannelData*> MediaCommunityAdded::community() const {
+	return _community;
+}
+
+TextWithEntities MediaCommunityAdded::notificationText() const {
+	return {};
+}
+
+QString MediaCommunityAdded::pinnedTextSubstring() const {
+	return {};
+}
+
+TextForMimeData MediaCommunityAdded::clipboardText() const {
+	return {};
+}
+
+bool MediaCommunityAdded::updateInlineResultMedia(const MTPMessageMedia &media) {
+	return false;
+}
+
+bool MediaCommunityAdded::updateSentMedia(const MTPMessageMedia &media) {
+	return false;
+}
+
+std::unique_ptr<HistoryView::Media> MediaCommunityAdded::createView(
+		not_null<HistoryView::Element*> message,
+		not_null<HistoryItem*> realParent,
+		HistoryView::Element *replacing) {
+	return std::make_unique<HistoryView::ServiceBox>(
+		message,
+		std::make_unique<HistoryView::CommunityAdded>(message, this));
 }
 
 MediaWallPaper::MediaWallPaper(

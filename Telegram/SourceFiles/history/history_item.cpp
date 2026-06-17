@@ -7697,6 +7697,17 @@ void HistoryItem::processAction(const MTPMessageAction &action) {
 					.type = Data::GiftType::GiftOffer,
 				});
 		}
+	}, [&](const MTPDmessageActionChangeCommunity &data) {
+		const auto communityId = data.vcommunity_id().value_or_empty();
+		if (!communityId) {
+			return;
+		}
+		if (const auto community = _history->owner().channelLoaded(
+				ChannelId(communityId))) {
+			_media = std::make_unique<Data::MediaCommunityAdded>(
+				this,
+				community);
+		}
 	}, [](const auto &) {
 	});
 }

@@ -903,6 +903,8 @@ PRIVATE
     history/view/media/history_view_birthday_suggestion.h
     history/view/media/history_view_call.cpp
     history/view/media/history_view_call.h
+    history/view/media/history_view_community_added.cpp
+    history/view/media/history_view_community_added.h
     history/view/media/history_view_contact.cpp
     history/view/media/history_view_contact.h
     history/view/media/history_view_custom_emoji.cpp
