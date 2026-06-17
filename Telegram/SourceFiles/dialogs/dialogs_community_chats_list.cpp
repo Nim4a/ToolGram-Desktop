@@ -119,6 +119,7 @@ void CommunityChatsList::paintEvent(QPaintEvent *e) {
 		context.selected = pressed
 			? (_pressed == index)
 			: (_selected == index);
+		context.st = &Row::ComputeSt(row->entry(), FilterId());
 		p.translate(0, top);
 		Ui::RowPainter::Paint(p, row.get(), nullptr, context);
 		p.translate(0, -top);
