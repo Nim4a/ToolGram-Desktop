@@ -7,15 +7,18 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/dialogs_community_chats_list.h"
 
+#include "data/data_changes.h"
 #include "data/data_channel.h"
 #include "data/data_community.h"
 #include "data/data_forum.h"
 #include "data/data_session.h"
 #include "dialogs/ui/dialogs_layout.h"
+#include "dialogs/dialogs_entry.h"
 #include "dialogs/dialogs_indexed_list.h"
 #include "dialogs/dialogs_main_list.h"
 #include "dialogs/dialogs_row.h"
 #include "history/history.h"
+#include "history/history_item.h"
 #include "main/main_session.h"
 #include "ui/painter.h"
 #include "window/window_session_controller.h"
@@ -53,6 +56,29 @@ CommunityChatsList::CommunityChatsList(
 			update();
 		}
 	}, lifetime());
+
+	const auto session = &_controller->session();
+	session->changes().messageUpdates(
+		Data::MessageUpdate::Flag::DialogRowRefresh
+	) | rpl::filter([=](const Data::MessageUpdate &update) {
+		return _view.contains(update.item->history());
+	}) | rpl::on_next([=] {
+		update();
+	}, lifetime());
+
+	session->changes().entryUpdates(
+		Data::EntryUpdate::Flag::Repaint
+		| Data::EntryUpdate::Flag::Height
+	) | rpl::filter([=](const Data::EntryUpdate &update) {
+		const auto history = update.entry->asHistory();
+		return history && _view.contains(history);
+	}) | rpl::on_next([=](const Data::EntryUpdate &entryUpdate) {
+		if (entryUpdate.flags & Data::EntryUpdate::Flag::Height) {
+			_view.recountHeights(0.);
+			resizeToWidth(width());
+		}
+		update();
+	}, lifetime());
 }
 
 CommunityChatsList::~CommunityChatsList() = default;
@@ -60,17 +86,12 @@ CommunityChatsList::~CommunityChatsList() = default;
 void CommunityChatsList::rebuild() {
 	const auto wasCount = _view.size();
 	_view.clear();
-	_forumsLifetime.destroy();
 	setSelected(-1);
 	setPressed(-1);
 	const auto owner = &_controller->session().data();
 	const auto add = [&](not_null<History*> history) {
 		if (const auto forum = history->peer->forum()) {
 			forum->preloadTopics();
-			forum->chatsListChanges(
-			) | rpl::on_next([=] {
-				update();
-			}, _forumsLifetime);
 		}
 		_view.add(history, 0.);
 	};

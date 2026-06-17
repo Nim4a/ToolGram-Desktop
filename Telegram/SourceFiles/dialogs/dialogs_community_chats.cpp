@@ -68,6 +68,15 @@ Row *CommunityRowsView::rowAt(int index) const {
 		: nullptr;
 }
 
+bool CommunityRowsView::contains(not_null<History*> history) const {
+	for (const auto &row : _rows) {
+		if (row->history() == history) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void CommunityRowsView::paint(
 		Painter &p,
 		QRect clip,

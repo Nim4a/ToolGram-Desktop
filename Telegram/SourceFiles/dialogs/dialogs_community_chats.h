@@ -35,6 +35,7 @@ public:
 	[[nodiscard]] int indexByY(int y) const;
 	[[nodiscard]] int rowTop(int index) const;
 	[[nodiscard]] Row *rowAt(int index) const;
+	[[nodiscard]] bool contains(not_null<History*> history) const;
 
 	void paint(
 		Painter &p,
