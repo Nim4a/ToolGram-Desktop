@@ -125,6 +125,7 @@ public:
 	bool hasHeavyPart() const override;
 	void unloadHeavyPart() override;
 	bool enforceBubbleWidth() const override;
+	int bubbleWidthLimit() const override;
 
 	[[nodiscard]] static bool CanPlayInline(not_null<DocumentData*> document);
 
@@ -193,6 +194,11 @@ private:
 		const HistoryMessageVia *via,
 		const HistoryMessageForwarded *forwarded) const;
 	[[nodiscard]] int additionalWidth() const;
+	[[nodiscard]] int surroundingHeight(
+		const Reply *reply,
+		const HistoryMessageVia *via,
+		const HistoryMessageForwarded *forwarded,
+		int rectw) const;
 	[[nodiscard]] bool isUnwrapped() const;
 
 	void validateThumbCache(

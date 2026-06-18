@@ -342,6 +342,10 @@ public:
 	[[nodiscard]] virtual bool enforceBubbleWidth() const {
 		return false;
 	}
+
+	[[nodiscard]] virtual int bubbleWidthLimit() const {
+		return 0;
+	}
 	[[nodiscard]] virtual bool allowsNarrowBubble() const {
 		return false;
 	}

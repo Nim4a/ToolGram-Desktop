@@ -414,32 +414,39 @@ QSize Gif::countCurrentSize(int newWidth) {
 			auto additional = additionalWidth(reply, via, forwarded);
 			newWidth += additional;
 			accumulate_min(newWidth, availableWidth);
-			auto usew = maxWidth() - additional;
-			auto availw = newWidth - usew - st::msgReplyPadding.left() - st::msgReplyPadding.left() - st::msgReplyPadding.left();
+			const auto usew = maxWidth() - additional;
+			if (!_ephemeral.text.isEmpty()) {
+				const auto contentWidth = _data->isVideoMessage()
+					? std::min(usew, newHeight)
+					: usew;
+				const auto sideRoom = newWidth
+					- contentWidth
+					- st::msgReplyPadding.left();
+				_ephemeral.onTop = (sideRoom
+					< EphemeralPlateMaxWidth(_ephemeral.text));
+			}
+			const auto rectw = _ephemeral.onTop
+				? std::min(newWidth - st::msgReplyPadding.left(), additional)
+				: (newWidth - usew - st::msgReplyPadding.left());
+			const auto availw = rectw
+				- st::msgReplyPadding.left()
+				- st::msgReplyPadding.left();
 			if (!forwarded && via) {
 				via->resize(availw);
 			}
 			if (reply) {
 				[[maybe_unused]] int height = reply->resizeToWidth(availw);
 			}
-			if (!_ephemeral.text.isEmpty()) {
-				auto contentWidth = maxWidth() - additional;
-				if (_data->isVideoMessage()) {
-					accumulate_min(contentWidth, newHeight);
-				}
-				const auto sideRoom = newWidth
-					- contentWidth
-					- st::msgReplyPadding.left();
-				_ephemeral.onTop = (sideRoom
-					< EphemeralPlateMaxWidth(_ephemeral.text));
-				if (_ephemeral.onTop) {
-					const auto plate = EphemeralPlateSize(
-						_ephemeral.text,
-						newWidth - st::msgReplyPadding.left());
-					_ephemeral.topAdded = plate.height()
-						+ st::msgReplyPadding.top();
-					newHeight += _ephemeral.topAdded;
-				}
+			if (_ephemeral.onTop) {
+				const auto plate = EphemeralPlateSize(
+					_ephemeral.text,
+					newWidth - st::msgReplyPadding.left());
+				_ephemeral.topAdded = plate.height()
+					+ st::msgReplyPadding.top()
+					+ ((via || reply || forwarded)
+						? surroundingHeight(reply, via, forwarded, rectw)
+						: 0);
+				newHeight += _ephemeral.topAdded;
 			}
 		}
 	}
@@ -850,15 +857,14 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
 				_ephemeral.onTop
 					? (width() - st::msgReplyPadding.left())
 					: (width() - usew - st::msgReplyPadding.left()));
-		const auto ephemeralOffset = (_ephemeral.onTop
-			|| ephemeralPlate.isEmpty())
+		const auto platey = painty - _ephemeral.topAdded;
+		const auto plateOffset = ephemeralPlate.isEmpty()
 			? 0
 			: (ephemeralPlate.height() + st::msgReplyPadding.top());
 		if (!ephemeralPlate.isEmpty()) {
 			auto platex = _ephemeral.onTop
 				? (rightAligned ? (width() - ephemeralPlate.width()) : 0)
 				: (rightAligned ? 0 : (usew + st::msgReplyPadding.left()));
-			const auto platey = painty - _ephemeral.topAdded;
 			if (rtl()) {
 				platex = width() - platex - ephemeralPlate.width();
 			}
@@ -872,7 +878,11 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
 				width());
 		}
 		if (via || reply || forwarded) {
-			auto rectw = width() - usew - st::msgReplyPadding.left();
+			auto rectw = _ephemeral.onTop
+				? std::min(
+					width() - st::msgReplyPadding.left(),
+					additionalWidth(reply, via, forwarded))
+				: (width() - usew - st::msgReplyPadding.left());
 			auto innerw = rectw - (st::msgReplyPadding.left() + st::msgReplyPadding.right());
 			auto recth = 0;
 			auto forwardedHeightReal = forwarded ? forwarded->text.countHeight(innerw) : 0;
@@ -890,8 +900,10 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
 			} else {
 				recth += st::msgReplyPadding.bottom();
 			}
-			int rectx = rightAligned ? 0 : (usew + st::msgReplyPadding.left());
-			int recty = painty + ephemeralOffset;
+			int rectx = _ephemeral.onTop
+				? (rightAligned ? (width() - rectw) : 0)
+				: (rightAligned ? 0 : (usew + st::msgReplyPadding.left()));
+			int recty = platey + plateOffset;
 			if (rtl()) rectx = width() - rectx - rectw;
 
 			Ui::FillRoundRect(p, rectx, recty, rectw, recth, sti->msgServiceBg, sti->msgServiceBgCornersSmall);
@@ -1391,15 +1403,14 @@ TextState Gif::textState(QPoint point, StateRequest request) const {
 			_ephemeral.onTop
 				? (paintw - st::msgReplyPadding.left())
 				: (paintw - usew - st::msgReplyPadding.left()));
-	const auto ephemeralOffset = (_ephemeral.onTop
-		|| ephemeralPlate.isEmpty())
+	const auto platey = painty - _ephemeral.topAdded;
+	const auto plateOffset = ephemeralPlate.isEmpty()
 		? 0
 		: (ephemeralPlate.height() + st::msgReplyPadding.top());
 	if (!ephemeralPlate.isEmpty()) {
 		auto platex = _ephemeral.onTop
 			? (rightAligned ? (width() - ephemeralPlate.width()) : 0)
 			: (rightAligned ? 0 : (usew + st::msgReplyPadding.left()));
-		const auto platey = painty - _ephemeral.topAdded;
 		if (rtl()) {
 			platex = width() - platex - ephemeralPlate.width();
 		}
@@ -1417,7 +1428,11 @@ TextState Gif::textState(QPoint point, StateRequest request) const {
 		}
 	}
 	if (via || reply || forwarded) {
-		auto rectw = paintw - usew - st::msgReplyPadding.left();
+		auto rectw = _ephemeral.onTop
+			? std::min(
+				paintw - st::msgReplyPadding.left(),
+				additionalWidth(reply, via, forwarded))
+			: (paintw - usew - st::msgReplyPadding.left());
 		auto innerw = rectw - (st::msgReplyPadding.left() + st::msgReplyPadding.right());
 		auto recth = 0;
 		auto forwardedHeightReal = forwarded ? forwarded->text.countHeight(innerw) : 0;
@@ -1435,8 +1450,10 @@ TextState Gif::textState(QPoint point, StateRequest request) const {
 		} else {
 			recth += st::msgReplyPadding.bottom();
 		}
-		auto rectx = rightAligned ? 0 : (usew + st::msgReplyPadding.left());
-		auto recty = painty + ephemeralOffset;
+		auto rectx = _ephemeral.onTop
+			? (rightAligned ? (width() - rectw) : 0)
+			: (rightAligned ? 0 : (usew + st::msgReplyPadding.left()));
+		auto recty = platey + plateOffset;
 		if (rtl()) rectx = width() - rectx - rectw;
 
 		if (forwarded) {
@@ -2241,6 +2258,22 @@ bool Gif::enforceBubbleWidth() const {
 	return true;
 }
 
+int Gif::bubbleWidthLimit() const {
+	if (_ephemeral.text.isEmpty()
+		|| !_data->isVideoMessage()
+		|| !isUnwrapped()) {
+		return 0;
+	}
+	const auto item = _parent->data();
+	const auto via = item->Get<HistoryMessageVia>();
+	const auto reply = _parent->Get<Reply>();
+	const auto forwarded = item->Get<HistoryMessageForwarded>();
+	const auto content = maxWidth() - additionalWidth(reply, via, forwarded);
+	return content
+		+ st::msgReplyPadding.left()
+		+ EphemeralPlateMaxWidth(_ephemeral.text);
+}
+
 int Gif::additionalWidth(
 		const Reply *reply,
 		const HistoryMessageVia *via,
@@ -2261,6 +2294,38 @@ int Gif::additionalWidth(
 				+ EphemeralPlateMaxWidth(_ephemeral.text));
 	}
 	return result;
+}
+
+int Gif::surroundingHeight(
+		const Reply *reply,
+		const HistoryMessageVia *via,
+		const HistoryMessageForwarded *forwarded,
+		int rectw) const {
+	const auto innerw = rectw
+		- (st::msgReplyPadding.left() + st::msgReplyPadding.right());
+	auto recth = 0;
+	const auto forwardedHeightReal = forwarded
+		? forwarded->text.countHeight(innerw)
+		: 0;
+	const auto forwardedHeight = qMin(
+		forwardedHeightReal,
+		kMaxGifForwardedBarLines * st::msgServiceNameFont->height);
+	if (forwarded) {
+		recth += st::msgReplyPadding.top() + forwardedHeight;
+	} else if (via) {
+		recth += st::msgReplyPadding.top()
+			+ st::msgServiceNameFont->height
+			+ (reply ? st::msgReplyPadding.top() : 0);
+	}
+	if (reply) {
+		const auto replyMargins = reply->margins();
+		recth += reply->height()
+			- ((forwarded || via) ? 0 : replyMargins.top())
+			- replyMargins.bottom();
+	} else {
+		recth += st::msgReplyPadding.bottom();
+	}
+	return recth;
 }
 
 ::Media::Streaming::Instance *Gif::activeRoundStreamed() const {
