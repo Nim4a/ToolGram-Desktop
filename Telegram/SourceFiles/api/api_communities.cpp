@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_peer.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
+#include "history/history.h"
 #include "main/main_session.h"
 
 namespace Api {
@@ -189,6 +190,12 @@ void Communities::toggleCollapsedInDialogs(
 		}
 	};
 	apply(collapsed);
+	if (!collapsed) {
+		const auto history = community->owner().history(community);
+		if (history->folderKnown() && history->isPinnedDialog(FilterId())) {
+			community->owner().setChatPinned(history, FilterId(), false);
+		}
+	}
 	using Flag = MTPcommunities_ToggleCommunityCollapsedInDialogs::Flag;
 	_api.request(MTPcommunities_ToggleCommunityCollapsedInDialogs(
 		MTP_flags(collapsed ? Flag::f_collapsed : Flag()),

@@ -1050,6 +1050,14 @@ void RememberWebPageMedia(
 			context,
 			anchorId,
 			anchorIds);
+	}, [&](const MTPDtextDiff &data) {
+		AssertIsDebug();
+		return AppendRichText(
+			data.vtext(),
+			result,
+			context,
+			anchorId,
+			anchorIds);
 	});
 }
 

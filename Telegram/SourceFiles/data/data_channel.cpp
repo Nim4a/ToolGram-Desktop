@@ -1587,7 +1587,7 @@ void ApplyCommunityUpdate(
 	channel->setAbout(qs(update.vabout()));
 	channel->setAdminsCount(update.vadmins_count().value_or(1));
 	channel->setPendingRequestsCount(
-		update.vpending_requests().value_or_empty(),
+		update.vpeer_link_requests_pending().value_or_empty(),
 		QVector<MTPlong>());
 	if (const auto info = channel->communityInfo()) {
 		info->applyLinkedPeers(update.vlinked_peers().v);

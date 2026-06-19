@@ -403,6 +403,10 @@ void ApiWrap::savePinnedOrder(Data::Folder *folder) {
 	const auto &order = _session->data().pinnedChatsOrder(folder);
 	const auto input = [](Dialogs::Key key) {
 		if (const auto history = key.history()) {
+			if (const auto channel = history->peer->asChannel()
+				; channel && channel->isCommunity()) {
+				return MTP_inputDialogPeerCommunity(channel->inputChannel());
+			}
 			return MTP_inputDialogPeer(history->peer->input());
 		} else if (const auto folder = key.folder()) {
 			return MTP_inputDialogPeerFolder(MTP_int(folder->id()));
@@ -1022,7 +1026,7 @@ void ApiWrap::updateDialogsOffset(
 	auto lastPeer = PeerId(0);
 	auto lastMsgId = MsgId(0);
 	for (const auto &dialog : ranges::views::reverse(dialogs)) {
-		dialog.match([&](const auto &dialog) {
+		dialog.match([&](const MTPDdialog &dialog) {
 			const auto peer = peerFromMTP(dialog.vpeer());
 			const auto messageId = dialog.vtop_message().v;
 			if (!peer || !messageId) {
@@ -1043,6 +1047,8 @@ void ApiWrap::updateDialogsOffset(
 					return;
 				}
 			}
+		}, [&](const MTPDdialogFolder &) {
+		}, [&](const MTPDdialogCommunity &) {
 		});
 		if (lastDate) {
 			break;
@@ -1945,6 +1951,9 @@ void ApiWrap::requestNotifySettings(const MTPInputNotifyPeer &peer) {
 			return true;
 		}
 		return false;
+	}, [&](const MTPDinputNotifyCommunity &) {
+		AssertIsDebug();
+		return false;
 	});
 	if (bad) {
 		return;
@@ -1980,6 +1989,9 @@ void ApiWrap::requestNotifySettings(const MTPInputNotifyPeer &peer) {
 			peerFromInput(data.vpeer()),
 			data.vtop_msg_id().v,
 		};
+	}, [&](const MTPDinputNotifyCommunity &) {
+		AssertIsDebug();
+		return NotifySettingsKey{ peerFromChannel(0) };
 	});
 	if (_notifySettingRequests.contains(key)) {
 		return;

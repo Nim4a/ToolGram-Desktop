@@ -339,6 +339,9 @@ public:
 	[[nodiscard]] bool isCommunity() const {
 		return flags() & Flag::Community;
 	}
+	[[nodiscard]] bool collapsedInDialogs() const {
+		return flags() & Flag::CommunityCollapsed;
+	}
 	[[nodiscard]] bool hasUsername() const {
 		return flags() & Flag::Username;
 	}

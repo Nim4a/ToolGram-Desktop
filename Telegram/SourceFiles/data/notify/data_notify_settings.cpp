@@ -116,6 +116,8 @@ void NotifySettings::apply(
 		apply(peerFromMTP(data.vpeer()), settings);
 	}, [&](const MTPDnotifyForumTopic &data) {
 		apply(peerFromMTP(data.vpeer()), data.vtop_msg_id().v, settings);
+	}, [&](const MTPDnotifyCommunity &) {
+		AssertIsDebug();
 	});
 }
 
@@ -149,6 +151,8 @@ void NotifySettings::apply(
 		apply(peerFromInput(data.vpeer()), settings);
 	}, [&](const MTPDinputNotifyForumTopic &data) {
 		apply(peerFromInput(data.vpeer()), data.vtop_msg_id().v, settings);
+	}, [&](const MTPDinputNotifyCommunity &) {
+		AssertIsDebug();
 	});
 }
 

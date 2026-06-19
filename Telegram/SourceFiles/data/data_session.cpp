@@ -2619,6 +2619,11 @@ void Session::applyPinnedChats(
 			if (folder) {
 				LOG(("API Error: Nested folders detected."));
 			}
+		}, [&](const MTPDdialogPeerCommunity &data) {
+			const auto channelId = ChannelId(data.vcommunity_id().v);
+			if (const auto channel = channelLoaded(channelId)) {
+				this->history(channel)->clearFolder();
+			}
 		});
 	}
 	chatsList(folder)->pinned()->applyList(this, list);
@@ -2680,6 +2685,22 @@ void Session::applyDialog(
 	const auto folder = processFolder(data.vfolder());
 	folder->applyDialog(data);
 	setPinnedFromEntryList(folder, data.is_pinned());
+}
+
+void Session::applyDialog(
+		Data::Folder *requestFolder,
+		const MTPDdialogCommunity &data) {
+	const auto channelId = ChannelId(data.vcommunity_id().v);
+	const auto channel = channelLoaded(channelId);
+	if (!channel || !channel->isCommunity()) {
+		return;
+	}
+	const auto history = this->history(channel);
+	notifySettings().apply(
+		peerFromChannel(channelId),
+		data.vnotify_settings());
+	channel->ensuredCommunityInfo()->ensureRowInChatList();
+	setPinnedFromEntryList(history, data.is_pinned());
 }
 
 bool Session::pinnedCanPin(not_null<Dialogs::Entry*> entry) const {
@@ -5304,7 +5325,9 @@ not_null<Dialogs::MainList*> Session::chatsListFor(
 		return sublist->parent()->chatsList();
 	} else if (const auto history = entry->asHistory()) {
 		if (const auto info = history->communityListInfo()
-			; info && info->collapsedInDialogs()) {
+			; info
+			&& info->collapsedInDialogs()
+			&& info->channel() != history->peer) {
 			return info->chatsList();
 		}
 	}

@@ -3146,6 +3146,7 @@ void Widget::requestMessages(bool fromStart) {
 		MTPmessages_SearchGlobal(
 			MTP_flags(flags),
 			MTP_int(folderId),
+			MTPInputChannel(),
 			MTP_string(_searchQuery),
 			MTP_inputMessagesFilterEmpty(),
 			MTP_int(0), // min_date

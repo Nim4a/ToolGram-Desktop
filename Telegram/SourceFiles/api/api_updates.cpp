@@ -411,6 +411,7 @@ void Updates::channelDifferenceDone(
 				channel->ptsInit(pts->v);
 			}
 		}, [&](const MTPDdialogFolder &) {
+		}, [&](const MTPDdialogCommunity &) {
 		});
 		session().data().applyDialogs(
 			nullptr,
@@ -854,6 +855,8 @@ void Updates::channelRangeDifferenceDone(
 		nextRequestPts = d.vdialog().match([&](const MTPDdialog &data) {
 			return data.vpts().value_or_empty();
 		}, [&](const MTPDdialogFolder &data) {
+			return 0;
+		}, [&](const MTPDdialogCommunity &data) {
 			return 0;
 		});
 		isFinal = d.is_final();
@@ -1826,6 +1829,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 				history->setUnreadMark(data.is_unread());
 			}
 		}, [](const MTPDdialogPeerFolder &dialog) {
+		}, [](const MTPDdialogPeerCommunity &dialog) {
 		});
 	} break;
 
@@ -2344,6 +2348,12 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 						return true;
 					}
 					return !session().data().folderLoaded(data.vfolder_id().v);
+				}, [&](const MTPDdialogPeerCommunity &data) {
+					const auto channelId = ChannelId(data.vcommunity_id().v);
+					const auto channel
+						= session().data().channelLoaded(channelId);
+					return !channel
+						|| !session().data().historyLoaded(channel);
 				});
 			};
 			if (!ranges::none_of(order, notLoaded)) {
@@ -2393,6 +2403,17 @@ void Updates::feedUpdate(const MTPUpdate &update) {
 				).arg(id
 				).arg(folderId
 				));
+			return false;
+		}, [&](const MTPDdialogPeerCommunity &data) {
+			const auto channelId = ChannelId(data.vcommunity_id().v);
+			const auto channel = session().data().channelLoaded(channelId);
+			if (channel) {
+				if (const auto history
+						= session().data().historyLoaded(channel)) {
+					history->applyPinnedUpdate(d);
+					return true;
+				}
+			}
 			return false;
 		});
 		if (!done) {

@@ -440,9 +440,13 @@ void TogglePinnedThread(
 		const auto flags = isPinned
 			? MTPmessages_ToggleDialogPin::Flag::f_pinned
 			: MTPmessages_ToggleDialogPin::Flag(0);
+		const auto channel = history->peer->asChannel();
+		const auto peer = (channel && channel->isCommunity())
+			? MTP_inputDialogPeerCommunity(channel->inputChannel())
+			: MTP_inputDialogPeer(history->peer->input());
 		owner->session().api().request(MTPmessages_ToggleDialogPin(
 			MTP_flags(flags),
-			MTP_inputDialogPeer(history->peer->input())
+			peer
 		)).done([=] {
 			owner->notifyPinnedDialogsOrderUpdated();
 			if (onToggled) {
@@ -543,6 +547,12 @@ void Filler::addTogglePin() {
 	const auto filterId = _request.filterId;
 	const auto entry = _thread ? (Dialogs::Entry*)_thread : _sublist;
 	if (!entry || entry->fixedOnTopIndex()) {
+		return;
+	}
+	const auto community = _peer ? _peer->asChannel() : nullptr;
+	if (community
+		&& community->isCommunity()
+		&& !community->collapsedInDialogs()) {
 		return;
 	}
 	const auto pinText = [=] {
@@ -660,6 +670,12 @@ void Filler::addToggleFolder() {
 	} else if (_request.section == Section::SubsectionTabsMenu
 		&& !_sublist
 		&& !_topic) {
+		return;
+	}
+	if (const auto channel = history->peer->asChannel()
+		; channel
+		&& channel->isCommunity()
+		&& !channel->collapsedInDialogs()) {
 		return;
 	}
 	_addAction(PeerMenuCallback::Args{

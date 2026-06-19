@@ -3333,14 +3333,14 @@ bool History::trackUnreadMessages() const {
 bool History::shouldBeInChatList() const {
 	if (peer->migrateTo() || !folderKnown()) {
 		return false;
+	} else if (const auto community = peer->asChannel()
+		; community && community->isCommunity()) {
+		return !(community->flags() & ChannelDataFlag::Forbidden)
+			&& !community->haveLeft()
+			&& (community->flags() & ChannelDataFlag::CommunityCollapsed);
 	} else if (isPinnedDialog(FilterId())) {
 		return true;
 	} else if (const auto channel = peer->asChannel()) {
-		if (channel->isCommunity()) {
-			return !(channel->flags() & ChannelDataFlag::Forbidden)
-				&& !channel->haveLeft()
-				&& (channel->flags() & ChannelDataFlag::CommunityCollapsed);
-		}
 		if (!channel->amIn()) {
 			return isTopPromoted();
 		}
