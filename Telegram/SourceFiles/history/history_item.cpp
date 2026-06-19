@@ -5499,6 +5499,17 @@ void HistoryItem::createServiceFromMtp(const MTPDmessageService &message) {
 			const auto markup = Get<HistoryMessageReplyMarkup>();
 			markup->updateSuggestControls(actions);
 		}
+	} else if (type == mtpc_messageActionChangeCommunity) {
+		const auto &data = action.c_messageActionChangeCommunity();
+		const auto communityId = data.vcommunity_id().value_or_empty();
+		if (communityId) {
+			const auto community = _history->owner().channelLoaded(
+				ChannelId(communityId));
+			if (community) {
+				UpdateComponents(HistoryServiceCommunityAdded::Bit());
+				Get<HistoryServiceCommunityAdded>()->community = community;
+			}
+		}
 	}
 	if (const auto replyTo = message.vreply_to()) {
 		replyTo->match([&](const MTPDmessageReplyHeader &data) {
@@ -7696,17 +7707,6 @@ void HistoryItem::processAction(const MTPMessageAction &action) {
 					.unique = suggestion->gift,
 					.type = Data::GiftType::GiftOffer,
 				});
-		}
-	}, [&](const MTPDmessageActionChangeCommunity &data) {
-		const auto communityId = data.vcommunity_id().value_or_empty();
-		if (!communityId) {
-			return;
-		}
-		if (const auto community = _history->owner().channelLoaded(
-				ChannelId(communityId))) {
-			_media = std::make_unique<Data::MediaCommunityAdded>(
-				this,
-				community);
 		}
 	}, [](const auto &) {
 	});

@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_transcribes.h"
 #include "history/view/history_view_service_message.h"
 #include "history/view/history_view_message.h"
+#include "history/view/media/history_view_community_added.h"
 #include "history/view/media/history_view_media_generic.h"
 #include "history/view/media/history_view_media_grouped.h"
 #include "history/view/media/history_view_similar_channels.h"
@@ -1615,6 +1616,16 @@ void Element::refreshMedia(Element *replacing) {
 			MediaGenericDescriptor{
 				.maxWidth = st::chatSuggestInfoWidth,
 				.fullAreaLink = decision->lnk,
+				.service = true,
+				.hideServiceText = true,
+			});
+	} else if (const auto added = item->Get<HistoryServiceCommunityAdded>()
+		; added && added->community) {
+		_media = std::make_unique<MediaGeneric>(
+			this,
+			GenerateCommunityAddedMedia(this, added->community),
+			MediaGenericDescriptor{
+				.maxWidth = st::msgServiceGiftBoxSize.width(),
 				.service = true,
 				.hideServiceText = true,
 			});

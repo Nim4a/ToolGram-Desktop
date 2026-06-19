@@ -959,6 +959,7 @@ msgServiceStarGiftStickerTop: 24px;
 msgServiceStarGiftStickerSize: 100px;
 msgServiceGiftThemeStickerSize: 64px;
 msgServiceGiftThemeStickerPadding: margins(18px, 18px, 18px, 18px);
+msgServiceCommunityAddedPhoto: 66px; // About 2/3 of msgServicePhotoWidth.
 
 historySponsorInfoItem: FlatLabel(defaultFlatLabel) {
 	style: TextStyle(defaultTextStyle) {

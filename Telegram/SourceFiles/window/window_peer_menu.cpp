@@ -105,6 +105,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_poll.h"
 #include "data/data_channel.h"
 #include "data/data_chat.h"
+#include "data/data_community.h"
 #include "data/data_forum.h"
 #include "data/data_forum_topic.h"
 #include "data/data_user.h"
@@ -689,7 +690,16 @@ void Filler::addToggleUnreadMark() {
 			return;
 		}
 		if (unread) {
-			MarkAsReadThread(thread);
+			const auto channel = peer ? peer->asChannel() : nullptr;
+			const auto info = (channel && channel->isCommunity())
+				? channel->communityInfo()
+				: nullptr;
+			if (info) {
+				// Mark every chat inside the community as read.
+				MarkAsReadChatList(info->chatsList());
+			} else {
+				MarkAsReadThread(thread);
+			}
 		} else if (const auto sublist = thread->asSublist()) {
 			peer->owner().histories().changeSublistUnreadMark(sublist, true);
 		} else if (history) {
@@ -791,7 +801,7 @@ void Filler::addUngroup() {
 			.confirmStyle = &st::attentionBoxButton,
 			.title = tr::lng_community_ungroup_title(),
 		}));
-	}, &st::menuIconCollapse);
+	}, &st::menuIconExpand);
 }
 
 void Filler::addToggleArchive() {
@@ -4307,6 +4317,9 @@ bool IsArchived(not_null<History*> history) {
 
 bool CanArchive(History *history, PeerData *peer) {
 	if (history && history->useTopPromotion()) {
+		return false;
+	} else if (const auto channel = peer ? peer->asChannel() : nullptr
+		; channel && channel->isCommunity()) {
 		return false;
 	} else if (peer && (peer->isNotificationsUser() || peer->isSelf())) {
 		if (!history || !history->folder()) {

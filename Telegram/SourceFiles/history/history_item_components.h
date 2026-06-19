@@ -23,6 +23,7 @@ struct WebPageData;
 struct TodoListItem;
 class DocumentData;
 class PhotoData;
+class ChannelData;
 class VoiceSeekClickHandler;
 class ReplyKeyboard;
 
@@ -821,6 +822,11 @@ struct HistoryServiceNoForwardsRequest
 
 struct HistoryServiceNoForwardsToggle
 : RuntimeComponent<HistoryServiceNoForwardsToggle, HistoryItem> {
+};
+
+struct HistoryServiceCommunityAdded
+: RuntimeComponent<HistoryServiceCommunityAdded, HistoryItem> {
+	ChannelData *community = nullptr;
 };
 
 struct HistoryServiceGameScore

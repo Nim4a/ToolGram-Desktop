@@ -756,32 +756,6 @@ private:
 
 };
 
-class MediaCommunityAdded final : public Media {
-public:
-	MediaCommunityAdded(
-		not_null<HistoryItem*> parent,
-		not_null<ChannelData*> community);
-
-	std::unique_ptr<Media> clone(not_null<HistoryItem*> parent) override;
-
-	[[nodiscard]] not_null<ChannelData*> community() const;
-
-	TextWithEntities notificationText() const override;
-	QString pinnedTextSubstring() const override;
-	TextForMimeData clipboardText() const override;
-
-	bool updateInlineResultMedia(const MTPMessageMedia &media) override;
-	bool updateSentMedia(const MTPMessageMedia &media) override;
-	std::unique_ptr<HistoryView::Media> createView(
-		not_null<HistoryView::Element*> message,
-		not_null<HistoryItem*> realParent,
-		HistoryView::Element *replacing = nullptr) override;
-
-private:
-	const not_null<ChannelData*> _community;
-
-};
-
 class MediaWallPaper final : public Media {
 public:
 	MediaWallPaper(
