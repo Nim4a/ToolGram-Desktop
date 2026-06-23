@@ -2234,7 +2234,7 @@ inputRichMessageMarkdown#4b572c flags:# rtl:flags.0?true noautolink:flags.1?true
 
 richMessage#baf39d8b flags:# rtl:flags.0?true part:flags.1?true blocks:Vector<PageBlock> photos:Vector<Photo> documents:Vector<Document> = RichMessage;
 
-communityPeer#76141ebd flags:# visible:flags.0?Bool peer:Peer = CommunityPeer;
+communityPeer#76141ebd flags:# can_view_history:flags.2?true visible:flags.0?Bool peer:Peer = CommunityPeer;
 
 communityPeerRequest#7beafa85 flags:# visible:flags.0?true peer:Peer requested_by:long date:int = CommunityPeerRequest;
 

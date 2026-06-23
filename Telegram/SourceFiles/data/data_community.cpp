@@ -92,7 +92,7 @@ constexpr auto kShowChatNamesCount = 20;
 } // namespace
 
 bool IsCommunityChatViewable(const CommunityLinkedPeer &linked) {
-	return (linked.visible == true);
+	return linked.canViewHistory;
 }
 
 CommunityInfo::CommunityInfo(not_null<ChannelData*> channel)
@@ -129,6 +129,7 @@ void CommunityInfo::applyLinkedPeers(const QVector<MTPCommunityPeer> &list) {
 		now.push_back({
 			.peer = owner.peer(peerFromMTP(data.vpeer())),
 			.visible = visible,
+			.canViewHistory = data.is_can_view_history(),
 		});
 	}
 	if (_linkedPeers == now) {

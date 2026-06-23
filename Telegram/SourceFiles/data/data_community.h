@@ -19,6 +19,7 @@ namespace Data {
 struct CommunityLinkedPeer {
 	not_null<PeerData*> peer;
 	std::optional<bool> visible;
+	bool canViewHistory = false;
 
 	friend inline bool operator==(
 		const CommunityLinkedPeer &,
