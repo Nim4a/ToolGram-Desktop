@@ -68,6 +68,14 @@ not_null<UnconfirmedAuthWrap*> CreateUnconfirmedAuthContent(
 		Fn<void(bool)> callback,
 		rpl::producer<float64> collapseProgress);
 
+struct TopBarSuggestionGeometry {
+	int cardInnerHeight = 0;
+	int iconLeft = 0;
+	int leadingTextSkip = 0;
+	int rightInset = 0;
+	bool centerSingleLineTitle = false;
+};
+
 class TopBarSuggestionContent : public Ui::RippleButton {
 public:
 	enum class RightIcon {
@@ -92,6 +100,7 @@ public:
 		rpl::producer<TextWithEntities> text,
 		Fn<void()> callback);
 	void setLeadingWidget(Ui::RpWidget *widget);
+	void setGeometryOverride(TopBarSuggestionGeometry geometry);
 	void setCollapseProgress(rpl::producer<float64> progress);
 	void prepareCollapseSnapshot();
 
@@ -126,6 +135,7 @@ private:
 	Fn<bool()> _emojiPaused;
 
 	int _leftPadding = 0;
+	TopBarSuggestionGeometry _geometry;
 
 	RightIcon _rightIcon = RightIcon::None;
 

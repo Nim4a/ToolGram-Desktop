@@ -349,10 +349,15 @@ void TopBarSuggestionContent::setRightButton(
 		sizeValue(),
 		_rightButton->sizeValue()
 	) | rpl::on_next([=](QSize outer, QSize inner) {
-		const auto pillHeight = outer.height() - rect::m::sum::v(margins);
-		const auto verticalGap = (pillHeight - inner.height()) / 2;
+		const auto cardHeight = _geometry.cardInnerHeight
+			? _geometry.cardInnerHeight
+			: (outer.height() - rect::m::sum::v(margins));
+		const auto verticalGap = (cardHeight - inner.height()) / 2;
+		const auto rightInset = _geometry.rightInset
+			? _geometry.rightInset
+			: (margins.right() + verticalGap);
 		_rightButton->moveToRight(
-			margins.right() + verticalGap,
+			rightInset,
 			margins.top() + verticalGap,
 			outer.width());
 	}, _rightButton->lifetime());
@@ -379,7 +384,11 @@ void TopBarSuggestionContent::draw(QPainter &p) {
 
 	const auto leftPadding = _leftPadding + margins.left();
 	const auto rightPadding = margins.right();
-	const auto topPadding = st::msgReplyPadding.top() + margins.top();
+	const auto centeredTop = margins.top()
+		+ (_geometry.cardInnerHeight - _contentTitleSt.font->height) / 2;
+	const auto topPadding = _geometry.centerSingleLineTitle
+		? centeredTop
+		: (st::msgReplyPadding.top() + margins.top());
 	const auto availableWidthNoPhoto = outer.width()
 		- (_rightArrow
 			? (_rightArrow->width() / 4 * 3) // Takes full height.
@@ -507,6 +516,12 @@ int TopBarSuggestionContent::resizeGetHeight(int newWidth) {
 			fullHeight * (1. - _collapseProgress)));
 	}
 	const auto &margins = st::dialogsTopBarSuggestionMargins;
+	if (_geometry.centerSingleLineTitle && _geometry.cardInnerHeight) {
+		const auto withMargins = _geometry.cardInnerHeight
+			+ rect::m::sum::v(margins);
+		return int(base::SafeRound(
+			withMargins * (1. - _collapseProgress)));
+	}
 	const auto topPadding = st::msgReplyPadding.top();
 	const auto bottomPadding = st::msgReplyPadding.top();
 	const auto availableWidthNoPhoto = newWidth
@@ -596,17 +611,32 @@ void TopBarSuggestionContent::setLeadingWidget(Ui::RpWidget *widget) {
 	) | rpl::on_next([=](const QSize &s) {
 		widget->raise();
 		widget->show();
-		const auto pillHeight = s.height() - rect::m::sum::v(margins);
+		const auto cardHeight = _geometry.cardInnerHeight
+			? _geometry.cardInnerHeight
+			: (s.height() - rect::m::sum::v(margins));
+		const auto leftInset = _geometry.iconLeft
+			? _geometry.iconLeft
+			: (row.padding.left()
+				+ (row.photoSize - widget->width()) / 2);
 		widget->moveToLeft(
-			row.padding.left() + (row.photoSize - widget->width()) / 2,
-			margins.top() + (pillHeight - widget->height()) / 2);
+			leftInset,
+			margins.top() + (cardHeight - widget->height()) / 2);
 	}, _leadingWidgetLifetime);
-	const auto padding = row.nameLeft - margins.left();
+	const auto padding = (_geometry.leadingTextSkip
+		? _geometry.leadingTextSkip
+		: row.nameLeft) - margins.left();
 	if (_leftPadding != padding) {
 		_leftPadding = padding;
 		resizeToWidth(width());
 		update();
 	}
+}
+
+void TopBarSuggestionContent::setGeometryOverride(
+		TopBarSuggestionGeometry geometry) {
+	_geometry = geometry;
+	resizeToWidth(width());
+	update();
 }
 
 const style::TextStyle & TopBarSuggestionContent::contentTitleSt() const {

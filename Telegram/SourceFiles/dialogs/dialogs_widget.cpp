@@ -1262,6 +1262,17 @@ void Widget::updateCommunityRequestsBubble() {
 	) | rpl::start_spawning(_communityRequestsLifetime);
 
 	const auto content = Ui::CreateChild<TopBarSuggestionContent>(this);
+	const auto &margins = st::dialogsTopBarSuggestionMargins;
+	content->setGeometryOverride({
+		.cardInnerHeight = st::dialogsCommunityRequestsBubbleHeight,
+		.iconLeft = st::dialogsCommunityRequestsBubbleIconMargin
+			+ margins.left(),
+		.leadingTextSkip = st::dialogsCommunityRequestsBubbleTextSkip
+			+ margins.left(),
+		.rightInset = st::dialogsCommunityRequestsBubbleRightInset
+			+ margins.right(),
+		.centerSingleLineTitle = true,
+	});
 	content->setLeadingWidget(CreateRequestsBubbleIcon(content));
 	content->setContent(
 		tr::lng_community_requests_title(tr::now, tr::marked),
