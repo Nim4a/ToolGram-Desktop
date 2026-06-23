@@ -970,6 +970,9 @@ void ShowCommunityPendingRequestsBox(
 				.confirmText = (reject
 					? tr::lng_community_request_decline()
 					: tr::lng_community_request_add()),
+				.confirmStyle = (reject
+					? &st::attentionBoxButton
+					: nullptr),
 				.title = (reject
 					? tr::lng_community_requests_decline_all_title()
 					: tr::lng_community_requests_add_all_title()),
