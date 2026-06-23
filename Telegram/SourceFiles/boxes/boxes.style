@@ -1097,10 +1097,11 @@ requestsAcceptButton: RoundButton(defaultActiveButton) {
 	height: 30px;
 	textTop: 6px;
 }
-requestsRejectButton: RoundButton(defaultLightButton) {
+requestsRejectButton: RoundButton(defaultBoxButton) {
 	width: -28px;
 	height: 30px;
 	textTop: 6px;
+	style: semiboldTextStyle;
 }
 requestAcceptPosition: point(71px, 90px);
 requestButtonsSkip: 9px;
