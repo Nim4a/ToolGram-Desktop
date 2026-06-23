@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/history_view_group_call_bar.h"
 #include "history/view/history_view_requests_bar.h"
 #include "history/view/history_view_top_bar_widget.h"
+#include "boxes/peers/community_pending_requests_box.h"
 #include "boxes/peers/edit_peer_requests_box.h"
 #include "boxes/choose_filter_box.h"
 #include "ui/text/text_utilities.h"
@@ -35,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/elastic_scroll.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/wrap/fade_wrap.h"
+#include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "ui/effects/radial_animation.h"
 #include "ui/chat/requests_bar.h"
@@ -87,6 +89,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_saved_sublist.h"
 #include "data/data_stories.h"
 #include "info/downloads/info_downloads_widget.h"
+#include "info/profile/info_profile_values.h"
 #include "info/info_memento.h"
 #include "inline_bots/bot_attach_web_view.h"
 #include "styles/style_dialogs.h"
@@ -1240,6 +1243,59 @@ void Widget::updateTopBarSuggestions() {
 	}
 }
 
+void Widget::updateCommunityRequestsBubble() {
+	_communityRequestsLifetime.destroy();
+	_communityRequestsPlaceholder = nullptr;
+	_communityRequests = nullptr;
+
+	const auto channel = _openedCommunity
+		? _openedCommunity->channel().get()
+		: nullptr;
+	if (!channel || !channel->canManageLinkedPeers()) {
+		_scroll->setBarTopInset(0);
+		_topBarSuggestionHeightChanged.fire(0);
+		return;
+	}
+
+	auto count = Info::Profile::PendingRequestsCountValue(
+		channel
+	) | rpl::start_spawning(_communityRequestsLifetime);
+
+	const auto content = Ui::CreateChild<TopBarSuggestionContent>(this);
+	content->setLeadingWidget(CreateRequestsBubbleIcon(content));
+	content->setContent(
+		tr::lng_community_requests_title(tr::now, tr::marked),
+		TextWithEntities());
+	const auto open = [=] {
+		ShowCommunityPendingRequestsBox(controller(), channel);
+	};
+	content->setRightButton(
+		rpl::duplicate(count) | rpl::map([](int c) {
+			return TextWithEntities{ QString::number(c) };
+		}),
+		open);
+	content->setClickedCallback(open);
+
+	_communityRequests.reset(Ui::CreateChild<Ui::SlideWrap<Ui::RpWidget>>(
+		this,
+		object_ptr<Ui::RpWidget>::fromRaw(content)));
+	_communityRequests->toggle(false, anim::type::instant);
+
+	MountTopBarSuggestion({
+		.scroll = _scroll,
+		.innerList = _innerList,
+		.wrap = _communityRequests.get(),
+		.placeholder = &_communityRequestsPlaceholder,
+		.heightChanged = [=](int h) {
+			_topBarSuggestionHeightChanged.fire_copy(h);
+		},
+	});
+
+	std::move(count) | rpl::on_next([=](int c) {
+		_communityRequests->toggle(c > 0, anim::type::instant);
+	}, _communityRequestsLifetime);
+}
+
 void Widget::setupMoreChatsBar() {
 	if (_layout == Layout::Child) {
 		return;
@@ -2092,6 +2148,7 @@ void Widget::changeOpenedCommunity(
 		_inner->changeOpenedCommunity(community);
 		updateFrozenAccountBar();
 		updateTopBarSuggestions();
+		updateCommunityRequestsBubble();
 	}, (community != nullptr), animated);
 }
 

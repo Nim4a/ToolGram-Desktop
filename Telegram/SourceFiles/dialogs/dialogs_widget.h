@@ -234,6 +234,7 @@ private:
 	void clearSearchCache(bool clearPosts);
 	void setSearchQuery(const QString &query, int cursorPosition = -1);
 	void updateTopBarSuggestions();
+	void updateCommunityRequestsBubble();
 	void updateFrozenAccountBar();
 	void updateControlsVisibility(bool fast = false);
 	void updateLockUnlockVisibility(
@@ -343,6 +344,9 @@ private:
 	base::unique_qptr<Ui::SlideWrap<Ui::RpWidget>> _topBarSuggestion;
 	base::unique_qptr<Ui::RpWidget> _topBarSuggestionPlaceholder;
 	rpl::event_stream<int> _topBarSuggestionHeightChanged;
+	base::unique_qptr<Ui::SlideWrap<Ui::RpWidget>> _communityRequests;
+	base::unique_qptr<Ui::RpWidget> _communityRequestsPlaceholder;
+	rpl::lifetime _communityRequestsLifetime;
 	rpl::event_stream<bool> _searchStateForTopBarSuggestion;
 	rpl::event_stream<> _prepareTopBarSnapshot;
 	rpl::event_stream<bool> _openedFolderOrForumChanges;
