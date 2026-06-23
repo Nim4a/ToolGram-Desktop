@@ -144,4 +144,7 @@ struct MountTopBarSuggestionArgs {
 
 void MountTopBarSuggestion(MountTopBarSuggestionArgs args);
 
+[[nodiscard]] not_null<Ui::RpWidget*> CreateRequestsBubbleIcon(
+	not_null<Ui::RpWidget*> parent);
+
 } // namespace Dialogs

@@ -924,6 +924,10 @@ dialogsTopBarSuggestionShadow: BoxShadow {
 	offset: point(0px, 1px);
 	opacity: 0.09;
 }
+dialogsRequestsBubbleIconSize: 32px;
+dialogsRequestsBubbleIconRadius: 8px;
+dialogsRequestsBubbleIconBg: dialogsBgActive;
+dialogsRequestsBubbleIcon: icon{{ "chat/filled_requests-20x20", dialogsNameFgActive }};
 dialogsSuggestionDeniedAuthLottie: size(70px, 70px);
 dialogsSuggestionDeniedAuthLottieCircle: size(90px, 90px);
 dialogsSuggestionDeniedAuthLottieMargins: margins(10px, 10px, 10px, 10px);

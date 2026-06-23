@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/painter.h"
 #include "ui/power_saving.h"
 #include "ui/rect.h"
+#include "ui/round_rect.h"
 #include "ui/text/format_values.h"
 #include "ui/text/text_custom_emoji.h"
 #include "ui/ui_rpl_filter.h"
@@ -649,6 +650,24 @@ void MountTopBarSuggestion(MountTopBarSuggestionArgs args) {
 		pinToScroll,
 		wrap->entity()->lifetime());
 	pinToScroll();
+}
+
+not_null<Ui::RpWidget*> CreateRequestsBubbleIcon(
+		not_null<Ui::RpWidget*> parent) {
+	const auto result = Ui::CreateChild<Ui::RpWidget>(parent);
+	result->setAttribute(Qt::WA_TransparentForMouseEvents);
+	result->resize(
+		st::dialogsRequestsBubbleIconSize,
+		st::dialogsRequestsBubbleIconSize);
+	const auto background = result->lifetime().make_state<Ui::RoundRect>(
+		st::dialogsRequestsBubbleIconRadius,
+		st::dialogsRequestsBubbleIconBg);
+	result->paintOn([=](QPainter &p) {
+		auto hq = PainterHighQualityEnabler(p);
+		background->paint(p, result->rect());
+		st::dialogsRequestsBubbleIcon.paintInCenter(p, result->rect());
+	});
+	return result;
 }
 
 } // namespace Dialogs
