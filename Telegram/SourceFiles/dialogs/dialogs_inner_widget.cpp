@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "dialogs/ui/dialogs_video_userpic.h"
 #include "dialogs/dialogs_indexed_list.h"
 #include "dialogs/dialogs_row.h"
+#include "dialogs/dialogs_community_requestable_list.h"
 #include "dialogs/dialogs_widget.h"
 #include "dialogs/dialogs_search_from_controllers.h"
 #include "dialogs/dialogs_search_tags.h"
@@ -310,7 +311,6 @@ InnerWidget::InnerWidget(
 	setAccessibleName(tr::lng_recent_chats(tr::now));
 
 	_communityViewable.setRepaint([=] { update(); });
-	_communityRequestable.setRepaint([=] { update(); });
 
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
@@ -620,7 +620,6 @@ bool InnerWidget::updateEntryHeight(not_null<Entry*> entry) {
 				}
 			};
 			recount(_communityViewable);
-			recount(_communityRequestable);
 		}
 	}
 	return _shownList->updateHeight(entry, _narrowRatio) || changing;
@@ -642,7 +641,6 @@ void InnerWidget::setNarrowRatio(float64 narrowRatio) {
 			}
 		};
 		recount(_communityViewable);
-		recount(_communityRequestable);
 	}
 	if (changed || !height()) {
 		refresh();
@@ -806,38 +804,27 @@ int InnerWidget::communityRequestableTop() const {
 
 int InnerWidget::communitySectionsBottom() const {
 	auto result = communityRequestableTop();
-	if (!_communityRequestable.empty()) {
-		result += st::searchedBarHeight + _communityRequestable.height();
+	if (_communityRequestableList && !_communityRequestableList->isHidden()) {
+		result += st::searchedBarHeight + _communityRequestableList->height();
 	}
 	return result;
 }
 
 int InnerWidget::communityRowCount() const {
-	return _communityViewable.size() + _communityRequestable.size();
+	return _communityViewable.size();
 }
 
 Row *InnerWidget::communityRowAt(int index) const {
 	if (index < 0 || index >= communityRowCount()) {
 		return nullptr;
 	}
-	const auto viewable = _communityViewable.size();
-	return (index < viewable)
-		? _communityViewable.rowAt(index)
-		: _communityRequestable.rowAt(index - viewable);
+	return _communityViewable.rowAt(index);
 }
 
 int InnerWidget::communityRowAbsoluteTop(int index) const {
-	const auto viewable = _communityViewable.size();
-	const auto inViewable = (index < viewable);
-	const auto &view = inViewable
-		? _communityViewable
-		: _communityRequestable;
-	const auto localIndex = inViewable ? index : (index - viewable);
-	return (inViewable
-		? communityViewableTop()
-		: communityRequestableTop())
+	return communityViewableTop()
 		+ st::searchedBarHeight
-		+ view.rowTop(localIndex);
+		+ _communityViewable.rowTop(index);
 }
 
 void InnerWidget::changeOpenedFolder(Data::Folder *folder) {
@@ -901,7 +888,6 @@ void InnerWidget::changeOpenedForum(Data::Forum *forum) {
 
 void InnerWidget::rebuildCommunitySections() {
 	_communityViewable.clear();
-	_communityRequestable.clear();
 	_communitySelected = -1;
 	setCommunityPressed(-1);
 	if (!_openedCommunity) {
@@ -919,12 +905,9 @@ void InnerWidget::rebuildCommunitySections() {
 		}
 		if (Data::IsCommunityChatViewable(linked)) {
 			_communityViewable.add(history, _narrowRatio);
-		} else {
-			_communityRequestable.add(history, _narrowRatio);
 		}
 	}
 	_communityViewable.finalize();
-	_communityRequestable.finalize();
 }
 
 void InnerWidget::changeOpenedCommunity(Data::CommunityInfo *community) {
@@ -939,8 +922,21 @@ void InnerWidget::changeOpenedCommunity(Data::CommunityInfo *community) {
 	refreshShownList();
 	_openedCommunityLifetime.destroy();
 	if (community) {
-		// linkedPeersValue() fires immediately on subscription, which
-		// performs the first rebuild + refresh below.
+		_communityRequestableList = object_ptr<CommunityRequestableList>(
+			this,
+			_controller,
+			community);
+		_communityRequestableList->show();
+		_communityRequestableList->countValue(
+		) | rpl::on_next([=] {
+			refresh();
+		}, _openedCommunityLifetime);
+
+		_communityRequestableList->heightValue(
+		) | rpl::skip(1) | rpl::on_next([=] {
+			refresh();
+		}, _openedCommunityLifetime);
+
 		community->linkedPeersValue(
 		) | rpl::on_next([=] {
 			rebuildCommunitySections();
@@ -952,6 +948,7 @@ void InnerWidget::changeOpenedCommunity(Data::CommunityInfo *community) {
 			update();
 		}, _openedCommunityLifetime);
 	} else {
+		_communityRequestableList = { nullptr };
 		rebuildCommunitySections();
 	}
 	refreshWithCollapsedRows(true);
@@ -1362,11 +1359,13 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 				_communityViewable,
 				tr::lng_community_chats_viewable(tr::now),
 				0);
-			paintSection(
-				communityRequestableTop(),
-				_communityRequestable,
-				tr::lng_community_chats_requestable(tr::now),
-				_communityViewable.size());
+			if (_communityRequestableList
+				&& !_communityRequestableList->isHidden()) {
+				p.save();
+				p.translate(0, communityRequestableTop());
+				paintBar(tr::lng_community_chats_requestable(tr::now));
+				p.restore();
+			}
 			p.translate(0, communitySectionsBottom());
 		}
 	} else if (_state == WidgetState::Filtered) {
@@ -2218,10 +2217,6 @@ void InnerWidget::selectByMouse(QPoint globalPosition) {
 				}
 			};
 			pick(communityViewableTop(), 0, _communityViewable);
-			pick(
-				communityRequestableTop(),
-				_communityViewable.size(),
-				_communityRequestable);
 		}
 		if (_collapsedSelected != collapsedSelected
 			|| _selected != selected
@@ -3173,6 +3168,7 @@ void InnerWidget::resizeEvent(QResizeEvent *e) {
 	}
 	resizeEmpty();
 	moveSearchIn();
+	updateCommunityRequestableGeometry();
 }
 
 void InnerWidget::moveSearchIn() {
@@ -4753,9 +4749,11 @@ void InnerWidget::refresh(bool toTop) {
 	auto h = 0;
 	if (_state == WidgetState::Default) {
 		if (_openedCommunity) {
+			const auto requestableShown = _communityRequestableList
+				&& !_communityRequestableList->isHidden();
 			if (_shownList->empty()
 				&& _communityViewable.empty()
-				&& _communityRequestable.empty()) {
+				&& !requestableShown) {
 				h = st::dialogsEmptyHeight;
 			} else {
 				h = communitySectionsBottom();
@@ -4782,6 +4780,7 @@ void InnerWidget::refresh(bool toTop) {
 		jumpToTop();
 		preloadRowsData();
 	}
+	updateCommunityRequestableGeometry();
 	update();
 }
 
@@ -4836,7 +4835,9 @@ void InnerWidget::refreshEmpty() {
 			? EmptyState::EmptyForum
 			: EmptyState::Loading)
 		: _openedCommunity
-		? ((_communityViewable.empty() && _communityRequestable.empty())
+		? ((_communityViewable.empty()
+			&& (!_communityRequestableList
+				|| _communityRequestableList->isHidden()))
 			? EmptyState::Loading
 			: EmptyState::None)
 		: (!_filterId && data->contactsLoaded().current())
@@ -4982,6 +4983,15 @@ void InnerWidget::resizeEmpty() {
 	if (_loadingAnimation) {
 		_loadingAnimation->resizeToWidth(width());
 		_loadingAnimation->move(0, searchedOffset());
+	}
+}
+
+void InnerWidget::updateCommunityRequestableGeometry() {
+	if (_communityRequestableList && !_communityRequestableList->isHidden()) {
+		_communityRequestableList->resizeToWidth(width());
+		_communityRequestableList->moveToLeft(
+			0,
+			communityRequestableTop() + st::searchedBarHeight);
 	}
 }
 

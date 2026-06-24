@@ -793,6 +793,8 @@ PRIVATE
     dialogs/ui/dialogs_video_userpic.h
     dialogs/dialogs_community_chats_list.cpp
     dialogs/dialogs_community_chats_list.h
+    dialogs/dialogs_community_requestable_list.cpp
+    dialogs/dialogs_community_requestable_list.h
     dialogs/dialogs_community_rows_view.cpp
     dialogs/dialogs_community_rows_view.h
     dialogs/dialogs_entry.cpp

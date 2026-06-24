@@ -85,6 +85,7 @@ class IndexedList;
 class SearchTags;
 class SearchEmpty;
 class ChatSearchIn;
+class CommunityRequestableList;
 enum class HashOrCashtag : uchar;
 struct RightButton;
 enum class ChatTypeFilter : uchar;
@@ -464,6 +465,7 @@ private:
 
 	void refreshShownList();
 	void rebuildCommunitySections();
+	void updateCommunityRequestableGeometry();
 	void setCommunityPressed(int pressed);
 	[[nodiscard]] int skipTopHeight() const;
 	[[nodiscard]] int collapsedRowsOffset() const;
@@ -725,7 +727,8 @@ private:
 	int _searchedPressed = -1;
 
 	CommunityRowsView _communityViewable;
-	CommunityRowsView _communityRequestable;
+	object_ptr<CommunityRequestableList> _communityRequestableList
+		= { nullptr };
 	int _communitySelected = -1;
 	int _communityPressed = -1;
 	rpl::lifetime _openedCommunityLifetime;
