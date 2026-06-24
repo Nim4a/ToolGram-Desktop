@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/reactions_list/info_reactions_list_widget.h"
 #include "info/requests_list/info_requests_list_widget.h"
 #include "info/community/info_community_widget.h"
+#include "info/community_requests/info_community_requests_widget.h"
 #include "info/peer_gifts/info_peer_gifts_widget.h"
 #include "info/polls/info_polls_list_widget.h"
 #include "info/polls/info_polls_results_widget.h"
@@ -225,6 +226,8 @@ std::shared_ptr<ContentMemento> Memento::DefaultContent(
 		return std::make_shared<RequestsList::Memento>(peer);
 	case Section::Type::Community:
 		return std::make_shared<Community::Memento>(peer);
+	case Section::Type::CommunityRequests:
+		return std::make_shared<CommunityRequests::Memento>(peer);
 	case Section::Type::SavedSublists:
 		return std::make_shared<Saved::SublistsMemento>(&peer->session());
 	case Section::Type::Members:

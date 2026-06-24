@@ -1129,6 +1129,7 @@ requestVisibleIcon: IconEmoji {
 	padding: margins(0px, 2px, 4px, 0px);
 	useIconColor: false;
 }
+requestsSectionBottomMargin: margins(22px, 8px, 22px, 8px);
 
 ringtonesBoxButton: SettingsButton(defaultSettingsButton) {
 	textFg: lightButtonFg;

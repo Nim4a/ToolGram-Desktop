@@ -1150,6 +1150,8 @@ PRIVATE
     info/common_groups/info_common_groups_widget.h
     info/community/info_community_widget.cpp
     info/community/info_community_widget.h
+    info/community_requests/info_community_requests_widget.cpp
+    info/community_requests/info_community_requests_widget.h
     info/downloads/info_downloads_inner_widget.cpp
     info/downloads/info_downloads_inner_widget.h
     info/downloads/info_downloads_provider.cpp

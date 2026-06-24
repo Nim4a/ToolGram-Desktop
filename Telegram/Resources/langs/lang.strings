@@ -2246,7 +2246,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_community_chats_requestable" = "Chats you can request to join";
 "lng_community_add_chat" = "Add a Chat to Community";
 "lng_community_requests_title" = "Pending Requests";
-"lng_community_requests_about" = "Chats require admin approval before they're added to the community.";
+"lng_community_requests_about" = "Chats require admin approval before they're added to the community. {link}";
+"lng_community_requests_about_link" = "Change Settings.";
 "lng_community_requests_count#one" = "{count} chat suggested for this community";
 "lng_community_requests_count#other" = "{count} chats suggested for this community";
 "lng_community_requests_button#one" = "{count} Pending Request";

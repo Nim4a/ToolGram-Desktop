@@ -158,6 +158,7 @@ public:
 		SimilarPeers,
 		RequestsList,
 		Community,
+		CommunityRequests,
 		ReactionsList,
 		SavedSublists,
 		PeerGifts,
