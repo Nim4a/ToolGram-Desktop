@@ -924,14 +924,15 @@ dialogsTopBarSuggestionShadow: BoxShadow {
 	offset: point(0px, 1px);
 	opacity: 0.09;
 }
-dialogsRequestsBubbleIconSize: 32px;
-dialogsRequestsBubbleIconRadius: 8px;
+dialogsRequestsBubbleIconSize: 26px;
+dialogsRequestsBubbleIconRadius: 6px;
 dialogsRequestsBubbleIconBg: dialogsBgActive;
 dialogsRequestsBubbleIcon: icon{{ "chat/filled_requests-20x20", dialogsNameFgActive }};
-dialogsCommunityRequestsBubbleHeight: 50px;
+dialogsCommunityRequestsBubbleHeight: 44px;
 dialogsCommunityRequestsBubbleIconMargin: 9px;
-dialogsCommunityRequestsBubbleTextSkip: 57px;
+dialogsCommunityRequestsBubbleTextSkip: 48px;
 dialogsCommunityRequestsBubbleRightInset: 9px;
+dialogsCommunityRequestsBubbleRadius: 8px;
 dialogsSuggestionDeniedAuthLottie: size(70px, 70px);
 dialogsSuggestionDeniedAuthLottieCircle: size(90px, 90px);
 dialogsSuggestionDeniedAuthLottieMargins: margins(10px, 10px, 10px, 10px);

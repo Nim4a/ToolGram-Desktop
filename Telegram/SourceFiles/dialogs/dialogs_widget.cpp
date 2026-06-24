@@ -1271,6 +1271,7 @@ void Widget::updateCommunityRequestsBubble() {
 			+ margins.left(),
 		.rightInset = st::dialogsCommunityRequestsBubbleRightInset
 			+ margins.right(),
+		.cornerRadius = st::dialogsCommunityRequestsBubbleRadius,
 		.centerSingleLineTitle = true,
 	});
 	content->setLeadingWidget(CreateRequestsBubbleIcon(content));
@@ -1280,11 +1281,7 @@ void Widget::updateCommunityRequestsBubble() {
 	const auto open = [=] {
 		ShowCommunityPendingRequestsBox(controller(), channel);
 	};
-	content->setRightButton(
-		rpl::duplicate(count) | rpl::map([](int c) {
-			return TextWithEntities{ QString::number(c) };
-		}),
-		open);
+	content->setRightBadge(rpl::duplicate(count));
 	content->setClickedCallback(open);
 
 	_communityRequests.reset(Ui::CreateChild<Ui::SlideWrap<Ui::RpWidget>>(

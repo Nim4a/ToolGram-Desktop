@@ -33,7 +33,8 @@ namespace Dialogs {
 int PaintSuggestionBubbleBackground(
 	QPainter &p,
 	QRect outer,
-	const Ui::BoxShadow &shadow);
+	const Ui::BoxShadow &shadow,
+	int cornerRadius = 0);
 
 class UnconfirmedAuthWrap : public Ui::SlideWrap<Ui::VerticalLayout> {
 public:
@@ -73,6 +74,7 @@ struct TopBarSuggestionGeometry {
 	int iconLeft = 0;
 	int leadingTextSkip = 0;
 	int rightInset = 0;
+	int cornerRadius = 0;
 	bool centerSingleLineTitle = false;
 };
 
@@ -99,6 +101,7 @@ public:
 	void setRightButton(
 		rpl::producer<TextWithEntities> text,
 		Fn<void()> callback);
+	void setRightBadge(rpl::producer<int> count);
 	void setLeadingWidget(Ui::RpWidget *widget);
 	void setGeometryOverride(TopBarSuggestionGeometry geometry);
 	void setCollapseProgress(rpl::producer<float64> progress);
@@ -129,6 +132,9 @@ private:
 	base::unique_qptr<Ui::IconButton> _rightHide;
 	base::unique_qptr<Ui::IconButton> _rightArrow;
 	base::unique_qptr<Ui::RoundButton> _rightButton;
+	rpl::lifetime _rightBadgeLifetime;
+	QString _rightBadgeText;
+	QSize _rightBadgeSize;
 	QPointer<Ui::RpWidget> _leadingWidget;
 	rpl::lifetime _leadingWidgetLifetime;
 	Fn<void()> _hideCallback;

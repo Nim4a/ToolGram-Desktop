@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_custom_emoji.h"
 #include "ui/ui_rpl_filter.h"
 #include "ui/ui_utility.h"
+#include "ui/unread_badge_paint.h"
 #include "ui/vertical_list.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
@@ -91,7 +92,8 @@ int PillRadius() {
 int PaintSuggestionBubbleBackground(
 		QPainter &p,
 		QRect outer,
-		const Ui::BoxShadow &shadow) {
+		const Ui::BoxShadow &shadow,
+		int cornerRadius) {
 	const auto &margins = st::dialogsTopBarSuggestionMargins;
 	const auto pill = outer - margins;
 	PaintTopFade(
@@ -103,7 +105,7 @@ int PaintSuggestionBubbleBackground(
 		return 0;
 	}
 	const auto radius = std::min({
-		PillRadius(),
+		cornerRadius ? cornerRadius : PillRadius(),
 		pill.width() / 2,
 		pill.height() / 2,
 	});
@@ -366,12 +368,35 @@ void TopBarSuggestionContent::setRightButton(
 	_rightButton->show();
 }
 
+void TopBarSuggestionContent::setRightBadge(rpl::producer<int> count) {
+	_rightButton = nullptr;
+	_rightHide = nullptr;
+	_rightArrow = nullptr;
+	_rightIcon = RightIcon::None;
+	_rightBadgeLifetime.destroy();
+	std::move(count) | rpl::on_next([=](int value) {
+		const auto text = QString::number(value);
+		if (_rightBadgeText == text && !_rightBadgeSize.isEmpty()) {
+			return;
+		}
+		_rightBadgeText = text;
+		auto st = Ui::UnreadBadgeStyle();
+		_rightBadgeSize = Ui::CountUnreadBadgeSize(_rightBadgeText, st);
+		resizeToWidth(width());
+		update();
+	}, _rightBadgeLifetime);
+}
+
 void TopBarSuggestionContent::draw(QPainter &p) {
 	const auto outer = Ui::RpWidget::rect();
 	const auto &margins = st::dialogsTopBarSuggestionMargins;
 	const auto pill = outer - margins;
 
-	const auto radius = PaintSuggestionBubbleBackground(p, outer, _shadow);
+	const auto radius = PaintSuggestionBubbleBackground(
+		p,
+		outer,
+		_shadow,
+		_geometry.cornerRadius);
 	if (pill.isEmpty()) {
 		return;
 	}
@@ -396,7 +421,8 @@ void TopBarSuggestionContent::draw(QPainter &p) {
 		- leftPadding
 		- rightPadding;
 	const auto availableWidth = availableWidthNoPhoto
-		- (_rightHide ? _rightHide->width() : 0);
+		- (_rightHide ? _rightHide->width() : 0)
+		- (_rightBadgeText.isEmpty() ? 0 : _rightBadgeSize.width());
 	const auto titleRight = leftPadding;
 	const auto hasSecondLineTitle = availableWidth < _contentTitle.maxWidth();
 	const auto paused = On(PowerSaving::kEmojiChat)
@@ -448,6 +474,17 @@ void TopBarSuggestionContent::draw(QPainter &p) {
 			},
 			.pausedEmoji = paused,
 		});
+	}
+	if (!_rightBadgeText.isEmpty()) {
+		auto st = Ui::UnreadBadgeStyle();
+		const auto rightInset = _geometry.rightInset
+			? _geometry.rightInset
+			: (margins.right()
+				+ (_geometry.cardInnerHeight - st.size) / 2);
+		const auto badgeRight = outer.width() - rightInset;
+		const auto badgeTop = margins.top()
+			+ (_geometry.cardInnerHeight - st.size) / 2;
+		Ui::PaintUnreadBadge(p, _rightBadgeText, badgeRight, badgeTop, st);
 	}
 }
 
