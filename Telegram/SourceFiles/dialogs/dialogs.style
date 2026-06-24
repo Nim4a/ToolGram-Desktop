@@ -932,7 +932,7 @@ dialogsCommunityRequestsBubbleHeight: 44px;
 dialogsCommunityRequestsBubbleIconMargin: 9px;
 dialogsCommunityRequestsBubbleTextSkip: 48px;
 dialogsCommunityRequestsBubbleRightInset: 9px;
-dialogsCommunityRequestsBubbleRadius: 8px;
+dialogsCommunityRequestsBubbleRadius: 11px;
 dialogsSuggestionDeniedAuthLottie: size(70px, 70px);
 dialogsSuggestionDeniedAuthLottieCircle: size(90px, 90px);
 dialogsSuggestionDeniedAuthLottieMargins: margins(10px, 10px, 10px, 10px);
