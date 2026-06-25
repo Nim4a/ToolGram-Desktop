@@ -1118,7 +1118,7 @@ communityRequestsBoxList: PeerList(peerListBox) {
 	padding: margins(0px, 6px, 0px, 12px);
 	item: communityRequestsBoxItem;
 }
-communityRequestAcceptPosition: point(71px, 78px);
+communityRequestAcceptPosition: point(71px, 52px);
 communityRequestsTitlePadding: margins(0px, 8px, 0px, -4px);
 requestSuggestStyle: TextStyle(defaultTextStyle) {
 	font: contactsStatusFont;
@@ -1144,7 +1144,7 @@ requestHiddenIcon: IconEmoji {
 	padding: margins(0px, 0px, 0px, 0px);
 	useIconColor: false;
 }
-requestsSectionBottomMargin: margins(22px, 8px, 22px, 8px);
+requestsSectionBottomMargin: margins(16px, 16px, 16px, 16px);
 
 ringtonesBoxButton: SettingsButton(defaultSettingsButton) {
 	textFg: lightButtonFg;
