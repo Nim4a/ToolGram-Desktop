@@ -105,13 +105,13 @@ QRect Row::elementGeometry(int element, int outerWidth) const {
 	switch (element) {
 	case kAcceptButton: {
 		const auto size = _delegate->rowAcceptButtonSize();
-		return QRect(st::requestAcceptPosition, size);
+		return QRect(st::communityRequestAcceptPosition, size);
 	} break;
 	case kRejectButton: {
 		const auto accept = _delegate->rowAcceptButtonSize();
 		const auto size = _delegate->rowRejectButtonSize();
 		return QRect(
-			(st::requestAcceptPosition
+			(st::communityRequestAcceptPosition
 				+ QPoint(accept.width() + st::requestButtonsSkip, 0)),
 			size);
 	} break;
@@ -264,7 +264,7 @@ RequestsBoxController::RequestsBoxController(
 , _helper(std::make_unique<RowHelper>(!peer->isBroadcast()))
 , _peer(peer)
 , _api(&_peer->session().mtp()) {
-	setStyleOverrides(&st::requestsBoxList);
+	setStyleOverrides(&st::communityRequestsBoxList);
 	subscribeToMigration();
 }
 
