@@ -1385,8 +1385,8 @@ std::unique_ptr<Ui::RpWidget> Widget::setupBottomBar() {
 		wrap->heightValue(),
 		heightValue()
 	) | rpl::on_next([=](int height, int fullHeight) {
-		setScrollBottomSkip(height);
-		wrap->move(0, fullHeight - height);
+		setScrollBottomSkip(height - st::boxRadius);
+		wrap->move(0, fullHeight - height + st::boxRadius);
 	}, wrap->lifetime());
 
 	return result;
