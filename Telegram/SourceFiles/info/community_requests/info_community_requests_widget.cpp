@@ -41,6 +41,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
+#include "ui/widgets/tooltip.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
 #include "styles/style_boxes.h"
@@ -54,6 +55,7 @@ constexpr auto kPerPage = 100;
 constexpr auto kAcceptButton = 1;
 constexpr auto kRejectButton = 2;
 constexpr auto kUserLink = 3;
+constexpr auto kHiddenPill = 4;
 constexpr auto kUndoToastDuration = crl::time(3000);
 constexpr auto kPendingRowOpacity = 0.4;
 
@@ -527,7 +529,11 @@ float64 Row::opacity() {
 }
 
 int Row::elementsCount() const {
-	return _requestedBy ? 3 : 2;
+	return !_hidden.isEmpty()
+		? kHiddenPill
+		: _requestedBy
+		? kUserLink
+		: kRejectButton;
 }
 
 QRect Row::elementGeometry(int element, int outerWidth) const {
@@ -551,12 +557,17 @@ QRect Row::elementGeometry(int element, int outerWidth) const {
 			_userWidth,
 			st::requestSuggestStyle.font->height);
 	} break;
+	case kHiddenPill: {
+		return _hidden.isEmpty()
+			? QRect()
+			: computePills(outerWidth).hidden;
+	} break;
 	}
 	return QRect();
 }
 
 bool Row::elementDisabled(int element) const {
-	return (element != kUserLink) && _pending;
+	return (element != kUserLink) && (element != kHiddenPill) && _pending;
 }
 
 bool Row::elementOnlySelect(int element) const {
@@ -657,9 +668,19 @@ public:
 	void rowElementClicked(
 		not_null<PeerListRow*> row,
 		int element) override;
+	void rowElementHovered(
+		not_null<PeerListRow*> row,
+		int element,
+		QRect elementRect) override;
 
 	void setToastParent(not_null<QWidget*> parent) {
 		_toastParent = parent;
+	}
+	void setTooltipParent(not_null<Ui::RpWidget*> parent) {
+		_tooltipParent = parent;
+	}
+	void setListWidget(not_null<Ui::RpWidget*> list) {
+		_listWidget = list;
 	}
 	void flushPendingOnClose();
 
@@ -698,6 +719,9 @@ private:
 	const not_null<Window::SessionNavigation*> _navigation;
 	const not_null<ChannelData*> _community;
 	QPointer<QWidget> _toastParent;
+	QPointer<Ui::RpWidget> _tooltipParent;
+	QPointer<Ui::RpWidget> _listWidget;
+	base::unique_qptr<Ui::ImportantTooltip> _hiddenTooltip;
 	base::weak_ptr<Ui::Toast::Instance> _toast;
 	std::vector<std::shared_ptr<PendingAction>> _pending;
 	std::shared_ptr<PendingAction> _current;
@@ -803,6 +827,37 @@ void Controller::rowElementClicked(
 				PrepareShortInfoBox(user, _navigation));
 		}
 	}
+}
+
+void Controller::rowElementHovered(
+		not_null<PeerListRow*> row,
+		int element,
+		QRect elementRect) {
+	if (element != kHiddenPill
+		|| elementRect.isEmpty()
+		|| !_tooltipParent
+		|| !_listWidget) {
+		if (_hiddenTooltip) {
+			_hiddenTooltip->toggleFast(false);
+			_hiddenTooltip = nullptr;
+		}
+		return;
+	}
+	const auto parent = _tooltipParent.data();
+	_hiddenTooltip.reset(Ui::CreateChild<Ui::ImportantTooltip>(
+		parent,
+		Ui::MakeNiceTooltipLabel(
+			parent,
+			tr::lng_community_request_only_members(tr::marked),
+			st::boxWideWidth,
+			st::defaultImportantTooltipLabel),
+		st::defaultImportantTooltip));
+	_hiddenTooltip->setAttribute(Qt::WA_TransparentForMouseEvents);
+	_hiddenTooltip->toggleFast(false);
+	const auto anchor = Ui::MapFrom(parent, _listWidget.data(), elementRect);
+	_hiddenTooltip->pointAt(anchor, RectPart::Top | RectPart::Center);
+	_hiddenTooltip->raise();
+	_hiddenTooltip->toggleAnimated(true);
 }
 
 void Controller::startUndoable(not_null<PeerListRow*> row, bool reject) {
@@ -1143,6 +1198,7 @@ InnerWidget::InnerWidget(
 	_list = add(object_ptr<PeerListContent>(this, _listController));
 	setContent(_list);
 	_listController->setDelegate(static_cast<PeerListDelegate*>(this));
+	_listController->setListWidget(_list);
 }
 
 void InnerWidget::visibleTopBottomUpdated(
@@ -1180,6 +1236,7 @@ Widget::Widget(
 	peer->asChannel())) {
 	const auto raw = static_cast<::Controller*>(_listController.get());
 	raw->setToastParent(this);
+	raw->setTooltipParent(this);
 
 	_inner = setInnerWidget(
 		object_ptr<InnerWidget>(this, controller, raw, peer));

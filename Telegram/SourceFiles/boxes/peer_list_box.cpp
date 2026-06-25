@@ -2541,11 +2541,21 @@ void PeerListContent::setSelected(Selected selected) {
 	if (_selected == selected) {
 		return;
 	}
+	const auto was = getRow(_selected.index);
 	_selected = selected;
 	updateRow(_selected.index);
 	setCursor(_selected.element ? style::cur_pointer : style::cur_default);
 
 	_selectedIndex = _selected.index.value;
+
+	if (const auto row = getRow(_selected.index)) {
+		_controller->rowElementHovered(
+			row,
+			_selected.element,
+			getElementRect(row, _selected.index, _selected.element));
+	} else if (was) {
+		_controller->rowElementHovered(was, 0, QRect());
+	}
 }
 
 void PeerListContent::setContexted(Selected contexted) {

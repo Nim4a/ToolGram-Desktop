@@ -537,6 +537,11 @@ public:
 			rowRightActionClicked(row);
 		}
 	}
+	virtual void rowElementHovered(
+		not_null<PeerListRow*> row,
+		int element,
+		QRect elementRect) {
+	}
 
 	virtual bool rowTrackPress(not_null<PeerListRow*> row) {
 		return false;
