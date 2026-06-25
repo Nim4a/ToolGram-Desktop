@@ -153,6 +153,7 @@ void SetupCommunityContent(
 				container,
 				object_ptr<Ui::VerticalLayout>(container)));
 		const auto inner = wrap->entity();
+		Ui::AddSkip(inner);
 		auto count = Info::Profile::PendingRequestsCountValue(
 			community
 		) | rpl::start_spawning(wrap->lifetime());

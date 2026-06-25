@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/info_controller.h"
 #include "info/profile/info_profile_values.h"
 #include "lang/lang_keys.h"
+#include "lang/lang_tag.h"
 #include "main/main_session.h"
 #include "ui/arc_angles.h"
 #include "ui/boxes/confirm_box.h"
@@ -225,6 +226,8 @@ public:
 		int availableWidth,
 		int outerWidth,
 		bool selected) override;
+	PaintRoundImageCallback generatePaintUserpicCallback(
+		bool forceRound) override;
 
 	int elementsCount() const override;
 	QRect elementGeometry(int element, int outerWidth) const override;
@@ -244,17 +247,23 @@ public:
 private:
 	[[nodiscard]] int statusTextLeft() const;
 	void paintPill(Painter &p, QRect pill) const;
+	void validateOnlyMembersIcon();
 
 	const not_null<RowDelegate*> _delegate;
 	UserData *_requestedBy = nullptr;
 	Ui::Text::String _suggest;
 	Ui::Text::String _members;
 	Ui::Text::String _onlyMembers;
+	QImage _onlyMembersIcon;
+	QColor _onlyMembersIconColor;
 	int _userWidth = 0;
 	std::unique_ptr<Ui::RippleAnimation> _acceptRipple;
 	std::unique_ptr<Ui::RippleAnimation> _rejectRipple;
 	bool _pending = false;
 	std::shared_ptr<Ui::DynamicImage> _suggestUserpic;
+	std::shared_ptr<Ui::DynamicImage> _chatUserpic;
+	QImage _composedCache;
+	int _composedCacheSize = 0;
 
 };
 
@@ -287,11 +296,8 @@ Row::Row(
 	const auto channel = request.peer->asChannel();
 	if (channel && channel->membersCountKnown()) {
 		const auto count = channel->membersCount();
-		const auto countText = channel->isBroadcast()
-			? tr::lng_chat_status_subscribers(tr::now, lt_count, count)
-			: tr::lng_chat_status_members(tr::now, lt_count, count);
 		auto members = Ui::Text::IconEmoji(&st::requestMembersIcon)
-			.append(countText);
+			.append(Lang::FormatCountToShort(count).string);
 		_members.setMarkedText(
 			st::requestMembersStyle,
 			members,
@@ -299,32 +305,105 @@ Row::Row(
 	}
 
 	if (!request.visible) {
-		auto text = Ui::Text::IconEmoji(&st::requestVisibleIcon)
-			.append(tr::lng_community_request_only_members(tr::now));
-		_onlyMembers.setMarkedText(
+		_onlyMembers.setText(
 			st::requestMembersStyle,
-			text,
-			Ui::NameTextOptions());
+			tr::lng_community_request_only_members(tr::now));
 	}
 
+	_chatUserpic = Ui::MakeUserpicThumbnail(request.peer);
 	if (request.requestedBy) {
 		_suggestUserpic = Ui::MakeUserpicThumbnail(request.requestedBy);
-		_suggestUserpic->subscribeToUpdates([this] {
-			_delegate->rowUpdateRow(this);
-		});
+	}
+	const auto invalidate = [this] {
+		_composedCache = QImage();
+		_delegate->rowUpdateRow(this);
+	};
+	_chatUserpic->subscribeToUpdates(invalidate);
+	if (_suggestUserpic) {
+		_suggestUserpic->subscribeToUpdates(invalidate);
 	}
 }
 
+PaintRoundImageCallback Row::generatePaintUserpicCallback(bool forceRound) {
+	return [=](Painter &p, int x, int y, int outerWidth, int size) {
+		if (_composedCache.isNull() || _composedCacheSize != size) {
+			_composedCacheSize = size;
+			const auto badge = st::requestSuggestBadgeSize;
+			const auto border = st::requestSuggestBadgeBorder;
+			const auto &skip = st::requestSuggestBadgeSkip;
+			const auto bx = size - skip.x() - badge;
+			const auto by = size - skip.y() - badge;
+			// The badge may extend past the userpic edge (negative skip);
+			// grow the canvas so it overhangs into the row instead of clipping.
+			const auto overRight = _suggestUserpic
+				? std::max(bx + badge - size, 0)
+				: 0;
+			const auto overBottom = _suggestUserpic
+				? std::max(by + badge - size, 0)
+				: 0;
+			const auto ratio = style::DevicePixelRatio();
+			const auto full = QSize(size + overRight, size + overBottom);
+			_composedCache = QImage(
+				full * ratio,
+				QImage::Format_ARGB32_Premultiplied);
+			_composedCache.setDevicePixelRatio(ratio);
+			_composedCache.fill(Qt::transparent);
+			auto q = QPainter(&_composedCache);
+			q.drawImage(QRect(0, 0, size, size), _chatUserpic->image(size));
+			if (_suggestUserpic) {
+				auto hq = PainterHighQualityEnabler(q);
+				const auto cut = QRectF(
+					bx - border,
+					by - border,
+					badge + 2 * border,
+					badge + 2 * border);
+
+				q.setCompositionMode(QPainter::CompositionMode_Source);
+				auto pen = QPen(Qt::transparent);
+				pen.setWidthF(border);
+				q.setPen(pen);
+				q.setBrush(Qt::transparent);
+				q.drawEllipse(cut);
+
+				q.setCompositionMode(QPainter::CompositionMode_SourceOver);
+				q.drawImage(
+					QRectF(bx, by, badge, badge),
+					_suggestUserpic->image(badge));
+			}
+		}
+		const auto ratio = style::DevicePixelRatio();
+		p.drawImage(
+			QRect(
+				x,
+				y,
+				_composedCache.width() / ratio,
+				_composedCache.height() / ratio),
+			_composedCache);
+	};
+}
+
 int Row::statusTextLeft() const {
-	const auto left = st::requestSuggestPosition.x();
-	return _suggestUserpic
-		? (left + st::requestSuggestAvatar + st::requestSuggestAvatarSkip)
-		: left;
+	return st::requestSuggestPosition.x();
+}
+
+void Row::validateOnlyMembersIcon() {
+	const auto color = st::contactsStatusFg->c;
+	const auto ratio = style::DevicePixelRatio();
+	const auto iconSize = st::requestOnlyMembersIconSize;
+	const auto full = QSize(iconSize, iconSize) * ratio;
+	if (_onlyMembersIconColor == color && _onlyMembersIcon.size() == full) {
+		return;
+	}
+	_onlyMembersIconColor = color;
+	_onlyMembersIcon = st::requestOnlyMembersIcon.instance(
+		color
+	).scaled(full, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+	_onlyMembersIcon.setDevicePixelRatio(ratio);
 }
 
 void Row::paintPill(Painter &p, QRect pill) const {
 	auto hq = PainterHighQualityEnabler(p);
-	const auto radius = st::requestPillHeight / 2;
+	const auto radius = pill.height() / 2;
 	p.setPen(Qt::NoPen);
 	p.setBrush(st::windowBgOver);
 	p.drawRoundedRect(pill, radius, radius);
@@ -340,16 +419,7 @@ void Row::paintStatusText(
 		bool selected) {
 	const auto now = crl::now();
 	const auto grey = selected ? st.statusFgOver : st.statusFg;
-	const auto lineHeight = st::requestSuggestStyle.font->height;
 
-	if (_suggestUserpic) {
-		const auto d = st::requestSuggestAvatar;
-		const auto avatarTop = st::requestSuggestPosition.y()
-			+ (lineHeight - d) / 2;
-		p.drawImage(
-			QRect(st::requestSuggestPosition.x(), avatarTop, d, d),
-			_suggestUserpic->image(d));
-	}
 	p.setPen(grey);
 	_suggest.draw(p, {
 		.position = QPoint(statusTextLeft(), st::requestSuggestPosition.y()),
@@ -360,20 +430,23 @@ void Row::paintStatusText(
 	});
 
 	if (!_members.isEmpty()) {
-		const auto pillWidth = _members.maxWidth()
-			+ 2 * st::requestPillPaddingH;
+		const auto &padding = st::requestMembersPadding;
+		const auto font = st::requestMembersStyle.font;
+		const auto pillHeight = padding.top()
+			+ font->height
+			+ padding.bottom();
+		const auto pillWidth = padding.left()
+			+ _members.maxWidth()
+			+ padding.right();
 		const auto pillLeft = outerWidth
 			- st::requestMembersRightSkip
 			- pillWidth;
 		const auto textTop = st::requestMembersTop;
-		const auto pillTop = textTop
-			- (st::requestPillHeight - lineHeight) / 2;
-		paintPill(
-			p,
-			QRect(pillLeft, pillTop, pillWidth, st::requestPillHeight));
+		const auto pillTop = textTop - padding.top();
+		paintPill(p, QRect(pillLeft, pillTop, pillWidth, pillHeight));
 		p.setPen(grey);
 		_members.draw(p, {
-			.position = QPoint(pillLeft + st::requestPillPaddingH, textTop),
+			.position = QPoint(pillLeft + padding.left(), textTop),
 			.availableWidth = _members.maxWidth(),
 			.palette = &st::defaultTextPalette,
 			.now = now,
@@ -382,18 +455,38 @@ void Row::paintStatusText(
 	}
 
 	if (!_onlyMembers.isEmpty()) {
-		const auto pillWidth = _onlyMembers.maxWidth()
-			+ 2 * st::requestPillPaddingH;
+		validateOnlyMembersIcon();
+		const auto &padding = st::requestOnlyMembersPadding;
+		const auto font = st::requestMembersStyle.font;
+		const auto iconSize = st::requestOnlyMembersIconSize;
+		const auto iconSkip = st::requestOnlyMembersIconSkip;
+		const auto contentHeight = std::max(int(font->height), iconSize);
+		const auto pillHeight = padding.top()
+			+ contentHeight
+			+ padding.bottom();
+		const auto pillWidth = padding.left()
+			+ iconSize
+			+ iconSkip
+			+ _onlyMembers.maxWidth()
+			+ padding.right();
 		const auto pillLeft = st::requestOnlyMembersPosition.x();
 		const auto textTop = st::requestOnlyMembersPosition.y();
-		const auto pillTop = textTop
-			- (st::requestPillHeight - lineHeight) / 2;
-		paintPill(
-			p,
-			QRect(pillLeft, pillTop, pillWidth, st::requestPillHeight));
+		const auto pillTop = textTop - padding.top();
+		paintPill(p, QRect(pillLeft, pillTop, pillWidth, pillHeight));
+		const auto contentLeft = pillLeft + padding.left();
+		const auto iconTop = pillTop
+			+ (pillHeight - iconSize) / 2
+			+ st::requestOnlyMembersIconAdjust.y();
+		p.drawImage(
+			QRect(
+				contentLeft + st::requestOnlyMembersIconAdjust.x(),
+				iconTop,
+				iconSize,
+				iconSize),
+			_onlyMembersIcon);
 		p.setPen(grey);
 		_onlyMembers.draw(p, {
-			.position = QPoint(pillLeft + st::requestPillPaddingH, textTop),
+			.position = QPoint(contentLeft + iconSize + iconSkip, textTop),
 			.availableWidth = _onlyMembers.maxWidth(),
 			.palette = &st::defaultTextPalette,
 			.now = now,
@@ -425,13 +518,13 @@ QRect Row::elementGeometry(int element, int outerWidth) const {
 	switch (element) {
 	case kAcceptButton: {
 		const auto size = _delegate->rowAcceptButtonSize();
-		return QRect(st::requestAcceptPosition, size);
+		return QRect(st::communityRequestAcceptPosition, size);
 	} break;
 	case kRejectButton: {
 		const auto accept = _delegate->rowAcceptButtonSize();
 		const auto size = _delegate->rowRejectButtonSize();
 		return QRect(
-			(st::requestAcceptPosition
+			(st::communityRequestAcceptPosition
 				+ QPoint(accept.width() + st::requestButtonsSkip, 0)),
 			size);
 	} break;
@@ -629,7 +722,7 @@ Controller::Controller(
 , _rejectText(tr::lng_community_request_decline(tr::now))
 , _acceptTextWidth(st::requestsAcceptButton.style.font->width(_acceptText))
 , _rejectTextWidth(st::requestsRejectButton.style.font->width(_rejectText)) {
-	setStyleOverrides(&st::requestsBoxList);
+	setStyleOverrides(&st::communityRequestsBoxList);
 }
 
 Main::Session &Controller::session() const {
@@ -1028,7 +1121,8 @@ InnerWidget::InnerWidget(
 				community
 			) | rpl::map([](int count) {
 				return float64(std::max(count, 1));
-			})));
+			})),
+		st::communityRequestsTitlePadding);
 
 	_list = add(object_ptr<PeerListContent>(this, _listController));
 	setContent(_list);

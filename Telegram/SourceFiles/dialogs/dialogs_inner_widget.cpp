@@ -926,7 +926,6 @@ void InnerWidget::changeOpenedCommunity(Data::CommunityInfo *community) {
 			this,
 			_controller,
 			community);
-		_communityRequestableList->show();
 		_communityRequestableList->countValue(
 		) | rpl::on_next([=] {
 			refresh();

@@ -1060,8 +1060,7 @@ requestPeerRestriction: FlatLabel(defaultFlatLabel) {
 }
 
 requestsBoxItem: PeerListItem(peerListBoxItem) {
-	height: 124px;
-	namePosition: point(74px, 9px);
+	height: 99px;
 	button: OutlineButton(defaultPeerListButton) {
 		textBg: contactsBg;
 		textBgOver: contactsBg;
@@ -1093,42 +1092,58 @@ contactsWithStories: PeerList(peerListBox) {
 	}
 }
 requestsAcceptButton: RoundButton(defaultActiveButton) {
-	width: -28px;
-	height: 30px;
-	textTop: 6px;
+	width: -32px;
+	height: 28px;
+	textTop: 4px;
 }
 requestsRejectButton: RoundButton(defaultBoxButton) {
-	width: -28px;
-	height: 30px;
-	textTop: 6px;
+	width: -32px;
+	height: 28px;
+	textTop: 4px;
 	style: semiboldTextStyle;
 }
-requestAcceptPosition: point(71px, 90px);
+requestAcceptPosition: point(71px, 58px);
 requestButtonsSkip: 9px;
+communityRequestsBoxItem: PeerListItem(peerListBoxItem) {
+	height: 112px;
+	button: OutlineButton(defaultPeerListButton) {
+		textBg: contactsBg;
+		textBgOver: contactsBg;
+		ripple: RippleAnimation(defaultRippleAnimation) {
+			color: contactsBgOver;
+		}
+	}
+}
+communityRequestsBoxList: PeerList(peerListBox) {
+	padding: margins(0px, 6px, 0px, 12px);
+	item: communityRequestsBoxItem;
+}
+communityRequestAcceptPosition: point(71px, 78px);
+communityRequestsTitlePadding: margins(0px, 8px, 0px, -4px);
 requestSuggestStyle: TextStyle(defaultTextStyle) {
 	font: contactsStatusFont;
 }
 requestSuggestPosition: point(74px, 30px);
-requestSuggestAvatar: 18px;
-requestSuggestAvatarSkip: 5px;
+requestSuggestBadgeSize: 16px;
+requestSuggestBadgeBorder: 1px;
+requestSuggestBadgeSkip: point(-4px, 0px);
 requestMembersStyle: TextStyle(defaultTextStyle) {
-	font: contactsStatusFont;
+	font: font(11px);
 }
 requestMembersTop: 9px;
 requestMembersRightSkip: 14px;
-requestPillHeight: 22px;
-requestPillPaddingH: 7px;
+requestMembersPadding: margins(5px, 1px, 5px, 2px);
 requestMembersIcon: IconEmoji {
-	icon: icon{{ "chat/mini_subscribers", contactsStatusFg }};
-	padding: margins(0px, 3px, 4px, 0px);
+	icon: icon{{ "calls/dialogs_user", contactsStatusFg }};
+	padding: margins(0px, 4px, 4px, 0px);
 	useIconColor: false;
 }
-requestOnlyMembersPosition: point(74px, 50px);
-requestVisibleIcon: IconEmoji {
-	icon: icon{{ "chat/mini_hidden", contactsStatusFg }};
-	padding: margins(0px, 2px, 4px, 0px);
-	useIconColor: false;
-}
+requestOnlyMembersPosition: point(74px, 57px);
+requestOnlyMembersPadding: margins(4px, 2px, 5px, 3px);
+requestOnlyMembersIcon: icon{{ "stories/stealth_logo", contactsStatusFg }};
+requestOnlyMembersIconSize: 14px;
+requestOnlyMembersIconSkip: 4px;
+requestOnlyMembersIconAdjust: point(2px, -1px);
 requestsSectionBottomMargin: margins(22px, 8px, 22px, 8px);
 
 ringtonesBoxButton: SettingsButton(defaultSettingsButton) {
