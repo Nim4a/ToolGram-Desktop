@@ -228,6 +228,8 @@ public:
 		bool selected) override;
 	PaintRoundImageCallback generatePaintUserpicCallback(
 		bool forceRound) override;
+	QSize rightActionSize() const override;
+	QMargins rightActionMargins() const override;
 
 	int elementsCount() const override;
 	QRect elementGeometry(int element, int outerWidth) const override;
@@ -245,17 +247,23 @@ public:
 		int selectedElement) override;
 
 private:
+	struct Pills {
+		QRect members;
+		QRect hidden;
+		int clusterWidth = 0;
+	};
 	[[nodiscard]] int statusTextLeft() const;
+	[[nodiscard]] int pillHeight() const;
+	[[nodiscard]] int pillTop() const;
+	[[nodiscard]] int clusterWidth() const;
+	[[nodiscard]] Pills computePills(int outerWidth) const;
 	void paintPill(Painter &p, QRect pill) const;
-	void validateOnlyMembersIcon();
 
 	const not_null<RowDelegate*> _delegate;
 	UserData *_requestedBy = nullptr;
 	Ui::Text::String _suggest;
 	Ui::Text::String _members;
-	Ui::Text::String _onlyMembers;
-	QImage _onlyMembersIcon;
-	QColor _onlyMembersIconColor;
+	Ui::Text::String _hidden;
 	int _userWidth = 0;
 	std::unique_ptr<Ui::RippleAnimation> _acceptRipple;
 	std::unique_ptr<Ui::RippleAnimation> _rejectRipple;
@@ -305,9 +313,10 @@ Row::Row(
 	}
 
 	if (!request.visible) {
-		_onlyMembers.setText(
+		_hidden.setMarkedText(
 			st::requestMembersStyle,
-			tr::lng_community_request_only_members(tr::now));
+			Ui::Text::IconEmoji(&st::requestHiddenIcon),
+			Ui::NameTextOptions());
 	}
 
 	_chatUserpic = Ui::MakeUserpicThumbnail(request.peer);
@@ -386,19 +395,62 @@ int Row::statusTextLeft() const {
 	return st::requestSuggestPosition.x();
 }
 
-void Row::validateOnlyMembersIcon() {
-	const auto color = st::contactsStatusFg->c;
-	const auto ratio = style::DevicePixelRatio();
-	const auto iconSize = st::requestOnlyMembersIconSize;
-	const auto full = QSize(iconSize, iconSize) * ratio;
-	if (_onlyMembersIconColor == color && _onlyMembersIcon.size() == full) {
-		return;
+int Row::pillHeight() const {
+	const auto &padding = st::requestMembersPadding;
+	return padding.top()
+		+ st::requestMembersStyle.font->height
+		+ padding.bottom();
+}
+
+int Row::pillTop() const {
+	return st::requestMembersTop - st::requestMembersPadding.top();
+}
+
+int Row::clusterWidth() const {
+	const auto &padding = st::requestMembersPadding;
+	auto result = 0;
+	if (!_members.isEmpty()) {
+		result += padding.left() + _members.maxWidth() + padding.right();
 	}
-	_onlyMembersIconColor = color;
-	_onlyMembersIcon = st::requestOnlyMembersIcon.instance(
-		color
-	).scaled(full, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-	_onlyMembersIcon.setDevicePixelRatio(ratio);
+	if (!_hidden.isEmpty()) {
+		if (result > 0) {
+			result += st::requestPillsSkip;
+		}
+		result += padding.left() + _hidden.maxWidth() + padding.right();
+	}
+	return result;
+}
+
+Row::Pills Row::computePills(int outerWidth) const {
+	const auto &padding = st::requestMembersPadding;
+	const auto top = pillTop();
+	const auto height = pillHeight();
+	auto result = Pills();
+	result.clusterWidth = clusterWidth();
+	auto right = outerWidth - st::requestMembersRightSkip;
+	if (!_members.isEmpty()) {
+		const auto width = padding.left()
+			+ _members.maxWidth()
+			+ padding.right();
+		result.members = QRect(right - width, top, width, height);
+		right -= width + st::requestPillsSkip;
+	}
+	if (!_hidden.isEmpty()) {
+		const auto width = padding.left()
+			+ _hidden.maxWidth()
+			+ padding.right();
+		result.hidden = QRect(right - width, top, width, height);
+	}
+	return result;
+}
+
+QSize Row::rightActionSize() const {
+	const auto width = clusterWidth();
+	return width ? QSize(width, pillHeight()) : QSize();
+}
+
+QMargins Row::rightActionMargins() const {
+	return QMargins(0, pillTop(), st::requestMembersRightSkip, 0);
 }
 
 void Row::paintPill(Painter &p, QRect pill) const {
@@ -429,65 +481,29 @@ void Row::paintStatusText(
 		.elisionLines = 1,
 	});
 
+	const auto pills = computePills(outerWidth);
+	const auto &padding = st::requestMembersPadding;
 	if (!_members.isEmpty()) {
-		const auto &padding = st::requestMembersPadding;
-		const auto font = st::requestMembersStyle.font;
-		const auto pillHeight = padding.top()
-			+ font->height
-			+ padding.bottom();
-		const auto pillWidth = padding.left()
-			+ _members.maxWidth()
-			+ padding.right();
-		const auto pillLeft = outerWidth
-			- st::requestMembersRightSkip
-			- pillWidth;
-		const auto textTop = st::requestMembersTop;
-		const auto pillTop = textTop - padding.top();
-		paintPill(p, QRect(pillLeft, pillTop, pillWidth, pillHeight));
+		paintPill(p, pills.members);
 		p.setPen(grey);
 		_members.draw(p, {
-			.position = QPoint(pillLeft + padding.left(), textTop),
+			.position = QPoint(
+				pills.members.x() + padding.left(),
+				st::requestMembersTop),
 			.availableWidth = _members.maxWidth(),
 			.palette = &st::defaultTextPalette,
 			.now = now,
 			.elisionLines = 1,
 		});
 	}
-
-	if (!_onlyMembers.isEmpty()) {
-		validateOnlyMembersIcon();
-		const auto &padding = st::requestOnlyMembersPadding;
-		const auto font = st::requestMembersStyle.font;
-		const auto iconSize = st::requestOnlyMembersIconSize;
-		const auto iconSkip = st::requestOnlyMembersIconSkip;
-		const auto contentHeight = std::max(int(font->height), iconSize);
-		const auto pillHeight = padding.top()
-			+ contentHeight
-			+ padding.bottom();
-		const auto pillWidth = padding.left()
-			+ iconSize
-			+ iconSkip
-			+ _onlyMembers.maxWidth()
-			+ padding.right();
-		const auto pillLeft = st::requestOnlyMembersPosition.x();
-		const auto textTop = st::requestOnlyMembersPosition.y();
-		const auto pillTop = textTop - padding.top();
-		paintPill(p, QRect(pillLeft, pillTop, pillWidth, pillHeight));
-		const auto contentLeft = pillLeft + padding.left();
-		const auto iconTop = pillTop
-			+ (pillHeight - iconSize) / 2
-			+ st::requestOnlyMembersIconAdjust.y();
-		p.drawImage(
-			QRect(
-				contentLeft + st::requestOnlyMembersIconAdjust.x(),
-				iconTop,
-				iconSize,
-				iconSize),
-			_onlyMembersIcon);
+	if (!_hidden.isEmpty()) {
+		paintPill(p, pills.hidden);
 		p.setPen(grey);
-		_onlyMembers.draw(p, {
-			.position = QPoint(contentLeft + iconSize + iconSkip, textTop),
-			.availableWidth = _onlyMembers.maxWidth(),
+		_hidden.draw(p, {
+			.position = QPoint(
+				pills.hidden.x() + padding.left(),
+				st::requestMembersTop),
+			.availableWidth = _hidden.maxWidth(),
 			.palette = &st::defaultTextPalette,
 			.now = now,
 			.elisionLines = 1,

@@ -1126,7 +1126,7 @@ requestSuggestStyle: TextStyle(defaultTextStyle) {
 requestSuggestPosition: point(74px, 30px);
 requestSuggestBadgeSize: 16px;
 requestSuggestBadgeBorder: 1px;
-requestSuggestBadgeSkip: point(-4px, 0px);
+requestSuggestBadgeSkip: point(-4px, 2px);
 requestMembersStyle: TextStyle(defaultTextStyle) {
 	font: font(11px);
 }
@@ -1138,12 +1138,12 @@ requestMembersIcon: IconEmoji {
 	padding: margins(0px, 4px, 4px, 0px);
 	useIconColor: false;
 }
-requestOnlyMembersPosition: point(74px, 57px);
-requestOnlyMembersPadding: margins(4px, 2px, 5px, 3px);
-requestOnlyMembersIcon: icon{{ "stories/stealth_logo", contactsStatusFg }};
-requestOnlyMembersIconSize: 14px;
-requestOnlyMembersIconSkip: 4px;
-requestOnlyMembersIconAdjust: point(2px, -1px);
+requestPillsSkip: 5px;
+requestHiddenIcon: IconEmoji {
+	icon: icon{{ "chat/mini_hidden", contactsStatusFg }};
+	padding: margins(0px, 0px, 0px, 0px);
+	useIconColor: false;
+}
 requestsSectionBottomMargin: margins(22px, 8px, 22px, 8px);
 
 ringtonesBoxButton: SettingsButton(defaultSettingsButton) {
