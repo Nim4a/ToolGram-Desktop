@@ -1119,13 +1119,13 @@ requestMembersTop: 9px;
 requestMembersRightSkip: 14px;
 requestMembersPadding: margins(5px, 1px, 5px, 2px);
 requestMembersIcon: IconEmoji {
-	icon: icon{{ "calls/dialogs_user", contactsStatusFg }};
+	icon: icon{{ "community/requests_members", contactsStatusFg }};
 	padding: margins(0px, 4px, 4px, 0px);
 	useIconColor: false;
 }
 requestPillsSkip: 5px;
 requestHiddenIcon: IconEmoji {
-	icon: icon{{ "chat/mini_hidden", contactsStatusFg }};
+	icon: icon{{ "community/requests_hidden", contactsStatusFg }};
 	padding: margins(0px, 0px, 0px, 0px);
 	useIconColor: false;
 }
