@@ -36,6 +36,12 @@ int PaintSuggestionBubbleBackground(
 	const Ui::BoxShadow &shadow,
 	int cornerRadius = 0);
 
+void PaintBottomFade(
+	QPainter &p,
+	int outerWidth,
+	int fadeHeight,
+	style::color bg);
+
 class UnconfirmedAuthWrap : public Ui::SlideWrap<Ui::VerticalLayout> {
 public:
 	UnconfirmedAuthWrap(

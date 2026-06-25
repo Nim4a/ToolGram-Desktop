@@ -81,6 +81,22 @@ namespace {
 
 } // namespace
 
+void PaintBottomFade(
+		QPainter &p,
+		int outerWidth,
+		int fadeHeight,
+		style::color bg) {
+	if (fadeHeight <= 0) {
+		return;
+	}
+	auto transparent = bg->c;
+	transparent.setAlpha(0);
+	auto grad = QLinearGradient(0, 0, 0, fadeHeight);
+	grad.setColorAt(0, transparent);
+	grad.setColorAt(1, bg->c);
+	p.fillRect(QRect(0, 0, outerWidth, fadeHeight), grad);
+}
+
 int PillRadius() {
 	const auto padding = st::msgReplyPadding.top();
 	return (padding

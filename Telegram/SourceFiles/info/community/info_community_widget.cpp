@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_changes.h"
 #include "data/data_channel.h"
 #include "data/data_community.h"
+#include "dialogs/ui/dialogs_top_bar_suggestion_content.h"
 #include "info/profile/info_profile_top_bar.h"
 #include "info/profile/info_profile_values.h"
 #include "info/info_controller.h"
@@ -212,6 +213,14 @@ std::unique_ptr<Ui::RpWidget> Widget::setupAddChatButton() {
 	auto result = std::make_unique<Ui::VerticalLayout>(this);
 	const auto wrap = result.get();
 
+	const auto fade = Ui::CreateChild<Ui::RpWidget>(this);
+	fade->setAttribute(Qt::WA_TransparentForMouseEvents);
+	const auto fadeHeight = st::communityAddChatButtonMargin.top()
+		+ st::communityAddChatButton.height / 2;
+	fade->paintOn([=](QPainter &p) {
+		Dialogs::PaintBottomFade(p, fade->width(), fadeHeight, st::boxBg);
+	});
+
 	const auto row = wrap->add(
 		object_ptr<Ui::RpWidget>(wrap),
 		st::communityAddChatButtonMargin);
@@ -227,6 +236,7 @@ std::unique_ptr<Ui::RpWidget> Widget::setupAddChatButton() {
 
 	widthValue() | rpl::on_next([=](int width) {
 		wrap->resizeToWidth(width);
+		fade->resize(width, fadeHeight);
 	}, wrap->lifetime());
 
 	rpl::combine(
@@ -234,7 +244,10 @@ std::unique_ptr<Ui::RpWidget> Widget::setupAddChatButton() {
 		heightValue()
 	) | rpl::on_next([=](int height, int fullHeight) {
 		setScrollBottomSkip(height);
-		wrap->move(0, fullHeight - height);
+		const auto seam = fullHeight - height;
+		wrap->move(0, seam);
+		fade->setGeometry(0, seam - fadeHeight, wrap->width(), fadeHeight);
+		fade->raise();
 	}, wrap->lifetime());
 
 	return result;

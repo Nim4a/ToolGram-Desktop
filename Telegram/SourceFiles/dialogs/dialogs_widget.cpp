@@ -1332,6 +1332,11 @@ void Widget::updateCommunityAddChatButton() {
 		button->setFullWidth(width);
 		button->moveToLeft(0, 0, width);
 	}, row->lifetime());
+	entity->paintOn([=](QPainter &p) {
+		const auto fadeHeight = st::communityAddChatButtonMargin.top()
+			+ st::communityAddChatButton.height / 2;
+		PaintBottomFade(p, entity->width(), fadeHeight, st::dialogsBg);
+	});
 
 	_communityAddChat.reset(wrap.release());
 	const auto raw = _communityAddChat.get();
