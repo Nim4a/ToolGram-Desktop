@@ -414,15 +414,20 @@ void TopBarSuggestionContent::draw(QPainter &p) {
 		if (_leadingWidget) {
 			_leadingWidget->hide();
 		}
-		const auto side = st::defaultDialogRow.photoSize;
-		const auto tileLeft = (outer.width() - side) / 2;
-		const auto tileTop = (outer.height() - side) / 2;
+		const auto &margins = st::dialogsTopBarSuggestionMargins;
+		const auto pill = outer - margins;
+		PaintSuggestionBubbleBackground(
+			p,
+			outer,
+			_shadow,
+			_geometry.cornerRadius);
+		if (pill.isEmpty()) {
+			return;
+		}
 		const auto accentSide = st::dialogsRequestsBubbleIconSize;
-		const auto accentLeft = tileLeft + (side - accentSide) / 2;
-		const auto accentTop = tileTop + (side - accentSide) / 2;
 		const auto accent = QRect(
-			accentLeft,
-			accentTop,
+			pill.x() + (pill.width() - accentSide) / 2,
+			pill.y() + (pill.height() - accentSide) / 2,
 			accentSide,
 			accentSide);
 		auto hq = PainterHighQualityEnabler(p);
@@ -600,9 +605,13 @@ int TopBarSuggestionContent::resizeGetHeight(int newWidth) {
 			fullHeight * (1. - _collapseProgress)));
 	}
 	if (TopBarSuggestionNarrow(newWidth)) {
-		const auto side = st::defaultDialogRow.photoSize;
 		const auto &cardMargins = st::dialogsTopBarSuggestionMargins;
-		return side + cardMargins.top() + cardMargins.bottom();
+		const auto inner = _geometry.cardInnerHeight
+			? _geometry.cardInnerHeight
+			: st::defaultDialogRow.photoSize;
+		const auto withMargins = inner + rect::m::sum::v(cardMargins);
+		return int(base::SafeRound(
+			withMargins * (1. - _collapseProgress)));
 	}
 	const auto &margins = st::dialogsTopBarSuggestionMargins;
 	if (_geometry.centerSingleLineTitle && _geometry.cardInnerHeight) {
