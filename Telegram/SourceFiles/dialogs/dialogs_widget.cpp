@@ -1408,10 +1408,9 @@ void Widget::updateCommunityAddChatButton() {
 		const auto stripHeight = buttonHeight
 			+ st::defaultDialogRow.padding.top()
 			+ st::defaultDialogRow.padding.bottom();
-		const auto height = narrow ? stripHeight : raw->height();
-		placeholder->resize(placeholder->width(), height);
-		const auto bottom = std::max(0, _scroll->height() - height);
 		if (narrow) {
+			placeholder->resize(placeholder->width(), stripHeight);
+			const auto bottom = std::max(0, _scroll->height() - stripHeight);
 			raw->toggle(false, anim::type::instant);
 			narrowButton->moveToLeft(
 				(_scroll->width() - buttonWidth) / 2,
@@ -1421,6 +1420,9 @@ void Widget::updateCommunityAddChatButton() {
 			narrowButton->hide();
 			raw->toggle(true, anim::type::instant);
 			raw->resizeToWidth(_scroll->width());
+			const auto height = raw->height();
+			placeholder->resize(placeholder->width(), height);
+			const auto bottom = std::max(0, _scroll->height() - height);
 			raw->moveToLeft(0, bottom);
 		}
 	};
