@@ -1347,6 +1347,7 @@ void Widget::updateCommunityAddChatButton() {
 		? _openedCommunity->channel().get()
 		: nullptr;
 	if (!channel || !channel->canManageLinkedPeers()) {
+		_scroll->setBarBottomInset(0);
 		return;
 	}
 
@@ -1367,7 +1368,8 @@ void Widget::updateCommunityAddChatButton() {
 	}, row->lifetime());
 	entity->paintOn([=](QPainter &p) {
 		const auto fadeHeight = st::communityAddChatButtonMargin.top()
-			+ st::communityAddChatButton.height / 2;
+			+ st::communityAddChatButton.height
+			+ st::communityAddChatButtonMargin.bottom();
 		PaintBottomFade(p, entity->width(), fadeHeight, st::dialogsBg);
 	});
 
@@ -1424,6 +1426,10 @@ void Widget::updateCommunityAddChatButton() {
 	raw->heightValue(
 	) | rpl::to_empty | rpl::on_next(pinToBottom, _communityAddChatLifetime);
 	pinToBottom();
+
+	_scroll->setBarBottomInset(st::communityAddChatButtonMargin.top()
+		+ st::communityAddChatButton.height
+		+ st::communityAddChatButtonMargin.bottom());
 
 	raw->toggle(true, anim::type::instant);
 }
