@@ -1363,17 +1363,17 @@ std::unique_ptr<Ui::RpWidget> Widget::setupBottomBar() {
 	const auto declineAll = Ui::CreateChild<Ui::RoundButton>(
 		row,
 		tr::lng_community_requests_decline_all(),
-		st::defaultLightButton);
+		st::requestsDeclineAllButton);
 	const auto addAll = Ui::CreateChild<Ui::RoundButton>(
 		row,
 		tr::lng_community_requests_add_all(),
-		st::defaultActiveButton);
+		st::requestsAddAllButton);
 	declineAll->setClickedCallback([=] { processAll(true); });
 	addAll->setClickedCallback([=] { processAll(false); });
 	declineAll->setFullRadius(true);
 	addAll->setFullRadius(true);
 
-	row->resize(row->width(), st::defaultActiveButton.height);
+	row->resize(row->width(), st::requestsAddAllButton.height);
 	rpl::combine(
 		row->widthValue(),
 		declineAll->widthValue(),

@@ -1080,12 +1080,12 @@ contactsWithStories: PeerList(peerListBox) {
 requestsAcceptButton: RoundButton(defaultActiveButton) {
 	width: -32px;
 	height: 28px;
-	textTop: 4px;
+	textTop: 5px;
 }
 requestsRejectButton: RoundButton(defaultBoxButton) {
 	width: -32px;
 	height: 28px;
-	textTop: 4px;
+	textTop: 5px;
 	style: semiboldTextStyle;
 }
 requestButtonsSkip: 9px;
@@ -1103,7 +1103,7 @@ communityRequestsBoxList: PeerList(peerListBox) {
 	padding: margins(0px, 6px, 0px, 12px);
 	item: communityRequestsBoxItem;
 }
-communityRequestAcceptPosition: point(71px, 52px);
+communityRequestAcceptPosition: point(71px, 56px);
 communityRequestsTitlePadding: margins(0px, 8px, 0px, -4px);
 requestSuggestStyle: TextStyle(defaultTextStyle) {
 	font: contactsStatusFont;
@@ -1115,9 +1115,9 @@ requestSuggestBadgeSkip: point(-4px, 2px);
 requestMembersStyle: TextStyle(defaultTextStyle) {
 	font: font(11px);
 }
-requestMembersTop: 9px;
+requestMembersTop: 11px;
 requestMembersRightSkip: 14px;
-requestMembersPadding: margins(5px, 1px, 5px, 2px);
+requestMembersPadding: margins(5px, 0px, 5px, 1px);
 requestMembersIcon: IconEmoji {
 	icon: icon{{ "community/requests_members", contactsStatusFg }};
 	padding: margins(0px, 4px, 4px, 0px);
@@ -1126,10 +1126,18 @@ requestMembersIcon: IconEmoji {
 requestPillsSkip: 5px;
 requestHiddenIcon: IconEmoji {
 	icon: icon{{ "community/requests_hidden", contactsStatusFg }};
-	padding: margins(0px, 0px, 0px, 0px);
+	padding: margins(0px, 4px, 0px, 0px);
 	useIconColor: false;
 }
-requestsSectionBottomMargin: margins(12px, 12px, 12px, 12px);
+requestsSectionBottomMargin: margins(12px, 10px, 12px, 10px);
+requestsAddAllButton: RoundButton(defaultActiveButton) {
+	height: 32px;
+	textTop: 7px;
+}
+requestsDeclineAllButton: RoundButton(defaultLightButton) {
+	height: 32px;
+	textTop: 7px;
+}
 
 ringtonesBoxButton: SettingsButton(defaultSettingsButton) {
 	textFg: lightButtonFg;
