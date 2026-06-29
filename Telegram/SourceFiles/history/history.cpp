@@ -2475,12 +2475,32 @@ void History::updateCommunityRegistration() {
 	if (_communityInfo == info) {
 		return;
 	}
+	const auto listFor = [&](Data::CommunityInfo *info)
+	-> Dialogs::MainList* {
+		if (info
+			&& info->collapsedInDialogs()
+			&& info->channel() != peer) {
+			return info->chatsList();
+		}
+		return owner().chatsList(folder());
+	};
+	const auto wasInList = inChatList();
+	const auto wasList = wasInList ? listFor(_communityInfo) : nullptr;
+	const auto nowList = wasInList ? listFor(info) : nullptr;
+	const auto moving = wasInList && (wasList != nowList);
+	if (moving) {
+		removeFromChatList(0, wasList);
+	}
 	if (const auto was = base::take(_communityInfo)) {
 		was->unregisterOne(this);
 	}
 	_communityInfo = info;
 	if (info) {
 		info->registerOne(this);
+	}
+	if (moving) {
+		addToChatList(0, nowList);
+		updateChatListEntry();
 	}
 }
 
