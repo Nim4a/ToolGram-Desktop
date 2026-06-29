@@ -1027,9 +1027,7 @@ void WebViewInstance::resolve() {
 		requestMain();
 	}, [&](WebViewSourceJoinChat data) {
 		confirmOpen([=] {
-			show({
-				.result = data.result,
-			});
+			requestChatJoin();
 		}, true);
 	});
 }
@@ -1323,6 +1321,26 @@ void WebViewInstance::requestApp(bool allowWrite) {
 		if (error.type() == u"BOT_INVALID"_q) {
 			_session->attachWebView().requestBots();
 		}
+		close();
+	}).send();
+}
+
+void WebViewInstance::requestChatJoin() {
+	const auto &join = v::get<WebViewSourceJoinChat>(_source);
+	using Flag = MTPmessages_RequestChatJoinWebView::Flag;
+	_requestId = _session->api().request(MTPmessages_RequestChatJoinWebView(
+		MTP_flags(Flag::f_theme_params),
+		MTP_long(join.queryId),
+		MTP_dataJSON(MTP_bytes(botThemeParams().json)),
+		MTP_string("tdesktop")
+	)).done([=](const MTPWebViewResult &result) {
+		_requestId = 0;
+		show({
+			.result = ParseWebViewResult(result),
+		});
+	}).fail([=](const MTP::Error &error) {
+		_requestId = 0;
+		_parentShow->showToast(error.type());
 		close();
 	}).send();
 }

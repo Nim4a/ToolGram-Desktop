@@ -2201,6 +2201,7 @@ stats.pollStats#2999beed votes_graph:StatsGraph = stats.PollStats;
 inputAiComposeToneDefault#1fe9a9bf tone:string = InputAiComposeTone;
 inputAiComposeToneID#773c080 id:long access_hash:long = InputAiComposeTone;
 inputAiComposeToneSlug#1fa01357 slug:string = InputAiComposeTone;
+inputAiComposeToneSingleUse#e0c35af custom_prompt:string = InputAiComposeTone;
 
 aiComposeTone#cff63ea9 flags:# creator:flags.0?true id:long access_hash:long slug:string title:string emoji_id:flags.1?long prompt:flags.4?string installs_count:flags.2?int author_id:flags.3?long example_english:flags.5?AiComposeToneExample = AiComposeTone;
 aiComposeToneDefault#9bad6414 tone:string emoji_id:long title:string = AiComposeTone;
@@ -2213,7 +2214,7 @@ aiComposeToneExample#f1d628ec from:TextWithEntities to:TextWithEntities = AiComp
 bots.accessSettings#dd1fbf93 flags:# restricted:flags.0?true add_users:flags.1?Vector<User> = bots.AccessSettings;
 
 messages.chatInviteJoinResultOk#445663a7 updates:Updates = messages.ChatInviteJoinResult;
-messages.chatInviteJoinResultWebView#2f51c337 bot_id:long webview:WebViewResult users:Vector<User> = messages.ChatInviteJoinResult;
+messages.chatInviteJoinResultWebView#61ca29d3 bot_id:long query_id:long users:Vector<User> = messages.ChatInviteJoinResult;
 
 joinChatBotResultApproved#ae152a69 = JoinChatBotResult;
 joinChatBotResultDeclined#efa0194 = JoinChatBotResult;
@@ -2712,7 +2713,8 @@ messages.deleteParticipantReaction#e3b7f82c peer:InputPeer msg_id:int participan
 messages.getPersonalChannelHistory#55fb0996 user_id:InputUser limit:int max_id:int min_id:int hash:long = messages.Messages;
 messages.getRichMessage#501569cf peer:InputPeer id:int = messages.Messages;
 messages.translateRichMessage#1a542004 flags:# peer:flags.0?InputPeer id:flags.0?Vector<int> text:flags.1?Vector<InputRichMessage> to_lang:string tone:flags.2?string = messages.TranslatedRichMessage;
-messages.composeRichMessageWithAI#b4e4eec7 flags:# proofread:flags.0?true emojify:flags.3?true text:InputRichMessage translate_to_lang:flags.1?string tone:flags.2?InputAiComposeTone = messages.ComposedRichMessageWithAI;
+messages.composeRichMessageWithAI#8d7ae6af flags:# proofread:flags.0?true emojify:flags.3?true text:flags.4?InputRichMessage translate_to_lang:flags.1?string tone:flags.2?InputAiComposeTone = messages.ComposedRichMessageWithAI;
+messages.requestChatJoinWebView#ba9ee679 flags:# query_id:long theme_params:flags.0?DataJSON platform:string = WebViewResult;
 
 updates.getState#edd4882a = updates.State;
 updates.getDifference#19c2f763 flags:# pts:int pts_limit:flags.1?int pts_total_limit:flags.0?int date:int qts:int qts_limit:flags.2?int = updates.Difference;
@@ -3066,7 +3068,7 @@ aicompose.getTone#b2e8ba03 tone:InputAiComposeTone = aicompose.Tones;
 aicompose.getTones#abd59201 hash:long = aicompose.Tones;
 aicompose.getToneExample#d1b4ab14 tone:InputAiComposeTone num:int = AiComposeToneExample;
 
-communities.create#a63859ec flags:# title:string about:flags.0?string peer:InputPeer = Updates;
+communities.create#a63859ec flags:# hidden:flags.1?true title:string about:flags.0?string peer:InputPeer = Updates;
 communities.togglePeerLink#736dcfea flags:# visible:flags.0?true hidden:flags.1?true deleted:flags.2?true community:InputChannel peer:InputPeer = Bool;
 communities.getJoinedCommunities#a663e830 = messages.Chats;
 communities.toggleCommunityCollapsedInDialogs#d766e3ea flags:# collapsed:flags.0?true community:InputChannel = Updates;
