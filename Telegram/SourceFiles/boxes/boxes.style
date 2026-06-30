@@ -948,6 +948,7 @@ inviteViaLinkButton: SettingsButton(defaultSettingsButton) {
 }
 inviteViaLinkIcon: icon {{ "info/edit/group_manage_links", lightButtonFg }};
 inviteViaLinkIconPosition: point(23px, 2px);
+communityEditAddChatIconPosition: point(25px, 16px);
 peerListWithInviteViaLink: PeerList(peerListBox) {
 	padding: margins(
 		0px,

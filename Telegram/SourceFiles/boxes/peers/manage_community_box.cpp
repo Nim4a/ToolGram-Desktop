@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "api/api_peer_photo.h"
 #include "apiwrap.h"
+#include "boxes/peers/community_box.h"
 #include "boxes/peers/community_pending_requests_box.h"
 #include "boxes/peers/edit_participants_box.h"
 #include "data/data_changes.h"
@@ -17,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/profile/info_profile_values.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
+#include "main/session/session_show.h"
 #include "settings/settings_common.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/controls/userpic_button.h"
@@ -280,6 +282,17 @@ void ManageCommunityBox(
 			community,
 			ParticipantsBoxController::Role::Kicked);
 	});
+
+	if (community->communityInfo() && community->canManageLinkedPeers()) {
+		Ui::AddSkip(container);
+		Ui::AddDivider(container);
+		Ui::AddSkip(container);
+		SetupCommunityEditChatsList(
+			container,
+			Main::MakeSessionShow(box->uiShow(), &community->session()),
+			navigation,
+			community);
+	}
 
 	if (community->canDelete()) {
 		Ui::AddSkip(container);

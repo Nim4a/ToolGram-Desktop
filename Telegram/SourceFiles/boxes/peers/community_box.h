@@ -31,6 +31,12 @@ void SetupCommunityContent(
 	not_null<ChannelData*> community,
 	std::shared_ptr<Main::SessionShow> show);
 
+void SetupCommunityEditChatsList(
+	not_null<Ui::VerticalLayout*> container,
+	std::shared_ptr<Main::SessionShow> show,
+	not_null<Window::SessionNavigation*> navigation,
+	not_null<ChannelData*> community);
+
 void ShowChooseChatToAddBox(
 	not_null<Window::SessionNavigation*> navigation,
 	not_null<ChannelData*> community);

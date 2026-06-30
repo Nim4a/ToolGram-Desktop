@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "dialogs/dialogs_community_chats_list.h"
 #include "dialogs/ui/dialogs_top_bar_suggestion_content.h"
 #include "history/history.h"
+#include "info/profile/info_profile_icon.h"
 #include "info/profile/info_profile_values.h"
 #include "lang/lang_hardcoded.h"
 #include "lang/lang_keys.h"
@@ -33,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
+#include "ui/wrap/padding_wrap.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
@@ -285,6 +287,81 @@ void SetupCommunityContent(
 	addPeerListSection(
 		tr::lng_community_chats_requestable(),
 		rpl::duplicate(requestable));
+
+	if (!community->wasFullUpdated()) {
+		community->session().api().requestFullPeer(community);
+	}
+}
+
+void SetupCommunityEditChatsList(
+		not_null<Ui::VerticalLayout*> container,
+		std::shared_ptr<Main::SessionShow> show,
+		not_null<Window::SessionNavigation*> navigation,
+		not_null<ChannelData*> community) {
+	const auto info = community->communityInfo();
+	if (!info) {
+		return;
+	}
+
+	auto chats = info->linkedPeersValue(
+	) | rpl::map([=] {
+		auto result = std::vector<not_null<PeerData*>>();
+		result.reserve(info->linkedPeers().size());
+		for (const auto &linked : info->linkedPeers()) {
+			result.push_back(linked.peer);
+		}
+		return result;
+	}) | rpl::start_spawning(container->lifetime());
+
+	const auto openChat = [=](not_null<PeerData*> peer) {
+		navigation->parentController()->showPeerHistory(
+			peer,
+			Window::SectionShow::Way::ClearStack,
+			ShowAtUnreadMsgId);
+	};
+
+	const auto delegate = container->lifetime().make_state<
+		PeerListContentDelegateShow
+	>(show);
+	const auto controller = container->lifetime().make_state<
+		ChatsController
+	>(&community->session(), std::move(chats), openChat);
+	controller->setStyleOverrides(&st::peerListBox);
+
+	const auto content = container->add(
+		object_ptr<PeerListContent>(container, controller));
+	delegate->setContent(content);
+	controller->setDelegate(delegate);
+
+	auto button = object_ptr<Ui::PaddingWrap<Ui::SettingsButton>>(
+		container,
+		object_ptr<Ui::SettingsButton>(
+			container,
+			tr::lng_community_add_chat(),
+			st::inviteViaLinkButton),
+		style::margins());
+	const auto raw = button->entity();
+	const auto icon = Ui::CreateChild<Info::Profile::FloatingIcon>(
+		raw,
+		st::menuIconInviteSettings,
+		QPoint());
+	raw->heightValue(
+	) | rpl::on_next([=](int height) {
+		icon->moveToLeft(
+			st::communityEditAddChatIconPosition.x(),
+			(height - st::menuIconInviteSettings.height()) / 2);
+	}, icon->lifetime());
+	raw->setClickedCallback([=] {
+		ShowChooseChatToAddBox(navigation, community);
+	});
+	raw->events(
+	) | rpl::filter([=](not_null<QEvent*> e) {
+		return (e->type() == QEvent::Enter);
+	}) | rpl::on_next([=] {
+		delegate->peerListMouseLeftGeometry();
+	}, raw->lifetime());
+	delegate->peerListSetAboveWidget(std::move(button));
+	delegate->peerListRefreshRows();
 
 	if (!community->wasFullUpdated()) {
 		community->session().api().requestFullPeer(community);
