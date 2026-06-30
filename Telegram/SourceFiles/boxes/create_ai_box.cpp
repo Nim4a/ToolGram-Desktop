@@ -63,62 +63,6 @@ namespace {
 		tr::marked);
 }
 
-class PromptIsland final : public Ui::RpWidget {
-public:
-	PromptIsland(QWidget *parent);
-
-	[[nodiscard]] not_null<Ui::InputField*> field() const;
-
-private:
-	void paintEvent(QPaintEvent *e) override;
-	void resizeEvent(QResizeEvent *e) override;
-
-	object_ptr<Ui::InputField> _field;
-
-};
-
-PromptIsland::PromptIsland(QWidget *parent)
-: RpWidget(parent)
-, _field(
-	this,
-	st::createAiPromptField,
-	Ui::InputField::Mode::MultiLine,
-	tr::lng_ai_compose_create_placeholder()) {
-	_field->setSubmitSettings(Ui::InputField::SubmitSettings::None);
-	_field->heightChanges() | rpl::on_next([=] {
-		if (width() > 0) {
-			resizeToWidth(width());
-		}
-	}, lifetime());
-	resizeToWidth(st::boxWideWidth);
-}
-
-not_null<Ui::InputField*> PromptIsland::field() const {
-	return _field.data();
-}
-
-void PromptIsland::paintEvent(QPaintEvent *e) {
-	auto p = Painter(this);
-	auto hq = PainterHighQualityEnabler(p);
-	p.setPen(Qt::NoPen);
-	p.setBrush(st::aiComposeCardBg);
-	p.drawRoundedRect(
-		rect(),
-		st::aiComposeCardRadius,
-		st::aiComposeCardRadius);
-}
-
-void PromptIsland::resizeEvent(QResizeEvent *e) {
-	const auto &padding = st::aiComposeCardPadding;
-	const auto inner = width() - padding.left() - padding.right();
-	_field->resizeToWidth(inner);
-	_field->moveToLeft(padding.left(), padding.top());
-	const auto height = padding.top() + _field->height() + padding.bottom();
-	if (this->height() != height) {
-		resize(width(), height);
-	}
-}
-
 class ResponseIsland final : public Ui::RpWidget {
 public:
 	ResponseIsland(
@@ -405,10 +349,14 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 	});
 	box->setStyle(st::aiComposeBox);
 
-	const auto island = box->addRow(
-		object_ptr<PromptIsland>(box),
-		st::boxRowPadding);
-	state->prompt = island->field();
+	const auto prompt = box->setPinnedToTopContent(
+		object_ptr<Ui::InputField>(
+			box,
+			st::createAiPromptField,
+			Ui::InputField::Mode::MultiLine,
+			tr::lng_ai_compose_create_placeholder()));
+	prompt->setSubmitSettings(Ui::InputField::SubmitSettings::None);
+	state->prompt = prompt;
 
 	const auto chooseLanguage = [=] {
 		box->uiShow()->showBox(Box([=](not_null<Ui::GenericBox*> chooser) {
@@ -437,8 +385,7 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 			return;
 		}
 		const auto content = box->verticalLayout();
-		state->responseIsland = content->insert(
-			1,
+		state->responseIsland = content->add(
 			object_ptr<ResponseIsland>(
 				content,
 				state->session,
@@ -459,7 +406,12 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 
 	state->rebuildButtons = [=] {
 		if (state->reloadButton) {
-			delete state->reloadButton;
+			// May be invoked from inside the reload button's own click
+			// handler (generate() -> rebuildButtons()), so destroy it
+			// without freeing the object that is still on the stack.
+			state->reloadButton->hide();
+			state->reloadButton->setParent(nullptr);
+			state->reloadButton->deleteLater();
 			state->reloadButton = nullptr;
 		}
 		box->clearButtons();

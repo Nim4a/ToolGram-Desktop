@@ -1591,6 +1591,10 @@ aiComposeBoxInfoButton: IconButton(boxTitleClose) {
 aiComposeShadowOpacity: 0.3;
 
 createAiPromptField: InputField(aiTonePromptField) {
+	textBg: aiComposeCardBg;
+	textBgActive: aiComposeCardBg;
+	borderRadius: 22px;
+	textMargins: margins(16px, 16px, 16px, 16px);
 	heightMin: 54px;
 	heightMax: 240px;
 }
