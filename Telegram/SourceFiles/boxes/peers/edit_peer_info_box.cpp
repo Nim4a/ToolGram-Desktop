@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/peers/edit_peer_info_box.h"
 
 #include "apiwrap.h"
+#include "api/api_communities.h"
 #include "api/api_credits.h"
 #include "api/api_peer_photo.h"
 #include "api/api_statistics.h"
@@ -58,6 +59,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/channel_statistics/earn/info_channel_earn_widget.h"
 #include "info/profile/info_profile_values.h"
 #include "info/info_memento.h"
+#include "lang/lang_hardcoded.h"
 #include "lang/lang_keys.h"
 #include "mtproto/sender.h"
 #include "main/main_app_config.h"
@@ -172,6 +174,50 @@ void AddButtonDelete(
 		std::move(callback),
 		st::manageDeleteGroupButton,
 		{}));
+}
+
+void AddCommunityRow(
+		not_null<Ui::VerticalLayout*> parent,
+		not_null<ChannelData*> community,
+		Fn<void()> open) {
+	class Controller final : public PeerListController {
+	public:
+		Controller(not_null<ChannelData*> community, Fn<void()> open)
+		: _community(community)
+		, _open(std::move(open)) {
+			setStyleOverrides(&st::peerListSingleRow);
+		}
+
+		Main::Session &session() const override {
+			return _community->session();
+		}
+		void prepare() override {
+			auto row = std::make_unique<PeerListRow>(_community);
+			row->setCustomStatus(tr::lng_community_title(tr::now));
+			delegate()->peerListAppendRow(std::move(row));
+			delegate()->peerListRefreshRows();
+		}
+		void rowClicked(not_null<PeerListRow*> row) override {
+			_open();
+		}
+
+	private:
+		const not_null<ChannelData*> _community;
+		Fn<void()> _open;
+
+	};
+
+	const auto delegate = parent->lifetime().make_state<
+		PeerListContentDelegateSimple
+	>();
+	const auto controller = parent->lifetime().make_state<Controller>(
+		community,
+		std::move(open));
+	const auto content = parent->add(object_ptr<PeerListContent>(
+		parent,
+		controller));
+	delegate->setContent(content);
+	controller->setDelegate(delegate);
 }
 
 void SaveDefaultRestrictions(
@@ -1494,11 +1540,14 @@ void Controller::fillManageSection() {
 			|| (channel->isBroadcast() && channel->canEditInformation()));
 	const auto canEditDirectMessages = isChannel
 		&& (channel->isBroadcast() && channel->canEditInformation());
-	const auto canAddToCommunity = isChannel
-		&& channel->isMegagroup()
+	const auto communityEligible = isChannel
+		&& (channel->isMegagroup() || channel->isBroadcast())
 		&& !channel->isMonoforum()
-		&& channel->amCreator()
+		&& channel->amCreator();
+	const auto canAddToCommunity = communityEligible
 		&& !channel->linkedCommunityId();
+	const auto linkedToCommunity = communityEligible
+		&& channel->linkedCommunityId();
 
 	::AddSkip(_controls.buttonsLayout, 0);
 
@@ -1703,7 +1752,9 @@ void Controller::fillManageSection() {
 		::AddSkip(_controls.buttonsLayout);
 		AddButtonWithCount(
 			_controls.buttonsLayout,
-			tr::lng_community_add_button(),
+			(_isGroup
+				? tr::lng_community_add_button()
+				: tr::lng_community_add_button_channel()),
 			rpl::single(QString()),
 			[=] { ShowAddToCommunityBox(_navigation, channel); },
 			{ &st::menuIconCommunity });
@@ -1711,9 +1762,46 @@ void Controller::fillManageSection() {
 		Ui::AddDividerText(
 			_controls.buttonsLayout,
 			tr::lng_community_add_about());
+	} else if (linkedToCommunity) {
+		const auto community = channel->owner().channel(
+			channel->linkedCommunityId());
+		::AddSkip(_controls.buttonsLayout);
+		AddCommunityRow(
+			_controls.buttonsLayout,
+			community,
+			[=] {
+				_navigation->parentController()->showPeerInfo(community);
+			});
+		AddButtonWithCount(
+			_controls.buttonsLayout,
+			(_isGroup
+				? tr::lng_community_remove_button()
+				: tr::lng_community_remove_button_channel()),
+			rpl::single(QString()),
+			[=] {
+				const auto show = _navigation->uiShow();
+				const auto done = [=] {
+					show->showToast(
+						tr::lng_community_remove_done(tr::now));
+				};
+				const auto fail = [=](const QString &error) {
+					show->showToast(error.isEmpty()
+						? Lang::Hard::ServerError()
+						: error);
+				};
+				community->session().api().communities().removePeerLink(
+					community,
+					channel,
+					done,
+					fail);
+			},
+			{ &st::menuIconLeaveAttention });
+		::AddSkip(_controls.buttonsLayout);
 	}
 
-	if ((canEditStickers || canDeleteChannel) && !canAddToCommunity) {
+	if ((canEditStickers || canDeleteChannel)
+		&& !canAddToCommunity
+		&& !linkedToCommunity) {
 		::AddSkip(_controls.buttonsLayout);
 	}
 

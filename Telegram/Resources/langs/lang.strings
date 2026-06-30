@@ -2202,6 +2202,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_community_view" = "View";
 "lng_community_manage" = "Manage Community";
 "lng_community_add_button" = "Add Group to a Community";
+"lng_community_add_button_channel" = "Add Channel to a Community";
+"lng_community_remove_button" = "Remove Group from Community";
+"lng_community_remove_button_channel" = "Remove Channel from Community";
+"lng_community_remove_done" = "Removed from the community.";
 "lng_community_add_about" = "Make your group part of a community with multiple related chats.";
 "lng_community_create" = "Create Community";
 "lng_community_existing" = "Add to an existing community";
