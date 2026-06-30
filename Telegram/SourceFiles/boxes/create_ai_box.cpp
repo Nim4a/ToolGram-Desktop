@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "apiwrap.h"
 #include "base/object_ptr.h"
+#include "base/weak_ptr.h"
 #include "chat_helpers/compose/compose_show.h"
 #include "data/data_file_origin.h"
 #include "data/data_msg_id.h"
@@ -128,6 +129,7 @@ public:
 		bool emojify,
 		Fn<void()> chooseLanguage,
 		Fn<void(bool)> emojifyChanged);
+	~ResponseIsland();
 
 private:
 	void paintEvent(QPaintEvent *e) override;
@@ -135,6 +137,7 @@ private:
 
 	void paintArticle(Painter &p, QRect clip);
 	void requestArticleRepaint(QRect articleRect);
+	void detachArticleBindings();
 
 	[[nodiscard]] int controlRowHeight() const;
 	[[nodiscard]] QRect articleRect() const;
@@ -143,10 +146,10 @@ private:
 	const object_ptr<Ui::FlatLabel> _selector;
 	const object_ptr<Ui::RpWidget> _arrows;
 	const object_ptr<Ui::Checkbox> _emojify;
+	std::shared_ptr<Iv::Markdown::MediaRuntime> _mediaRuntime;
+	Iv::Markdown::MarkdownArticle _article;
 	std::unique_ptr<Ui::ChatTheme> _theme;
 	std::unique_ptr<Ui::ChatStyle> _style;
-	Iv::Markdown::MarkdownArticle _article;
-	std::shared_ptr<Iv::Markdown::MediaRuntime> _mediaRuntime;
 	int _articleHeight = 0;
 	int _paletteVersion = -1;
 	bool _hasArticle = false;
@@ -170,9 +173,9 @@ ResponseIsland::ResponseIsland(
 	tr::lng_ai_compose_emojify(tr::now),
 	st::aiComposeEmojifyCheckbox,
 	std::make_unique<Ui::RoundCheckView>(st::defaultCheck, emojify))
+, _article(st::messageMarkdown)
 , _theme(Window::Theme::DefaultChatThemeOn(lifetime()))
-, _style(std::make_unique<Ui::ChatStyle>(session->colorIndicesValue()))
-, _article(st::messageMarkdown) {
+, _style(std::make_unique<Ui::ChatStyle>(session->colorIndicesValue())) {
 	_style->apply(_theme.get());
 	_paletteVersion = _style->paletteVersion();
 
@@ -198,9 +201,18 @@ ResponseIsland::ResponseIsland(
 		}
 	}, _emojify->lifetime());
 
+	const auto weak = base::make_weak(this);
 	_article.setTextRepaintCallbacks(
-		[=] { requestArticleRepaint(QRect()); },
-		[=](QRect rect) { requestArticleRepaint(rect); });
+		[weak] {
+			if (const auto owner = weak.get()) {
+				owner->requestArticleRepaint(QRect());
+			}
+		},
+		[weak](QRect rect) {
+			if (const auto owner = weak.get()) {
+				owner->requestArticleRepaint(rect);
+			}
+		});
 
 	const auto richLimits = Iv::ResolveRichMessageLimits(session);
 	_mediaRuntime = Iv::CreateMessageMediaRuntime(
@@ -221,6 +233,14 @@ ResponseIsland::ResponseIsland(
 		_article.setContent(std::move(prepared.content));
 		_hasArticle = true;
 	}
+}
+
+ResponseIsland::~ResponseIsland() {
+	detachArticleBindings();
+}
+
+void ResponseIsland::detachArticleBindings() {
+	_article.setTextRepaintCallbacks(nullptr, nullptr);
 }
 
 void ResponseIsland::requestArticleRepaint(QRect rect) {
@@ -272,8 +292,16 @@ void ResponseIsland::paintArticle(Painter &p, QRect clip) {
 		.blockquote = context.quoteCache({}, 0),
 		.colors = _style->highlightColors(),
 		.st = &messageStyle->richPageStyle,
-		.repaint = [=] { requestArticleRepaint(QRect()); },
-		.repaintRect = [=](QRect rect) { requestArticleRepaint(rect); },
+		.repaint = [weak = base::make_weak(this)] {
+			if (const auto owner = weak.get()) {
+				owner->requestArticleRepaint(QRect());
+			}
+		},
+		.repaintRect = [weak = base::make_weak(this)](QRect rect) {
+			if (const auto owner = weak.get()) {
+				owner->requestArticleRepaint(rect);
+			}
+		},
 	};
 	_article.setVisibleTopBottom(0, content.height());
 	p.save();
