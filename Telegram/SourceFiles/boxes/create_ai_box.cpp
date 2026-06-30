@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "iv/markdown/iv_markdown_common.h"
 #include "iv/markdown/iv_markdown_prepare.h"
 #include "lang/lang_keys.h"
+#include "main/main_app_config.h"
 #include "main/main_session.h"
 #include "mtproto/mtproto_response.h"
 #include "spellcheck/spellcheck_types.h"
@@ -356,6 +357,9 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 			Ui::InputField::Mode::MultiLine,
 			tr::lng_ai_compose_create_placeholder()));
 	prompt->setSubmitSettings(Ui::InputField::SubmitSettings::None);
+	prompt->setMaxLength(state->session->appConfig().get<int>(
+		u"aicompose_tone_prompt_length_max"_q,
+		1024));
 	state->prompt = prompt;
 
 	const auto chooseLanguage = [=] {
