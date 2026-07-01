@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "apiwrap.h"
 #include "base/object_ptr.h"
 #include "base/weak_ptr.h"
+#include "boxes/create_ai_tone_box.h"
 #include "chat_helpers/compose/compose_show.h"
 #include "data/data_file_origin.h"
 #include "data/data_msg_id.h"
@@ -33,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
+#include "ui/wrap/padding_wrap.h"
 #include "window/themes/window_theme.h"
 #include "styles/style_boxes.h"
 #include "styles/style_chat.h"
@@ -350,17 +352,30 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 	});
 	box->setStyle(st::aiComposeBox);
 
-	const auto prompt = box->setPinnedToTopContent(
-		object_ptr<Ui::InputField>(
+	const auto promptWrap = box->setPinnedToTopContent(
+		object_ptr<Ui::PaddingWrap<Ui::InputField>>(
 			box,
-			st::createAiPromptField,
-			Ui::InputField::Mode::MultiLine,
-			tr::lng_ai_compose_create_placeholder()));
+			object_ptr<Ui::InputField>(
+				box,
+				st::aiTonePromptField,
+				Ui::InputField::Mode::MultiLine,
+				rpl::producer<QString>()),
+			st::aiToneFieldsMargin));
+	const auto prompt = promptWrap->entity();
 	prompt->setSubmitSettings(Ui::InputField::SubmitSettings::None);
 	prompt->setMaxLength(state->session->appConfig().get<int>(
 		u"aicompose_tone_prompt_length_max"_q,
 		1024));
 	state->prompt = prompt;
+
+	const auto promptPlaceholder = AddAiComposeFieldDecor(
+		prompt,
+		tr::lng_ai_compose_create_placeholder());
+	promptPlaceholder->heightValue(
+	) | rpl::on_next([=](int phHeight) {
+		const auto pad = st::aiToneFieldPadding;
+		prompt->setMinHeight(phHeight + pad.top() + pad.bottom());
+	}, prompt->lifetime());
 
 	const auto chooseLanguage = [=] {
 		box->uiShow()->showBox(Box([=](not_null<Ui::GenericBox*> chooser) {
