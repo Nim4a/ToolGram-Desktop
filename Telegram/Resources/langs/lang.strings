@@ -2306,6 +2306,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_community_chat_view_group" = "View Group";
 "lng_community_chat_remove_channel" = "Remove Channel";
 "lng_community_chat_remove_group" = "Remove Group";
+"lng_community_chat_loading" = "Loading...";
 "lng_community_peers_limit#one" = "Limit of {count} chat reached.";
 "lng_community_peers_limit#other" = "Limit of {count} chats reached.";
 

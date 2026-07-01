@@ -78,14 +78,19 @@ CommunityChatsList::CommunityChatsList(
 		rebuild();
 	}, lifetime());
 
+	using Flag = Data::EntryUpdate::Flag;
 	_controller->session().changes().entryUpdates(
-		Data::EntryUpdate::Flag::Height
+		Flag::Height | Flag::Repaint
 	) | rpl::filter([=](const Data::EntryUpdate &update) {
 		const auto history = update.entry->asHistory();
 		return history && _view.contains(history);
-	}) | rpl::on_next([=] {
-		_view.recountHeights(0.);
-		resizeToWidth(width());
+	}) | rpl::on_next([=](const Data::EntryUpdate &entryUpdate) {
+		if (entryUpdate.flags & Flag::Height) {
+			_view.recountHeights(0.);
+			resizeToWidth(width());
+		} else {
+			update();
+		}
 	}, lifetime());
 }
 

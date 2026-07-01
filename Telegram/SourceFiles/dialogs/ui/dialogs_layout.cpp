@@ -794,7 +794,14 @@ void PaintRow(
 				context.width,
 				color,
 				context.now)) {
-			// Empty history
+			if (context.insideCommunity && !entry->chatListMessageKnown()) {
+				p.setPen(color);
+				p.drawTextLeft(
+					nameleft,
+					texttop,
+					context.width,
+					tr::lng_community_chat_loading(tr::now));
+			}
 		}
 	} else if (!item->isEmpty()) {
 		if ((thread || sublist) && !promoted) {
