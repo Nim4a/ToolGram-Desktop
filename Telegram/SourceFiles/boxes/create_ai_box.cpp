@@ -48,6 +48,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Iv::Editor {
 namespace {
 
+constexpr auto kPromptRemainingThreshold = 100;
+
 [[nodiscard]] LanguageId DefaultAiTranslateTo(LanguageId offeredFrom) {
 	const auto current = LanguageId{
 		QLocale(Lang::LanguageIdOrDefault(Lang::Id())).language()
@@ -543,6 +545,7 @@ struct State {
 	Fn<void()> rebuildButtons;
 	Fn<void()> rebuildResponseIsland;
 	Fn<void()> enterLoading;
+	Fn<void()> updateGenerateEnabled;
 };
 
 } // namespace
@@ -569,9 +572,12 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 			rpl::producer<QString>()),
 		st::aiToneFieldsMargin);
 	prompt->setSubmitSettings(Ui::InputField::SubmitSettings::None);
-	prompt->setMaxLength(state->session->appConfig().get<int>(
+	const auto promptLimit = state->session->appConfig().get<int>(
 		u"aicompose_tone_prompt_length_max"_q,
-		1024));
+		1024);
+	Ui::AddLengthLimitLabel(prompt, promptLimit, {
+		.customThreshold = kPromptRemainingThreshold,
+	});
 	state->prompt = prompt;
 
 	const auto promptPad = st::aiToneFieldPadding;
@@ -591,8 +597,23 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 		prompt->setMinHeight(phHeight + pad.top() + pad.bottom());
 	}, prompt->lifetime());
 
+	state->updateGenerateEnabled = [=] {
+		const auto pill = state->primaryButton;
+		if (!pill || state->phase != State::Phase::Initial) {
+			return;
+		}
+		const auto exceeded = state->prompt->getLastText().size()
+			> promptLimit;
+		pill->setDisabled(exceeded);
+		pill->setAttribute(Qt::WA_TransparentForMouseEvents, exceeded);
+		pill->setTextFgOverride(exceeded
+			? anim::color(st::activeButtonBg, st::activeButtonFg, 0.5)
+			: std::optional<QColor>());
+	};
+
 	state->prompt->changes(
 	) | rpl::on_next([=] {
+		state->updateGenerateEnabled();
 		if (!state->page) {
 			return;
 		}
@@ -724,6 +745,7 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 				[=] { state->generate(); });
 			pill->setFullRadius(true);
 			state->primaryButton = pill;
+			state->updateGenerateEnabled();
 		}
 	};
 
@@ -749,7 +771,8 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 
 	state->generate = [=] {
 		const auto prompt = state->prompt->getLastText();
-		if (prompt.trimmed().isEmpty()) {
+		if (prompt.trimmed().isEmpty()
+			|| prompt.size() > promptLimit) {
 			return;
 		}
 		if (state->requestId) {
