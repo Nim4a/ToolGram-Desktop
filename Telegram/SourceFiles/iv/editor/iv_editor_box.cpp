@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_emoji_statuses.h"
 #include "dialogs/ui/dialogs_pill.h"
 #include "history/history_item.h"
+#include "boxes/compose_ai_box.h"
 #include "main/main_session.h"
 #include "ui/emoji_config.h"
 #include "ui/painter.h"
@@ -1580,10 +1581,10 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 			if (editor && editor->hasActiveSelection()) {
 				auto source = editor->richPageForCurrentSelection();
 				if (source && !source->blocks.empty()) {
-					ShowAiEditorBox(_show, {
+					HistoryView::Controls::ShowComposeAiBox(_show, {
 						.session = session,
-						.source = std::move(source),
-						.apply = [editor](
+						.richSource = std::move(source),
+						.applyRich = [editor](
 								std::shared_ptr<const RichPage> page) {
 							if (!editor || !page || page->blocks.empty()) {
 								return;
