@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/timer.h"
 #include "base/weak_qptr.h"
 #include "base/weak_ptr.h"
+#include "boxes/premium_preview_box.h"
 #include "chat_helpers/compose/compose_show.h"
 #include "core/application.h"
 #include "data/data_file_origin.h"
@@ -64,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/painter.h"
 #include "ui/rp_widget.h"
 #include "ui/text/text_utilities.h"
+#include "ui/toast/toast.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
@@ -80,6 +82,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_boxes.h"
 #include "styles/style_iv.h"
 #include "styles/style_layers.h"
+#include "styles/style_settings.h"
 
 namespace Iv::Editor {
 namespace {
@@ -3982,15 +3985,36 @@ void ShowRichMessagesPremiumToast(std::shared_ptr<ChatHelpers::Show> show) {
 	if (!show) {
 		return;
 	}
-	Settings::ShowPremiumPromoToast(
-		std::move(show),
-		tr::lng_article_premium_required(
+	const auto session = &show->session();
+	show->showToast({
+		.text = tr::lng_article_premium_required(
 			tr::now,
 			lt_link,
 			tr::link(tr::bold(
 				tr::lng_article_premium_required_link(tr::now))),
 			tr::marked),
-		u"rich_message"_q);
+		.filter = [=](
+				const ClickHandlerPtr &handler,
+				Qt::MouseButton button) {
+			if (button != Qt::LeftButton) {
+				return false;
+			}
+			if (show && show->valid()) {
+				ShowPremiumPreviewToBuy(
+					show,
+					PremiumFeature::RichFormatting);
+			} else if (const auto window
+					= session->tryResolveWindow(nullptr)) {
+				ShowPremiumPreviewToBuy(
+					window,
+					PremiumFeature::RichFormatting);
+			}
+			return true;
+		},
+		.icon = &st::settingsToastStarIcon,
+		.adaptive = true,
+		.duration = Ui::Toast::kDefaultDuration * 2,
+	});
 }
 
 void SetupSendLockBadge(

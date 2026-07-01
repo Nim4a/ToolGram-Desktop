@@ -37,13 +37,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lang/lang_keys.h"
 #include "menu/menu_checked_action.h"
 #include "menu/menu_send_details.h"
-#include "settings/sections/settings_premium.h"
+#include "styles/style_settings.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/controls/send_button.h"
 #include "ui/delayed_activation.h"
 #include "ui/effects/premium_graphics.h"
 #include "ui/layers/generic_box.h"
 #include "ui/rp_widget.h"
+#include "ui/toast/toast.h"
 #include "data/data_peer_values.h"
 #include "ui/ui_utility.h"
 #include "ui/widgets/buttons.h"
@@ -1542,15 +1543,37 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 		button->setAccessibleName(tr::lng_ai_compose_title(tr::now));
 		button->setClickedCallback([=] {
 			if (!session->premium()) {
-				Settings::ShowPremiumPromoToast(
-					_show,
-					tr::lng_article_premium_required(
+				const auto show = _show;
+				show->showToast({
+					.text = tr::lng_article_premium_required(
 						tr::now,
 						lt_link,
 						tr::link(tr::bold(
-							tr::lng_article_premium_required_link(tr::now))),
+							tr::lng_article_premium_required_link(
+								tr::now))),
 						tr::marked),
-					u"rich_message"_q);
+					.filter = [=](
+							const ClickHandlerPtr &handler,
+							Qt::MouseButton button) {
+						if (button != Qt::LeftButton) {
+							return false;
+						}
+						if (show && show->valid()) {
+							ShowPremiumPreviewToBuy(
+								show,
+								PremiumFeature::RichFormatting);
+						} else if (const auto window
+								= session->tryResolveWindow(nullptr)) {
+							ShowPremiumPreviewToBuy(
+								window,
+								PremiumFeature::RichFormatting);
+						}
+						return true;
+					},
+					.icon = &st::settingsToastStarIcon,
+					.adaptive = true,
+					.duration = Ui::Toast::kDefaultDuration * 2,
+				});
 				return;
 			}
 			const auto editor = _editor;

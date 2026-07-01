@@ -1463,7 +1463,17 @@ void ShowPremiumPreviewToBuy(
 		not_null<Window::SessionController*> controller,
 		PremiumFeature section,
 		Fn<void()> hiddenCallback) {
-	Show(controller->uiShow(), Descriptor{
+	ShowPremiumPreviewToBuy(
+		controller->uiShow(),
+		section,
+		std::move(hiddenCallback));
+}
+
+void ShowPremiumPreviewToBuy(
+		std::shared_ptr<ChatHelpers::Show> show,
+		PremiumFeature section,
+		Fn<void()> hiddenCallback) {
+	Show(std::move(show), Descriptor{
 		.section = section,
 		.fromSettings = true,
 		.hiddenCallback = std::move(hiddenCallback),
