@@ -447,6 +447,7 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 			const auto icon = Ui::CreateChild<Ui::RpWidget>(reload);
 			icon->setAttribute(Qt::WA_TransparentForMouseEvents);
 			icon->resize(st::createAiReloadIcon.size());
+			icon->show();
 			icon->paintRequest() | rpl::on_next([=] {
 				auto p = QPainter(icon);
 				st::createAiReloadIcon.paint(p, 0, 0, icon->width());
