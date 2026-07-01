@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
+#include "ui/wrap/slide_wrap.h"
 #include "window/themes/window_theme.h"
 #include "styles/style_boxes.h"
 #include "styles/style_chat.h"
@@ -323,7 +324,7 @@ struct State {
 	};
 	Phase phase = Phase::Initial;
 	std::shared_ptr<const RichPage> page;
-	Ui::RpWidget *responseIsland = nullptr;
+	Ui::SlideWrap<ResponseIsland> *responseWrap = nullptr;
 	Ui::RoundButton *reloadButton = nullptr;
 	Fn<void()> generate;
 	Fn<void()> rebuildButtons;
@@ -359,6 +360,13 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 		1024));
 	state->prompt = prompt;
 
+	const auto promptPad = st::aiToneFieldPadding;
+	const auto promptLineHeight = st::aiTonePromptField.style.font->height;
+	const auto promptMaxLines = 7;
+	prompt->setMaxHeight((promptLineHeight * promptMaxLines) / 2
+		+ promptPad.top()
+		+ promptPad.bottom());
+
 	const auto promptPlaceholder = AddAiComposeFieldDecor(
 		prompt,
 		tr::lng_ai_compose_create_placeholder());
@@ -367,6 +375,26 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 	) | rpl::on_next([=](int phHeight) {
 		const auto pad = st::aiToneFieldPadding;
 		prompt->setMinHeight(phHeight + pad.top() + pad.bottom());
+	}, prompt->lifetime());
+
+	state->prompt->changes(
+	) | rpl::on_next([=] {
+		if (!state->page) {
+			return;
+		}
+		if (const auto wrap = state->responseWrap) {
+			wrap->setDirectionUp(true);
+			wrap->toggle(false, anim::type::normal);
+			wrap->setFinishedCallback([=] {
+				if (state->responseWrap == wrap && !wrap->toggled()) {
+					delete state->responseWrap;
+					state->responseWrap = nullptr;
+				}
+			});
+		}
+		state->page = nullptr;
+		state->phase = State::Phase::Initial;
+		state->rebuildButtons();
 	}, prompt->lifetime());
 
 	const auto chooseLanguage = [=] {
@@ -388,15 +416,16 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 	};
 
 	state->rebuildResponseIsland = [=] {
-		if (state->responseIsland) {
-			delete state->responseIsland;
-			state->responseIsland = nullptr;
+		if (state->responseWrap) {
+			delete state->responseWrap;
+			state->responseWrap = nullptr;
 		}
 		if (!state->page) {
 			return;
 		}
 		const auto content = box->verticalLayout();
-		state->responseIsland = content->add(
+		auto wrap = object_ptr<Ui::SlideWrap<ResponseIsland>>(
+			content,
 			object_ptr<ResponseIsland>(
 				content,
 				state->session,
@@ -413,6 +442,11 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 				st::aiComposeCardSectionSkip,
 				st::aiComposeContentMargin.right(),
 				0));
+		const auto ptr = wrap.data();
+		content->add(std::move(wrap));
+		state->responseWrap = ptr;
+		ptr->toggle(false, anim::type::instant);
+		ptr->toggle(true, anim::type::normal);
 	};
 
 	state->rebuildButtons = [=] {
@@ -514,6 +548,7 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 			state->phase = State::Phase::HasResult;
 			state->rebuildResponseIsland();
 			state->rebuildButtons();
+			state->prompt->clearFocus();
 		}).fail([=](const MTP::Error &error) {
 			state->requestId = 0;
 			state->phase = state->page
