@@ -1789,11 +1789,24 @@ void Controller::fillManageSection() {
 						? Lang::Hard::ServerError()
 						: error);
 				};
-				community->session().api().communities().removePeerLink(
-					community,
-					channel,
-					done,
-					fail);
+				const auto remove = [=](Fn<void()> close) {
+					community->session().api().communities().removePeerLink(
+						community,
+						channel,
+						done,
+						fail);
+					close();
+				};
+				show->show(Ui::MakeConfirmBox({
+					.text = tr::lng_community_remove_sure(
+						tr::now,
+						lt_group,
+						tr::bold(channel->name()),
+						tr::marked),
+					.confirmed = remove,
+					.confirmText = tr::lng_box_remove(),
+					.confirmStyle = &st::attentionBoxButton,
+				}));
 			},
 			{ &st::menuIconLeaveAttention });
 		::AddSkip(_controls.buttonsLayout);

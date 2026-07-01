@@ -366,21 +366,34 @@ void SetupCommunityEditChatsList(
 	>(show);
 	const auto removeChat = [=](not_null<PeerListRow*> row) {
 		const auto peer = row->peer();
-		community->session().api().communities().removePeerLink(
-			community,
-			peer,
-			crl::guard(container, [=] {
-				if (const auto found = delegate->peerListFindRow(
-						peer->id.value)) {
-					delegate->peerListRemoveRow(found);
-					delegate->peerListRefreshRows();
-				}
-			}),
-			crl::guard(container, [=](const QString &error) {
-				show->showToast(error.isEmpty()
-					? Lang::Hard::ServerError()
-					: error);
-			}));
+		const auto remove = [=](Fn<void()> close) {
+			community->session().api().communities().removePeerLink(
+				community,
+				peer,
+				crl::guard(container, [=] {
+					if (const auto found = delegate->peerListFindRow(
+							peer->id.value)) {
+						delegate->peerListRemoveRow(found);
+						delegate->peerListRefreshRows();
+					}
+				}),
+				crl::guard(container, [=](const QString &error) {
+					show->showToast(error.isEmpty()
+						? Lang::Hard::ServerError()
+						: error);
+				}));
+			close();
+		};
+		show->show(Ui::MakeConfirmBox({
+			.text = tr::lng_community_remove_sure(
+				tr::now,
+				lt_group,
+				tr::bold(peer->name()),
+				tr::marked),
+			.confirmed = remove,
+			.confirmText = tr::lng_box_remove(),
+			.confirmStyle = &st::attentionBoxButton,
+		}));
 	};
 	const auto controller = container->lifetime().make_state<
 		ChatsController
