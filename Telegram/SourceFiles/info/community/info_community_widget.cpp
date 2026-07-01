@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
 #include "ui/text/text_utilities.h"
+#include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
 #include "ui/wrap/vertical_layout.h"
 #include "ui/rp_widget.h"
@@ -70,6 +71,13 @@ InnerWidget::InnerWidget(
 			controller->parentController(),
 			community,
 			controller->uiShow());
+		if (community->canManageLinkedPeers()) {
+			Ui::AddSkip(
+				this,
+				st::communityAddChatButtonMargin.top()
+					+ st::communityAddChatButton.height
+					+ st::communityAddChatButtonMargin.bottom());
+		}
 	}
 }
 
@@ -200,7 +208,7 @@ Widget::Widget(
 	}
 
 	if (const auto channel = peer->asChannel()) {
-		if (channel->isCommunity()) {
+		if (channel->canManageLinkedPeers()) {
 			_bottom = setupAddChatButton();
 		}
 	}
@@ -212,19 +220,6 @@ std::unique_ptr<Ui::RpWidget> Widget::setupAddChatButton() {
 
 	auto result = std::make_unique<Ui::VerticalLayout>(this);
 	const auto wrap = result.get();
-
-	const auto fade = Ui::CreateChild<Ui::RpWidget>(this);
-	fade->setAttribute(Qt::WA_TransparentForMouseEvents);
-	const auto fadeHeight = st::communityAddChatButton.height
-		+ st::communityAddChatButtonMargin.bottom();
-	fade->paintOn([=](QPainter &p) {
-		Dialogs::PaintBottomFade(p, fade->width(), fadeHeight, st::boxBg);
-	});
-
-	desiredBottomShadowVisibility(
-	) | rpl::on_next([=](bool shown) {
-		fade->setVisible(shown);
-	}, fade->lifetime());
 
 	const auto row = wrap->add(
 		object_ptr<Ui::RpWidget>(wrap),
@@ -239,20 +234,22 @@ std::unique_ptr<Ui::RpWidget> Widget::setupAddChatButton() {
 		button->moveToLeft(0, 0, width);
 	}, row->lifetime());
 
+	wrap->paintOn([=](QPainter &p) {
+		const auto fadeHeight = st::communityAddChatButtonMargin.top()
+			+ st::communityAddChatButton.height
+			+ st::communityAddChatButtonMargin.bottom();
+		Dialogs::PaintBottomFade(p, wrap->width(), fadeHeight, st::boxBg);
+	});
+
 	widthValue() | rpl::on_next([=](int width) {
 		wrap->resizeToWidth(width);
-		fade->resize(width, fadeHeight);
 	}, wrap->lifetime());
 
 	rpl::combine(
 		wrap->heightValue(),
 		heightValue()
 	) | rpl::on_next([=](int height, int fullHeight) {
-		setScrollBottomSkip(height);
-		const auto seam = fullHeight - height;
-		wrap->move(0, seam);
-		fade->setGeometry(0, seam - fadeHeight, wrap->width(), fadeHeight);
-		fade->raise();
+		wrap->move(0, fullHeight - height);
 	}, wrap->lifetime());
 
 	return result;
