@@ -2227,6 +2227,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_community_add_confirm" = "If this group is approved by a community admin, its members will be able to join or request to join other chats in the community.";
 "lng_community_add_confirm_add" = "Add";
 "lng_community_add_done" = "Group added to the community.";
+"lng_community_add_done_channel" = "Channel added to the community.";
 "lng_community_request_sent" = "Your request was sent to the community admins.";
 "lng_community_manage_name" = "Community name";
 "lng_community_manage_who_add" = "Who can add chats";

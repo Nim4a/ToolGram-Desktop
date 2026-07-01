@@ -245,7 +245,9 @@ void ShowAddPeerToCommunity(
 				visible,
 				[=] {
 					show->hideLayer();
-					show->showToast(tr::lng_community_add_done(tr::now));
+					show->showToast(group->isBroadcast()
+						? tr::lng_community_add_done_channel(tr::now)
+						: tr::lng_community_add_done(tr::now));
 				},
 				[=](const QString &error) {
 					if (error == Api::kCommunityRequestCreated.utf16()) {
@@ -264,12 +266,18 @@ void ShowAddPeerToCommunity(
 					}
 				});
 		};
-		show->showBox(Ui::MakeConfirmBox({
-			.text = tr::lng_community_add_confirm(),
-			.confirmed = sure,
-			.confirmText = tr::lng_community_add_confirm_add(),
-			.title = tr::lng_community_add_to(),
-		}));
+		// A community admin adds chats directly; everyone else can only
+		// suggest a chat, which a community admin must then approve.
+		if (community->canManageLinkedPeers()) {
+			sure([] {});
+		} else {
+			show->showBox(Ui::MakeConfirmBox({
+				.text = tr::lng_community_add_confirm(),
+				.confirmed = sure,
+				.confirmText = tr::lng_community_add_confirm_add(),
+				.title = tr::lng_community_add_to(),
+			}));
+		}
 	};
 	show->showBox(Box(ChooseVisibilityBox, add));
 }
