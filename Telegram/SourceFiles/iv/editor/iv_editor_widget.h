@@ -126,6 +126,8 @@ public:
 		richPageForCurrentSelection() const;
 	void replaceCurrentSelectionWithRichPage(
 		std::shared_ptr<const RichPage> page);
+	[[nodiscard]] TextWithEntities textSpanForCurrentSelection();
+	void replaceCurrentSelectionWithText(TextWithEntities text);
 	void pastePreparedBlock(
 		RichPage::Block block,
 		PreparedMediaPasteTarget target);
@@ -475,6 +477,7 @@ private:
 	};
 	[[nodiscard]] std::optional<State::ActiveTextInsertContext>
 	activeTextInsertContext() const;
+	[[nodiscard]] bool hasFieldTextSpanSelection() const;
 	[[nodiscard]] PreparedMediaPasteTarget preparedMediaPasteTarget() const;
 	struct PreparedMediaPasteActivation {
 		bool resolved = false;

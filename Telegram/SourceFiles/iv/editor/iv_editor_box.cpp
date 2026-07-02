@@ -1583,6 +1583,21 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 			}
 			const auto editor = _editor;
 			if (editor && editor->hasActiveSelection()) {
+				auto span = editor->textSpanForCurrentSelection();
+				if (!span.text.isEmpty()) {
+					HistoryView::Controls::ShowComposeAiBox(_show, {
+						.session = session,
+						.text = std::move(span),
+						.apply = [editor](TextWithEntities result) {
+							if (!editor || result.text.isEmpty()) {
+								return;
+							}
+							editor->replaceCurrentSelectionWithText(
+								std::move(result));
+						},
+					});
+					return;
+				}
 				auto source = editor->richPageForCurrentSelection();
 				if (source && !source->blocks.empty()) {
 					HistoryView::Controls::ShowComposeAiBox(_show, {

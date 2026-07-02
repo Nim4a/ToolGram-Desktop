@@ -413,8 +413,8 @@ public:
 		InsertAction action,
 		ActiveTextInsertContext context);
 	[[nodiscard]] ActiveTextBlockActionResult
-		replaceActiveTextSelectionWithRichPage(
-			std::shared_ptr<const RichPage> page,
+		replaceActiveTextSelectionWithText(
+			TextWithEntities text,
 			ActiveTextInsertContext context);
 	[[nodiscard]] bool insertPreparedBlockAfterActive(RichPage::Block block);
 	[[nodiscard]] bool insertPreparedBlocksAfterActive(
