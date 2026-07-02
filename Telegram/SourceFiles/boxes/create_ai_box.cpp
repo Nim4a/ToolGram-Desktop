@@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "mtproto/mtproto_response.h"
 #include "spellcheck/spellcheck_types.h"
+#include "ui/boxes/about_cocoon_box.h"
 #include "ui/boxes/choose_language_box.h"
 #include "ui/chat/chat_style.h"
 #include "ui/chat/chat_theme.h"
@@ -405,9 +406,6 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 
 	box->setWidth(st::boxWideWidth);
 	box->setTitle(tr::lng_ai_compose_create_title());
-	box->addTopButton(st::aiComposeBoxClose, [=] {
-		box->closeBox();
-	});
 	box->setStyle(st::aiComposeBox);
 
 	const auto prompt = box->addRow(
@@ -448,11 +446,12 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 		if (!pill || state->phase != State::Phase::Initial) {
 			return;
 		}
-		const auto exceeded = state->prompt->getLastText().size()
-			> promptLimit;
-		pill->setDisabled(exceeded);
-		pill->setAttribute(Qt::WA_TransparentForMouseEvents, exceeded);
-		pill->setTextFgOverride(exceeded
+		const auto text = state->prompt->getLastText();
+		const auto disabled = text.trimmed().isEmpty()
+			|| (text.size() > promptLimit);
+		pill->setDisabled(disabled);
+		pill->setAttribute(Qt::WA_TransparentForMouseEvents, disabled);
+		pill->setTextFgOverride(disabled
 			? anim::color(st::activeButtonBg, st::activeButtonFg, 0.5)
 			: std::optional<QColor>());
 	};
@@ -556,6 +555,12 @@ void CreateAiBox(not_null<Ui::GenericBox*> box, CreateAiBoxArgs &&args) {
 
 	state->rebuildButtons = [=] {
 		box->clearButtons();
+		box->addTopButton(st::aiComposeBoxClose, [=] {
+			box->closeBox();
+		})->setAccessibleName(tr::lng_close(tr::now));
+		box->addTopButton(st::aiComposeBoxInfoButton, [=] {
+			box->uiShow()->show(Box(Ui::AboutCocoonBox));
+		})->setAccessibleName(tr::lng_sr_ai_compose_info(tr::now));
 		state->primaryButton = nullptr;
 		if (state->phase == State::Phase::HasResult) {
 			addPill(tr::lng_ai_compose_add_to_page(), [=] {
