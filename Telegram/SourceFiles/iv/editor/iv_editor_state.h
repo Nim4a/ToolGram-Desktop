@@ -930,7 +930,6 @@ enum class RequestMediaType : uchar {
 
 struct MediaUploadState {
 	bool uploading = false;
-	float64 progress = 0.;
 };
 
 [[nodiscard]] bool CanEditRichPage(const RichPage &page);

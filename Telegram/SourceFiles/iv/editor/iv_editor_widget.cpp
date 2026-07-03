@@ -36,7 +36,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/chat/chat_style.h"
 #include "ui/chat/chat_theme.h"
 #include "ui/click_handler.h"
-#include "ui/effects/radial_animation.h"
 #include "ui/image/image.h"
 #include "ui/image/image_location.h"
 #include "ui/layers/generic_box.h"
@@ -6278,7 +6277,6 @@ Widget::MediaControlLayout Widget::mediaControlLayout(
 }
 
 void Widget::paintMediaControls(Painter &p, QPoint topLeft) {
-	auto activeRadials = std::vector<uint64>();
 	for (const auto &geo : _article->mediaBlockGeometries()) {
 		if (geo.visibleMediaRect.isEmpty()) {
 			continue;
@@ -6291,35 +6289,6 @@ void Widget::paintMediaControls(Painter &p, QPoint topLeft) {
 		if (!block) {
 			continue;
 		}
-		const auto paintRadial = [&](
-				uint64 mediaId,
-				QRect radialRect,
-				float64 progress) {
-			activeRadials.push_back(mediaId);
-			auto i = _mediaUploadRadials.find(mediaId);
-			if (i == _mediaUploadRadials.end()) {
-				i = _mediaUploadRadials.emplace(
-					mediaId,
-					std::make_unique<Ui::RadialAnimation>(
-						[=] { update(); })).first;
-			}
-			const auto radialPtr = i->second.get();
-			if (!radialPtr->animating()) {
-				radialPtr->start(progress);
-			} else {
-				radialPtr->update(progress, false, crl::now());
-			}
-			const auto radial = radialRect.translated(topLeft);
-			auto hq = PainterHighQualityEnabler(p);
-			p.setPen(Qt::NoPen);
-			p.setBrush(st::roundedBg);
-			p.drawEllipse(radial);
-			radialPtr->draw(
-				p,
-				QRectF(radial),
-				st::ivEditorMediaUploadRadialWidth,
-				st::roundedFg);
-		};
 		const auto paintCircleIcon = [&](QRect circle, const style::icon &icon) {
 			const auto target = circle.translated(topLeft);
 			auto hq = PainterHighQualityEnabler(p);
@@ -6339,15 +6308,7 @@ void Widget::paintMediaControls(Painter &p, QPoint topLeft) {
 				}
 				const auto itemIndex = (active >= 0) ? active : i;
 				const auto layout = mediaControlLayout(itemRect);
-				const auto uploadState = mediaUploadStateForGroupedItem(
-					*path,
-					itemIndex);
-				if (uploadState.uploading) {
-					paintRadial(
-						MediaIdForGroupedItem(block->mediaItems[itemIndex]),
-						layout.radial,
-						uploadState.progress);
-				} else {
+				if (!mediaUploadStateForGroupedItem(*path, itemIndex).uploading) {
 					paintCircleIcon(
 						layout.threeDots,
 						st::sendBoxAlbumButtonMediaMore);
@@ -6366,31 +6327,9 @@ void Widget::paintMediaControls(Painter &p, QPoint topLeft) {
 			continue;
 		}
 		const auto layout = mediaControlLayout(geo.visibleMediaRect);
-		const auto uploadState = mediaUploadStateForBlock(*path);
-		if (uploadState.uploading) {
-			paintRadial(
-				MediaIdForBlock(*block),
-				layout.radial,
-				uploadState.progress);
-		} else {
+		if (!mediaUploadStateForBlock(*path).uploading) {
 			paintCircleIcon(layout.threeDots, st::sendBoxAlbumButtonMediaMore);
 			paintCircleIcon(layout.plus, st::ivEditorMediaAddIcon);
-		}
-	}
-	for (auto i = _mediaUploadRadials.begin()
-		; i != _mediaUploadRadials.end()
-		;) {
-		auto active = false;
-		for (const auto id : activeRadials) {
-			if (id == i->first) {
-				active = true;
-				break;
-			}
-		}
-		if (active) {
-			++i;
-		} else {
-			i = _mediaUploadRadials.erase(i);
 		}
 	}
 }

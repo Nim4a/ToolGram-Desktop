@@ -221,7 +221,6 @@ ivEditorMediaCornerSize: 27px;
 ivEditorMediaCornerSkip: 6px;
 ivEditorMediaAddIcon: icon {{ "menu/rich/media_add-20x20", windowFgActive }};
 ivEditorMediaUploadRadialSize: 44px;
-ivEditorMediaUploadRadialWidth: 4px;
 ivEditorMediaToCollageIcon: icon {{ "menu/rich/to_collage-20x20", windowFgActive }};
 ivEditorMediaToSlideshowIcon: icon {{ "menu/rich/to_slideshow-20x20", windowFgActive }};
 ivEditorTableAddRowAboveIcon: icon {{ "menu/rich/table_add_row_above-24x24", menuIconColor }};

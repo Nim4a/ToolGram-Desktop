@@ -44,7 +44,6 @@ class ChatTheme;
 class InputField;
 class PopupMenu;
 class ElasticScroll;
-class RadialAnimation;
 struct PreparedList;
 } // namespace Ui
 
@@ -908,9 +907,6 @@ private:
 	std::optional<QPoint> _pressedControlPoint;
 	PressedMediaControl _pressedMediaControl;
 	std::optional<QPoint> _pressedMediaControlPoint;
-	base::flat_map<
-		uint64,
-		std::unique_ptr<Ui::RadialAnimation>> _mediaUploadRadials;
 	HorizontalScrollDrag _horizontalScrollDrag = HorizontalScrollDrag::None;
 	std::optional<QPoint> _pendingTouchHorizontalScrollPoint;
 	bool _syncingInlineFieldGeometry = false;

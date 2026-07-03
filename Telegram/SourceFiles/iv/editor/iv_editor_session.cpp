@@ -697,7 +697,6 @@ private:
 		RichPage::BlockKind blockKind = RichPage::BlockKind::Unsupported;
 		uint64 localMediaId = 0;
 		AttachmentState state = AttachmentState::Uploading;
-		float64 progress = 0.;
 		QString caption;
 		QString filename;
 		QString filemime;
@@ -1778,10 +1777,7 @@ private:
 				const auto uploading
 					= (attachment.state == AttachmentState::Uploading)
 						|| (attachment.state == AttachmentState::Finalizing);
-				return {
-					.uploading = uploading,
-					.progress = attachment.progress,
-				};
+				return { .uploading = uploading };
 			}
 		}
 		return {};
@@ -2157,12 +2153,6 @@ private:
 			std::move(*replaceTarget),
 			std::move(block));
 		refreshAttachmentLocatorsAndDropMissing();
-		const auto updated = findAttachment(*uploadId);
-		if (!updated) {
-			requestEditorUpdate();
-			return;
-		}
-		updateAttachmentProgress(*updated);
 		requestEditorUpdate();
 	}
 
@@ -2367,14 +2357,14 @@ private:
 		}, _lifetime);
 		_session->uploader().photoProgress(
 		) | rpl::on_next([=](const FullMsgId &id) {
-			if (const auto attachment = findAttachment(id)) {
-				updateAttachmentProgress(*attachment);
+			if (findAttachment(id)) {
+				requestEditorUpdate();
 			}
 		}, _lifetime);
 		_session->uploader().documentProgress(
 		) | rpl::on_next([=](const FullMsgId &id) {
-			if (const auto attachment = findAttachment(id)) {
-				updateAttachmentProgress(*attachment);
+			if (findAttachment(id)) {
+				requestEditorUpdate();
 			}
 		}, _lifetime);
 		_session->uploader().photoFailed(
@@ -2524,7 +2514,6 @@ private:
 			markAttachmentFailed(uploadId);
 			return;
 		}
-		attachment->progress = 1.;
 		if (_editor) {
 			auto patched = true;
 			_editor->applyExternalRichPageMutation([&](RichPage &page) {
@@ -2598,7 +2587,6 @@ private:
 			markAttachmentFailed(uploadId);
 			return;
 		}
-		attachment->progress = 1.;
 		if (_editor) {
 			auto patched = true;
 			_editor->applyExternalRichPageMutation([&](RichPage &page) {
@@ -2628,28 +2616,11 @@ private:
 	void markAttachmentFailed(FullMsgId uploadId) {
 		if (const auto attachment = findAttachment(uploadId)) {
 			attachment->state = AttachmentState::Failed;
-			updateAttachmentProgress(*attachment);
 			showAttachmentFailedToast();
 			requestEditorUpdate();
 			retryRichDraftCloseSaveIfNeeded();
 			maybeContinueSubmittedRequest();
 		}
-	}
-
-	void updateAttachmentProgress(AttachmentRecord &attachment) {
-		if (attachment.state == AttachmentState::Ready) {
-			attachment.progress = 1.;
-		} else if ((attachment.state == AttachmentState::Uploading)
-			|| (attachment.state == AttachmentState::Finalizing)) {
-			if (attachment.blockKind == RichPage::BlockKind::Photo) {
-				attachment.progress = _session->data().photo(
-					attachment.localMediaId)->progress();
-			} else {
-				attachment.progress = _session->data().document(
-					attachment.localMediaId)->progress();
-			}
-		}
-		requestEditorUpdate();
 	}
 
 	void requestEditorUpdate() {
@@ -2691,7 +2662,6 @@ private:
 				.type = PreparedFileType::Photo,
 				.blockKind = RichPage::BlockKind::Photo,
 				.state = AttachmentState::Ready,
-				.progress = 1.,
 				.caption = block.caption.text.text,
 				.dimensions = QSize(block.width, block.height),
 				.spoiler = block.spoiler,
@@ -2725,7 +2695,6 @@ private:
 					: PreparedFileType::Video,
 				.blockKind = kind,
 				.state = AttachmentState::Ready,
-				.progress = 1.,
 				.caption = block.caption.text.text,
 				.dimensions = QSize(block.width, block.height),
 				.spoiler = block.spoiler,
@@ -2811,7 +2780,6 @@ private:
 				.type = PreparedFileType::Photo,
 				.blockKind = RichPage::BlockKind::Photo,
 				.state = AttachmentState::Ready,
-				.progress = 1.,
 				.dimensions = QSize(item.width, item.height),
 				.spoiler = item.spoiler,
 				.serverMediaId = item.photoId,
@@ -2845,7 +2813,6 @@ private:
 				.type = PreparedFileType::Video,
 				.blockKind = RichPage::BlockKind::Video,
 				.state = AttachmentState::Ready,
-				.progress = 1.,
 				.dimensions = QSize(item.width, item.height),
 				.spoiler = item.spoiler,
 				.autoplay = item.autoplay,
@@ -3218,11 +3185,6 @@ private:
 					if (!patched) {
 						requestEditorUpdate();
 					}
-				}
-			}
-			if (const auto attachment = findAttachment(uploadId)) {
-				if (!attachment->blockLocators.empty()) {
-					updateAttachmentProgress(*attachment);
 				}
 			}
 		}
