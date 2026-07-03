@@ -4783,6 +4783,14 @@ Widget::~Widget() {
 
 	// Destructor may hide the bar and attempt to double-destroy it.
 	base::take(_downloadBar);
+
+	// Destroying a row of _innerList removes it from the layout, resizing
+	// the layout and firing _scroll position updates into subscriptions
+	// that live in lifetime() and die after most of the fields, like the
+	// one from setupStories that uses the already destroyed _stories.
+	//
+	// So destroy the whole scroll now, while all the fields are alive.
+	_scroll.destroy();
 }
 
 } // namespace Dialogs
