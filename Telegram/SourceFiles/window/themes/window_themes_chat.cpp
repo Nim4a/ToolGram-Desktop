@@ -36,7 +36,9 @@ namespace {
 	return result;
 }
 
-[[nodiscard]] std::optional<Data::CloudThemeType> SettingsTypeFor(
+} // namespace
+
+std::optional<Data::CloudThemeType> ChatThemeVariant(
 		const Data::CloudTheme &theme,
 		bool dark) {
 	const auto type = dark
@@ -51,8 +53,6 @@ namespace {
 		? std::make_optional(fallback)
 		: std::nullopt;
 }
-
-} // namespace
 
 Ui::ChatThemeBubblesData PrepareBubblesData(
 		const Data::CloudTheme &theme,
@@ -71,7 +71,7 @@ Ui::ChatThemeBubblesData PrepareBubblesData(
 std::unique_ptr<Preview> PreviewFromChatTheme(
 		const Data::CloudTheme &theme,
 		bool dark) {
-	const auto used = SettingsTypeFor(theme, dark);
+	const auto used = ChatThemeVariant(theme, dark);
 	if (!used) {
 		return nullptr;
 	}
@@ -110,7 +110,7 @@ void ApplyChatTheme(
 		not_null<SessionController*> controller,
 		const Data::CloudTheme &theme,
 		bool dark) {
-	const auto used = SettingsTypeFor(theme, dark);
+	const auto used = ChatThemeVariant(theme, dark);
 	if (!used) {
 		return;
 	}
@@ -139,7 +139,7 @@ void CheckChatThemeWallPaper(not_null<SessionController*> controller) {
 	if (cloud.emoticon.isEmpty() || cloud.settings.empty()) {
 		return;
 	}
-	const auto used = SettingsTypeFor(cloud, IsNightMode());
+	const auto used = ChatThemeVariant(cloud, IsNightMode());
 	if (!used) {
 		return;
 	}

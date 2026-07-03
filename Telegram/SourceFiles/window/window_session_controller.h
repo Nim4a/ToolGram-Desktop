@@ -864,6 +864,7 @@ private:
 	rpl::event_stream<> _filtersMenuChanged;
 
 	const std::shared_ptr<Ui::ChatTheme> _defaultChatTheme;
+	std::vector<QColor> _defaultChatThemeBubblesColors;
 	base::flat_map<CachedThemeKey, CachedTheme> _customChatThemes;
 	rpl::event_stream<std::shared_ptr<Ui::ChatTheme>> _cachedThemesStream;
 	rpl::event_stream<> _giftSymbolLoaded;

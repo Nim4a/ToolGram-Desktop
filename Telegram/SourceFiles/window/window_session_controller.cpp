@@ -3536,6 +3536,22 @@ void SessionController::pushDefaultChatBackground() {
 		.isPattern = paper.isPattern(),
 		.tile = background->tile(),
 	});
+	const auto &cloud = background->themeObject().cloud;
+	auto bubbles = Ui::ChatThemeBubblesData();
+	if (!cloud.emoticon.isEmpty()) {
+		const auto variant = Theme::ChatThemeVariant(
+			cloud,
+			Theme::IsNightMode());
+		if (variant) {
+			bubbles = Theme::PrepareBubblesData(cloud, *variant);
+		}
+	}
+	if (bubbles.colors != _defaultChatThemeBubblesColors) {
+		_defaultChatThemeBubblesColors = bubbles.colors;
+		_defaultChatTheme->setBubblesBackground(
+			Ui::PrepareBubblesBackground(bubbles));
+		_defaultChatTheme->finishCreateOnMain();
+	}
 }
 
 void SessionController::cacheChatTheme(

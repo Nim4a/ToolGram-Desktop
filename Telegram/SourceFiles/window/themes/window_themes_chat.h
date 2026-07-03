@@ -21,6 +21,10 @@ namespace Window::Theme {
 
 struct Preview;
 
+[[nodiscard]] std::optional<Data::CloudThemeType> ChatThemeVariant(
+	const Data::CloudTheme &theme,
+	bool dark);
+
 [[nodiscard]] Ui::ChatThemeBubblesData PrepareBubblesData(
 	const Data::CloudTheme &theme,
 	Data::CloudThemeType type);
