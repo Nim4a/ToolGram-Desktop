@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "base/crc32hash.h"
 #include "mainwidget.h"
+#include "mainwindow.h"
 #include "ui/chat/chat_theme.h"
 #include "window/themes/window_theme.h"
 #include "window/themes/window_theme_editor.h"
@@ -128,6 +129,37 @@ void ApplyChatTheme(
 			}
 		});
 	});
+}
+
+void CheckChatThemeWallPaper(not_null<SessionController*> controller) {
+	if (!controller->widget()->sessionContent()) {
+		return;
+	}
+	const auto &cloud = Background()->themeObject().cloud;
+	if (cloud.emoticon.isEmpty() || cloud.settings.empty()) {
+		return;
+	}
+	const auto used = SettingsTypeFor(cloud, IsNightMode());
+	if (!used) {
+		return;
+	}
+	const auto &paper = cloud.settings.find(*used)->second.paper;
+	if (!paper) {
+		return;
+	}
+	const auto &current = Background()->paper();
+	if (current.equals(*paper)) {
+		return;
+	}
+	const auto owned = Data::IsDefaultWallPaper(current)
+		|| Data::IsThemeWallPaper(current)
+		|| ranges::any_of(cloud.settings, [&](const auto &entry) {
+			return entry.second.paper
+				&& entry.second.paper->equals(current);
+		});
+	if (owned) {
+		controller->content()->setChatBackground(*paper);
+	}
 }
 
 } // namespace Window::Theme

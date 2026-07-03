@@ -34,4 +34,6 @@ void ApplyChatTheme(
 	const Data::CloudTheme &theme,
 	bool dark);
 
+void CheckChatThemeWallPaper(not_null<SessionController*> controller);
+
 } // namespace Window::Theme

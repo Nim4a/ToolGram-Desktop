@@ -1571,8 +1571,18 @@ SessionController::SessionController(
 		if (update.type == Theme::BackgroundUpdate::Type::New
 			|| update.type == Theme::BackgroundUpdate::Type::Changed) {
 			pushDefaultChatBackground();
+		} else if (update.type
+			== Theme::BackgroundUpdate::Type::ApplyingTheme) {
+			if (_isPrimary) {
+				Theme::CheckChatThemeWallPaper(this);
+			}
 		}
 	}, _lifetime);
+	if (_isPrimary) {
+		crl::on_main(base::make_weak(this), [=] {
+			Theme::CheckChatThemeWallPaper(this);
+		});
+	}
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
 		for (auto &[key, value] : _customChatThemes) {
