@@ -831,7 +831,11 @@ void CloudThemes::checkAppliedChatTheme() {
 		? *primary
 		: windows.front();
 	if (!SameThemeSettings(cloud.settings, fresh->settings)) {
-		ApplyChatTheme(controller, *fresh, IsNightMode());
+		ApplyChatTheme(
+			controller,
+			*fresh,
+			IsNightMode(),
+			ChatThemeOwnsPaper(cloud));
 		return;
 	}
 	auto updated = object;

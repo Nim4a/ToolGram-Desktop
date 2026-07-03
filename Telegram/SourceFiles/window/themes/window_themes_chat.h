@@ -33,10 +33,13 @@ struct Preview;
 	const Data::CloudTheme &theme,
 	bool dark);
 
+[[nodiscard]] bool ChatThemeOwnsPaper(const Data::CloudTheme &theme);
+
 void ApplyChatTheme(
 	not_null<SessionController*> controller,
 	const Data::CloudTheme &theme,
-	bool dark);
+	bool dark,
+	bool replacePaper = true);
 
 void CheckChatThemeWallPaper(not_null<SessionController*> controller);
 

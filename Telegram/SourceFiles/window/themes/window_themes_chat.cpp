@@ -8,9 +8,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/themes/window_themes_chat.h"
 
 #include "base/crc32hash.h"
+#include "data/data_document.h"
+#include "data/data_document_media.h"
+#include "data/data_document_resolver.h"
+#include "data/data_file_origin.h"
 #include "data/data_session.h"
 #include "main/main_session.h"
-#include "mainwidget.h"
 #include "mainwindow.h"
 #include "ui/chat/chat_theme.h"
 #include "ui/style/style_palette_colorizer.h"
@@ -185,6 +188,57 @@ void AdjustDarkChromeDepth(
 	return result;
 }
 
+struct WallPaperLoad {
+	std::shared_ptr<Data::DocumentMedia> media;
+	base::binary_guard generating;
+	rpl::lifetime lifetime;
+};
+
+[[nodiscard]] std::unique_ptr<WallPaperLoad> &LoadingWallPaper() {
+	static auto result = std::unique_ptr<WallPaperLoad>();
+	return result;
+}
+
+void ApplyChatThemeWallPaper(
+		not_null<SessionController*> controller,
+		const Data::WallPaper &paper) {
+	LoadingWallPaper() = nullptr;
+	const auto document = paper.document();
+	if (!document) {
+		Background()->set(paper);
+		return;
+	}
+	auto load = std::make_unique<WallPaperLoad>();
+	load->media = document->createMediaView();
+	document->save(paper.fileOrigin(), QString());
+	const auto raw = load.get();
+	const auto weak = base::make_weak(controller);
+	const auto finish = [=] {
+		if (LoadingWallPaper().get() != raw || !weak) {
+			return;
+		}
+		raw->generating = Data::ReadBackgroundImageAsync(
+			raw->media.get(),
+			Ui::PreprocessBackgroundImage,
+			[=](QImage &&image) {
+				if (LoadingWallPaper().get() == raw) {
+					Background()->set(paper, std::move(image));
+					LoadingWallPaper() = nullptr;
+				}
+			});
+	};
+	if (load->media->loaded(true)) {
+		LoadingWallPaper() = std::move(load);
+		finish();
+	} else {
+		controller->session().downloaderTaskFinished(
+		) | rpl::filter([=] {
+			return raw->media->loaded(true);
+		}) | rpl::take(1) | rpl::on_next(finish, raw->lifetime);
+		LoadingWallPaper() = std::move(load);
+	}
+}
+
 } // namespace
 
 std::optional<Data::CloudThemeType> ChatThemeVariant(
@@ -260,10 +314,21 @@ std::unique_ptr<Preview> PreviewFromChatTheme(
 	return result;
 }
 
+bool ChatThemeOwnsPaper(const Data::CloudTheme &theme) {
+	const auto &current = Background()->paper();
+	return Data::IsDefaultWallPaper(current)
+		|| Data::IsThemeWallPaper(current)
+		|| ranges::any_of(theme.settings, [&](const auto &entry) {
+			return entry.second.paper
+				&& (entry.second.paper->key() == current.key());
+		});
+}
+
 void ApplyChatTheme(
 		not_null<SessionController*> controller,
 		const Data::CloudTheme &theme,
-		bool dark) {
+		bool dark,
+		bool replacePaper) {
 	const auto used = ChatThemeVariant(theme, dark);
 	if (!used) {
 		return;
@@ -278,8 +343,8 @@ void ApplyChatTheme(
 		crl::on_main(weak, [=, result = std::move(result)]() mutable {
 			Apply(std::move(result));
 			KeepApplied();
-			if (paper) {
-				controller->content()->setChatBackground(*paper);
+			if (paper && replacePaper) {
+				ApplyChatThemeWallPaper(controller, *paper);
 			}
 		});
 	});
@@ -328,14 +393,8 @@ void CheckChatThemeWallPaper(not_null<SessionController*> controller) {
 	if (!degraded && current.key() == paper->key()) {
 		return;
 	}
-	const auto owned = Data::IsDefaultWallPaper(current)
-		|| Data::IsThemeWallPaper(current)
-		|| ranges::any_of(cloud.settings, [&](const auto &entry) {
-			return entry.second.paper
-				&& (entry.second.paper->key() == current.key());
-		});
-	if (owned) {
-		controller->content()->setChatBackground(*paper);
+	if (ChatThemeOwnsPaper(cloud)) {
+		ApplyChatThemeWallPaper(controller, *paper);
 	}
 }
 
