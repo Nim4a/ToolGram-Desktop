@@ -2037,6 +2037,7 @@ not_null<Ui::GradientButton*> CreateSubscribeButton(
 			Settings::ShowPremium(window, computeRef());
 			return;
 		}
+		window->window().activate();
 		const auto url = computeBotUrl ? computeBotUrl() : QString();
 		if (!url.isEmpty()) {
 			const auto local = Core::TryConvertUrlToLocal(url);

@@ -459,10 +459,6 @@ public:
 			ChatHelpers::FileChosen &&) const override {
 	}
 
-	::Window::SessionController *resolveWindow() const override {
-		return nullptr;
-	}
-
 private:
 	const QPointer<Window> _window;
 	const not_null<Main::Session*> _session;
