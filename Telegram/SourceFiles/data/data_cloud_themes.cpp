@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/themes/window_theme_preview.h"
 #include "window/themes/window_theme_editor_box.h"
 #include "window/window_controller.h"
+#include "window/window_session_controller.h"
 #include "data/data_session.h"
 #include "data/data_document.h"
 #include "data/data_file_origin.h"
@@ -340,7 +341,7 @@ void CloudThemes::showPreview(
 		not_null<Window::Controller*> controller,
 		const MTPTheme &data) {
 	data.match([&](const MTPDtheme &data) {
-		showPreview(controller, CloudTheme::Parse(_session, data));
+		showPreview(controller, CloudTheme::Parse(_session, data, true));
 	});
 }
 
@@ -354,6 +355,27 @@ void CloudThemes::showPreview(
 			Window::Theme::CreateForExistingBox,
 			controller,
 			cloud));
+	} else if (!cloud.settings.empty()) {
+		const auto session = controller->sessionController();
+		if (!session) {
+			return;
+		}
+		const auto weak = base::make_weak(session);
+		controller->show(Ui::MakeConfirmBox({
+			.text = (cloud.title.isEmpty()
+				? tr::lng_chat_theme_apply()
+				: rpl::single(cloud.title)),
+			.confirmed = [=](Fn<void()> close) {
+				if (const auto strong = weak.get()) {
+					Window::Theme::ApplyChatTheme(
+						strong,
+						cloud,
+						Window::Theme::IsNightMode());
+				}
+				close();
+			},
+			.confirmText = tr::lng_chat_theme_apply(),
+		}));
 	} else {
 		controller->show(Ui::MakeInformBox(tr::lng_theme_no_desktop()));
 	}
