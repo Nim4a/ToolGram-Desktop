@@ -777,7 +777,8 @@ void Row::paintUserpic(
 		|| history->peer->isUser()
 		|| subscribed
 		|| communityMember
-		|| hidden) {
+		|| (hidden
+			&& !(badgeChannel && Data::ChannelHasActiveCall(badgeChannel)))) {
 		return;
 	}
 	const auto actionPainter = history->sendActionPainter();
