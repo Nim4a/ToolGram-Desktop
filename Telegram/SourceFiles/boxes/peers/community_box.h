@@ -10,6 +10,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 class ChannelData;
 class PeerData;
 
+namespace Data {
+class CommunityInfo;
+} // namespace Data
+
 namespace Ui {
 class RoundButton;
 class Show;
@@ -36,6 +40,11 @@ void SetupCommunityEditChatsList(
 	std::shared_ptr<Main::SessionShow> show,
 	not_null<Window::SessionNavigation*> navigation,
 	not_null<ChannelData*> community);
+
+void ShowCommunityChatJoinConfirm(
+	std::shared_ptr<Main::SessionShow> show,
+	not_null<Data::CommunityInfo*> community,
+	not_null<PeerData*> peer);
 
 void ShowChooseChatToAddBox(
 	not_null<Window::SessionNavigation*> navigation,

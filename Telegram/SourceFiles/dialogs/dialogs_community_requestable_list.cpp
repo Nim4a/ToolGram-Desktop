@@ -7,14 +7,13 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "dialogs/dialogs_community_requestable_list.h"
 
-#include "apiwrap.h"
+#include "boxes/peers/community_box.h"
 #include "boxes/peer_list_box.h"
 #include "data/data_channel.h"
 #include "data/data_community.h"
 #include "lang/lang_keys.h"
 #include "main/session/session_show.h"
 #include "main/main_session.h"
-#include "ui/boxes/confirm_box.h"
 #include "ui/qt_object_factory.h"
 #include "window/window_session_controller.h"
 
@@ -120,31 +119,7 @@ CommunityRequestableList::CommunityRequestableList(
 	}) | rpl::start_spawning(lifetime());
 
 	const auto openChat = [=](not_null<PeerData*> peer) {
-		const auto channel = peer->asChannel();
-		// A hidden chat can only be joined by its creator; a visible chat
-		// can be joined by anyone. Everything else is inaccessible.
-		const auto joinable = channel
-			&& (!community->isHidden(peer) || channel->amCreator());
-		if (!joinable) {
-			_controller->showToast(
-				tr::lng_community_hidden_not_accessible(tr::now));
-			return;
-		}
-		const auto join = [=](Fn<void()> close) {
-			_controller->session().api().joinChannel(channel);
-			close();
-		};
-		_controller->show(Ui::MakeConfirmBox({
-			.text = tr::lng_community_join_sure(
-				tr::now,
-				lt_group,
-				tr::bold(peer->name()),
-				tr::marked),
-			.confirmed = join,
-			.confirmText = (channel->isMegagroup()
-				? tr::lng_profile_join_group(tr::now)
-				: tr::lng_profile_join_channel(tr::now)),
-		}));
+		ShowCommunityChatJoinConfirm(_controller->uiShow(), community, peer);
 	};
 
 	const auto delegate = lifetime().make_state<

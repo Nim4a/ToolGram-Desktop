@@ -162,6 +162,34 @@ base::unique_qptr<Ui::PopupMenu> ChatsController::rowContextMenu(
 
 } // namespace
 
+void ShowCommunityChatJoinConfirm(
+		std::shared_ptr<Main::SessionShow> show,
+		not_null<Data::CommunityInfo*> community,
+		not_null<PeerData*> peer) {
+	const auto channel = peer->asChannel();
+	const auto joinable = channel
+		&& (!community->isHidden(peer) || channel->amCreator());
+	if (!joinable) {
+		show->showToast(tr::lng_community_hidden_not_accessible(tr::now));
+		return;
+	}
+	const auto join = [=](Fn<void()> close) {
+		show->session().api().joinChannel(channel);
+		close();
+	};
+	show->show(Ui::MakeConfirmBox({
+		.text = tr::lng_community_join_sure(
+			tr::now,
+			lt_group,
+			tr::bold(peer->name()),
+			tr::marked),
+		.confirmed = join,
+		.confirmText = (channel->isMegagroup()
+			? tr::lng_profile_join_group(tr::now)
+			: tr::lng_profile_join_channel(tr::now)),
+	}));
+}
+
 void SetupCommunityContent(
 		not_null<Ui::VerticalLayout*> container,
 		not_null<Window::SessionController*> controller,
@@ -273,10 +301,7 @@ void SetupCommunityContent(
 	}) | rpl::start_spawning(container->lifetime());
 
 	const auto openChat = [=](not_null<PeerData*> peer) {
-		controller->showPeerHistory(
-			peer,
-			Window::SectionShow::Way::ClearStack,
-			ShowAtUnreadMsgId);
+		ShowCommunityChatJoinConfirm(show, info, peer);
 	};
 
 	const auto addPeerListSection = [&](
