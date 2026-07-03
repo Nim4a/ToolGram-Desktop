@@ -469,6 +469,10 @@ MarkdownGroupedMedia {
 	navPreviousIconOver: icon;
 	navNextIcon: icon;
 	navNextIconOver: icon;
+	dotSize: pixels;
+	dotSkip: pixels;
+	dotsBottomSkip: pixels;
+	dotsBgOpacity: double;
 }
 MarkdownFailure {
 	label: FlatLabel;
@@ -806,6 +810,10 @@ defaultMarkdownGroupedMedia: MarkdownGroupedMedia {
 	navPreviousIconOver: ivBackIcon;
 	navNextIcon: ivForwardIcon;
 	navNextIconOver: ivForwardIcon;
+	dotSize: 6px;
+	dotSkip: 14px;
+	dotsBottomSkip: 12px;
+	dotsBgOpacity: 0.34;
 }
 defaultMarkdownFailureLabel: FlatLabel(defaultFlatLabel) {
 	minWidth: 280px;
@@ -1103,6 +1111,7 @@ messageMarkdownGroupedMedia: MarkdownGroupedMedia(defaultMarkdownGroupedMedia) {
 	navPreviousIconOver: messageMarkdownNavPreviousIconSelected;
 	navNextIcon: messageMarkdownNavNextIcon;
 	navNextIconOver: messageMarkdownNavNextIconSelected;
+	dotsBottomSkip: 8px;
 }
 messageMarkdownFailureLabel: FlatLabel(defaultMarkdownFailureLabel) {
 	textFg: msgInDateFg;

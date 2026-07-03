@@ -684,6 +684,7 @@ private:
 	int _requestedWidth = 0;
 	bool _supported = false;
 	MediaBlockHost *_registeredBridgeHost = nullptr;
+	mutable SlideshowDotsBackdrop _dotsBackdrop;
 
 };
 
@@ -1006,6 +1007,16 @@ void IvHistoryViewSlideshowBlock::paint(
 				active ? st.navButtonBgOver : st.navButtonBg,
 				active ? st.navNextIconOver : st.navNextIcon);
 		}
+		PaintSlideshowDots(
+			p,
+			ComputeSlideshowDots(
+				_geometry,
+				int(_slides.size()),
+				_activeIndex,
+				st),
+			_activeIndex,
+			st,
+			_dotsBackdrop);
 	}
 	p.restore();
 }

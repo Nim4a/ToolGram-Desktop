@@ -1086,6 +1086,10 @@ private:
 		Painter &p,
 		const style::Markdown &st) const;
 
+	void paintDots(
+		Painter &p,
+		const style::Markdown &st) const;
+
 	void ensureNavigationLinks();
 
 	void updateNavigationRects();
@@ -1119,6 +1123,8 @@ private:
 	int _activeIndex = 0;
 	bool _useCollageLayout = false;
 	mutable std::unique_ptr<Ui::SpoilerAnimation> _spoilerAnimation;
+	mutable SlideshowDotsBackdrop _dotsBackdrop;
+
 };
 
 GroupedMediaBlock::GroupedMediaBlock(
@@ -1195,6 +1201,7 @@ void GroupedMediaBlock::paint(
 	if (_intent == PreparedGroupedMediaIntent::Slideshow) {
 		paintActiveItem(p, st, context);
 		paintNavigation(p, st);
+		paintDots(p, st);
 	} else if (_useCollageLayout) {
 		for (const auto &item : _items) {
 			paintItem(p, item, st);
@@ -1595,6 +1602,26 @@ void GroupedMediaBlock::paintNavigation(
 			active ? style.navButtonBgOver : style.navButtonBg,
 			active ? style.navNextIconOver : style.navNextIcon);
 	}
+}
+
+void GroupedMediaBlock::paintDots(
+		Painter &p,
+		const style::Markdown &st) const {
+	if ((_intent != PreparedGroupedMediaIntent::Slideshow)
+		|| (_items.size() < 2)) {
+		return;
+	}
+	const auto &style = st.groupedMedia;
+	PaintSlideshowDots(
+		p,
+		ComputeSlideshowDots(
+			_geometry,
+			int(_items.size()),
+			_activeIndex,
+			style),
+		_activeIndex,
+		style,
+		_dotsBackdrop);
 }
 
 void GroupedMediaBlock::ensureNavigationLinks() {
