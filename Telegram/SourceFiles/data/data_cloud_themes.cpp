@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "api/api_premium.h"
 #include "window/themes/window_theme.h"
+#include "window/themes/window_themes_chat.h"
 #include "window/themes/window_theme_preview.h"
 #include "window/themes/window_theme_editor_box.h"
 #include "window/window_controller.h"
@@ -28,6 +29,36 @@ namespace {
 constexpr auto kFirstReloadTimeout = 10 * crl::time(1000);
 constexpr auto kReloadTimeout = 3600 * crl::time(1000);
 constexpr auto kGiftThemesLimit = 24;
+
+[[nodiscard]] bool SamePaper(
+		const std::optional<WallPaper> &was,
+		const std::optional<WallPaper> &now) {
+	return (was.has_value() == now.has_value())
+		&& (!was || was->key() == now->key());
+}
+
+[[nodiscard]] bool SameThemeSettings(
+		const base::flat_map<CloudThemeType, CloudTheme::Settings> &was,
+		const base::flat_map<CloudThemeType, CloudTheme::Settings> &now) {
+	if (was.size() != now.size()) {
+		return false;
+	}
+	for (const auto &[type, settings] : was) {
+		const auto i = now.find(type);
+		if (i == end(now)) {
+			return false;
+		}
+		const auto &other = i->second;
+		if (settings.accentColor != other.accentColor
+			|| settings.outgoingAccentColor != other.outgoingAccentColor
+			|| (settings.outgoingMessagesColors
+				!= other.outgoingMessagesColors)
+			|| !SamePaper(settings.paper, other.paper)) {
+			return false;
+		}
+	}
+	return true;
+}
 
 bool IsTestingColors/* = false*/;
 
@@ -206,6 +237,8 @@ void CloudThemes::setupReload() {
 
 	if (needReload()) {
 		_reloadCurrentTimer.callOnce(kFirstReloadTimeout);
+	} else if (!Background()->themeObject().cloud.emoticon.isEmpty()) {
+		_reloadCurrentTimer.callOnce(kFirstReloadTimeout);
 	}
 	Background()->updates(
 	) | rpl::filter([](const BackgroundUpdate &update) {
@@ -253,6 +286,10 @@ void CloudThemes::install() {
 
 void CloudThemes::reloadCurrent() {
 	if (!needReload()) {
+		const auto &cloud = Window::Theme::Background()->themeObject().cloud;
+		if (!cloud.emoticon.isEmpty() && !cloud.settings.empty()) {
+			refreshChatThemes();
+		}
 		return;
 	}
 	const auto &fields = Window::Theme::Background()->themeObject().cloud;
@@ -437,6 +474,7 @@ void CloudThemes::refreshChatThemes() {
 			_chatThemesHash = data.vhash().v;
 			parseChatThemes(data.vthemes().v);
 			_chatThemesUpdates.fire({});
+			checkAppliedChatTheme();
 		}, [](const MTPDaccount_themesNotModified &) {
 		});
 	}).fail([=] {
@@ -743,6 +781,39 @@ void CloudThemes::checkCurrentTheme() {
 	if (i == end(_list)) {
 		install();
 	}
+}
+
+void CloudThemes::checkAppliedChatTheme() {
+	using namespace Window::Theme;
+
+	const auto &object = Background()->themeObject();
+	const auto &cloud = object.cloud;
+	if (cloud.emoticon.isEmpty() || cloud.settings.empty()) {
+		return;
+	}
+	const auto fresh = themeForToken(cloud.emoticon);
+	if (!fresh) {
+		return;
+	}
+	const auto &windows = _session->windows();
+	if (windows.empty()) {
+		return;
+	}
+	const auto primary = ranges::find_if(windows, [](
+			not_null<Window::SessionController*> window) {
+		return window->isPrimary();
+	});
+	const auto controller = (primary != end(windows))
+		? *primary
+		: windows.front();
+	if (!SameThemeSettings(cloud.settings, fresh->settings)) {
+		ApplyChatTheme(controller, *fresh, IsNightMode());
+		return;
+	}
+	auto updated = object;
+	updated.cloud = *fresh;
+	Background()->setThemeObject(updated);
+	CheckChatThemeWallPaper(controller);
 }
 
 rpl::producer<> CloudThemes::updated() const {

@@ -8,6 +8,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/themes/window_themes_chat.h"
 
 #include "base/crc32hash.h"
+#include "data/data_session.h"
+#include "main/main_session.h"
 #include "mainwidget.h"
 #include "mainwindow.h"
 #include "ui/chat/chat_theme.h"
@@ -135,27 +137,50 @@ void CheckChatThemeWallPaper(not_null<SessionController*> controller) {
 	if (!controller->widget()->sessionContent()) {
 		return;
 	}
-	const auto &cloud = Background()->themeObject().cloud;
+	const auto background = Background();
+	auto cloud = background->themeObject().cloud;
 	if (cloud.emoticon.isEmpty() || cloud.settings.empty()) {
 		return;
 	}
-	const auto used = ChatThemeVariant(cloud, IsNightMode());
+	auto used = ChatThemeVariant(cloud, IsNightMode());
 	if (!used) {
 		return;
 	}
-	const auto &paper = cloud.settings.find(*used)->second.paper;
+	auto paper = cloud.settings.find(*used)->second.paper;
 	if (!paper) {
 		return;
 	}
-	const auto &current = Background()->paper();
-	if (current.equals(*paper)) {
+	if (!paper->document() && paper->isPattern()) {
+		const auto &themes = controller->session().data().cloudThemes();
+		const auto fresh = themes.themeForToken(cloud.emoticon);
+		if (fresh) {
+			auto updated = background->themeObject();
+			updated.cloud = *fresh;
+			background->setThemeObject(updated);
+			cloud = *fresh;
+			used = ChatThemeVariant(cloud, IsNightMode());
+			if (!used) {
+				return;
+			}
+			const auto &live = cloud.settings.find(*used)->second.paper;
+			if (live) {
+				paper = live;
+			}
+		}
+	}
+	const auto &current = background->paper();
+	const auto degraded = current.isPattern()
+		&& !current.document()
+		&& background->prepared().isNull()
+		&& (paper->document() != nullptr);
+	if (!degraded && current.key() == paper->key()) {
 		return;
 	}
 	const auto owned = Data::IsDefaultWallPaper(current)
 		|| Data::IsThemeWallPaper(current)
 		|| ranges::any_of(cloud.settings, [&](const auto &entry) {
 			return entry.second.paper
-				&& entry.second.paper->equals(current);
+				&& (entry.second.paper->key() == current.key());
 		});
 	if (owned) {
 		controller->content()->setChatBackground(*paper);
