@@ -267,7 +267,9 @@ void CloudThemes::install() {
 	auto &themeId = IsNightMode()
 		? _installedNightThemeId
 		: _installedDayThemeId;
-	const auto cloudId = fields.documentId ? fields.id : uint64(0);
+	const auto cloudId = (fields.documentId || !fields.emoticon.isEmpty())
+		? fields.id
+		: uint64(0);
 	if (themeId == cloudId) {
 		return;
 	}
