@@ -4161,7 +4161,8 @@ void ComposeControls::updateSendAsFileVisibility() {
 	const auto hidden = !textExceedsMaxSize()
 		|| _wrap->isHidden()
 		|| _recording.current()
-		|| _field->isHidden();
+		|| _field->isHidden()
+		|| isEditingMessage();
 	if (_sendAsFile->isHidden() == hidden) {
 		return;
 	}
