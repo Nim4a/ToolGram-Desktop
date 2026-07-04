@@ -277,7 +277,7 @@ void PullToNextChannel::Indicator::paintEvent(QPaintEvent *e) {
 	const auto release = _releaseProgress.value(_ready ? 1. : 0.);
 	const auto alpha = std::clamp(progress, 0., 1.);
 	const auto h = float64(height());
-	const auto cx = width() / 2.;
+	const auto cx = (width() - st::historyScroll.width) / 2.;
 	const auto avatar = float64(st::historyPullNextAvatar);
 	const auto circleRadius = avatar / 2.;
 	const auto bg = _st->msgServiceBg()->c;
