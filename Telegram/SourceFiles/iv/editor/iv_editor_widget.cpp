@@ -7471,11 +7471,24 @@ void Widget::setupInlineField() {
 			},
 		});
 		if (_show) {
+			const auto weak = QPointer<Widget>(this);
 			_field->setEditLinkCallback(DefaultEditLinkCallback(
 				_show,
 				_field.get(),
 				nullptr,
-				ValidateInstantViewEditorLink));
+				ValidateInstantViewEditorLink,
+				[=](bool active) {
+					if (weak) {
+						weak->setInlineFieldExternalInteractionActive(active);
+						weak->notifyToolbarStateChanged();
+					}
+				},
+				[=] {
+					if (weak && !weak->_field->isHidden()) {
+						weak->_field->setFocusFast();
+						weak->notifyToolbarStateChanged();
+					}
+				}));
 		}
 		_fieldSuggestions = Ui::Emoji::SuggestionsController::Init(
 			_outer,
