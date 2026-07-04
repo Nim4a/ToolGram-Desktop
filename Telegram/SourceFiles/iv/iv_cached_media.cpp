@@ -1058,6 +1058,7 @@ private:
 	const Fn<void(QString)> _openChannel;
 	const Fn<void(QString)> _joinChannel;
 	mutable std::shared_ptr<Markdown::IvHistoryViewMediaHost> _hostedMediaHost;
+	mutable bool _hostedMediaHostDied = false;
 	mutable std::vector<PendingInstantViewMediaItem> _pendingInstantViewItems;
 	mutable base::flat_map<uint64, rpl::lifetime> _channelJoinedSubscriptions;
 	mutable rpl::event_stream<uint64> _channelJoinedChanges;
@@ -1240,6 +1241,14 @@ QString CachedPageMediaRuntime::mentionNameEntityData(uint64 userId) const {
 auto CachedPageMediaRuntime::hostedMediaHost(
 		not_null<Window::SessionController*> controller) const
 -> std::shared_ptr<Markdown::IvHistoryViewMediaHost> {
+	if (_hostedMediaHostDied) {
+		return nullptr;
+	}
+	if (_hostedMediaHost && !_hostedMediaHost->itemAlive()) {
+		_hostedMediaHostDied = true;
+		_hostedMediaHost = nullptr;
+		return nullptr;
+	}
 	if (_useExistingView) {
 		const auto view = _view.get();
 		if (!view) {
