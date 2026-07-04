@@ -68,6 +68,7 @@ struct SectionShow;
 
 namespace HistoryView {
 
+class AboutView;
 struct TextState;
 struct StateRequest;
 class ElementOverlayHost;
@@ -208,6 +209,7 @@ public:
 		Fn<void()> finished) = 0;
 	virtual Ui::ScrollArea *listScrollArea() const { return nullptr; }
 	virtual bool listThanosEffectEnabled() const { return true; }
+	virtual AboutView *listAboutView() { return nullptr; }
 };
 
 class WindowListDelegate : public ListDelegate {

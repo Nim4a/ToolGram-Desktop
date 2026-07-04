@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/history_view_reply_button.h"
 #include "history/view/reactions/history_view_reactions_selector.h"
 #include "history/view/history_view_context_menu.h"
+#include "history/view/history_view_about_view.h"
 #include "history/view/history_view_drag.h"
 #include "history/view/history_view_element.h"
 #include "history/view/history_view_emoji_interactions.h"
@@ -2367,6 +2368,17 @@ int ListWidget::resizeGetHeight(int newWidth) {
 	_itemsTop = (_minHeight > _itemsHeight + st::historyPaddingBottom)
 		? (_minHeight - _itemsHeight - st::historyPaddingBottom)
 		: 0;
+	if (const auto about = _delegate->listAboutView()) {
+		if (const auto view = about->view()) {
+			about->height = view->resizeGetHeight(newWidth);
+			_itemsTop = std::max(_itemsTop, about->height);
+			about->top = std::min(
+				_itemsTop - about->height,
+				std::max(0, (_minHeight - about->height) / 2));
+		} else {
+			about->top = about->height = 0;
+		}
+	}
 	if (_emptyInfo) {
 		_emptyInfo->setVisible(isEmpty());
 	}
@@ -2544,6 +2556,17 @@ void ListWidget::paintEvent(QPaintEvent *e) {
 
 	auto context = preparePaintContext(clip);
 	context.highlightPathCache = &_highlightPathCache;
+	if (const auto about = _delegate->listAboutView()) {
+		if (const auto view = about->view()) {
+			const auto top = about->top;
+			if (clip.y() < top + about->height
+				&& clip.y() + clip.height() > top) {
+				p.translate(0, top);
+				view->draw(p, context.translated(0, -top));
+				p.translate(0, -top);
+			}
+		}
+	}
 	if (from == end(_items)) {
 		_delegate->listPaintEmpty(p, context);
 		return;
