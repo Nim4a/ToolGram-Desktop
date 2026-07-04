@@ -270,6 +270,7 @@ public:
 	[[nodiscard]] int activeTextLength() const;
 	[[nodiscard]] std::optional<int> previousEditableOrdinal() const;
 	[[nodiscard]] std::optional<int> nextEditableOrdinal() const;
+	[[nodiscard]] std::optional<int> firstTableCellOrdinalFromActiveTitle() const;
 	[[nodiscard]] BoundaryTarget activeBoundaryTarget(bool forward) const;
 	[[nodiscard]] std::vector<BoundaryTarget> boundarySteps(
 		bool forward) const;

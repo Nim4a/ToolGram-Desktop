@@ -8710,6 +8710,29 @@ std::optional<int> State::adjacentEditableOrdinal(bool forward) const {
 		: std::nullopt;
 }
 
+std::optional<int> State::firstTableCellOrdinalFromActiveTitle() const {
+	const auto descriptor = textNode(_activeTextOrdinal);
+	if (!descriptor) {
+		return std::nullopt;
+	}
+	const auto leaf = descriptor->leaf;
+	if (leaf.kind != LeafKind::BlockText) {
+		return std::nullopt;
+	}
+	const auto owner = block(leaf.block);
+	if (!owner || owner->kind != BlockKind::Table) {
+		return std::nullopt;
+	}
+	for (auto i = 0, count = textNodeCount(); i != count; ++i) {
+		const auto &candidate = _textNodes[i].leaf;
+		if (candidate.block == leaf.block
+			&& candidate.kind == LeafKind::TableCellText) {
+			return i;
+		}
+	}
+	return std::nullopt;
+}
+
 void State::collectBoundarySteps(
 		const std::vector<Block> &blocks,
 		const BlockContainerPath &container,

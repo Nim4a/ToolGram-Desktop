@@ -9111,6 +9111,13 @@ bool Widget::handleFieldKey(QKeyEvent *e) {
 						}
 					}
 				}
+				if (!handled && down) {
+					if (const auto ordinal
+						= _state->firstTableCellOrdinalFromActiveTitle()) {
+						refreshPreparedContentAndActivate(*ordinal, 0);
+						handled = true;
+					}
+				}
 				if (!handled) {
 					handled = down
 						? moveVerticalDownBoundary()
@@ -9272,9 +9279,7 @@ bool Widget::moveBoundary(bool forward, bool allowTrailing) {
 			};
 		}
 		if (target) {
-			if (committed == ApplyResult::Changed) {
-				refreshAfterInlineFieldCommit(committed);
-			}
+			refreshPreparedContent();
 			if (forward) {
 				activateTextOrdinal(*target, 0);
 			} else {
@@ -9361,9 +9366,7 @@ bool Widget::moveBoundaryAfterCommit(
 		? _state->nextEditableOrdinal()
 		: _state->previousEditableOrdinal();
 	if (target) {
-		if (committed == ApplyResult::Changed) {
-			refreshAfterInlineFieldCommit(committed);
-		}
+		refreshPreparedContent();
 		if (forward) {
 			activateTextOrdinal(*target, 0);
 		} else {
