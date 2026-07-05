@@ -11,6 +11,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/call_delayed.h"
 #include "base/event_filter.h"
 #include "base/platform/base_platform_haptic.h"
+#include "core/application.h"
+#include "core/core_settings.h"
 #include "data/data_chat_filters.h"
 #include "data/data_messages.h"
 #include "data/data_peer.h"
@@ -601,7 +603,8 @@ void PullToNextChannel::setHistory(History *history) {
 }
 
 bool PullToNextChannel::active() const {
-	return _history
+	return Core::App().settings().pullToNextChannel()
+		&& _history
 		&& _history->peer->isBroadcast()
 		&& atBottom()
 		&& !_controller->session().sponsoredMessages().hasUnshownFor(_history);
