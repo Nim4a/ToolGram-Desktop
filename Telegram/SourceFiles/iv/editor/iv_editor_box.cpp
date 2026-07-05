@@ -961,7 +961,7 @@ void Toolbar::fillAttachMenu(not_null<Ui::PopupMenu*> menu) {
 					RequestMediaType::Audio);
 			}
 		},
-		&st::menuIconSoundOn,
+		&st::ivEditorToolbarAudioIcon,
 		false,
 		starSize);
 	if (_requestMap) {
