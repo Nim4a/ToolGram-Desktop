@@ -790,7 +790,12 @@ void HistoryInner::setupSwipeReplyAndBack() {
 		.scroll = _scroll,
 		.update = std::move(update),
 		.init = std::move(init),
-		.dontStart = _touchMaybeSelecting.value(),
+		.dontStart = rpl::combine(
+			_touchMaybeSelecting.value(),
+			_scroll->positionValue()
+		) | rpl::map([](bool selecting, Ui::ElasticScrollPosition position) {
+			return selecting || (position.overscroll > 0);
+		}),
 		.skipWheelEvent = [=](not_null<QWheelEvent*> event) {
 			const auto delta = Ui::ScrollDelta(event);
 			if (std::abs(delta.x()) <= std::abs(delta.y())) {
