@@ -932,12 +932,6 @@ void PaintRow(
 			context.width,
 			text);
 	} else if (from) {
-		auto badgeWidth = 0;
-		if ((history || sublist) && !context.search) {
-			const auto widthBefore = rectForName.width();
-			paintPeerBadge(rowName.maxWidth());
-			badgeWidth = widthBefore - rectForName.width();
-		}
 		const auto drawMuteIcon = DialogsMuteIcon.value()
 			&& thread
 			&& thread->muted();
@@ -950,6 +944,12 @@ void PaintRow(
 				rectForName.width()
 					- muteIcon.width()
 					- st::dialogsMuteIconSkip);
+		}
+		auto badgeWidth = 0;
+		if ((history || sublist) && !context.search) {
+			const auto widthBefore = rectForName.width();
+			paintPeerBadge(rowName.maxWidth());
+			badgeWidth = widthBefore - rectForName.width();
 		}
 		p.setPen(context.active
 			? st::dialogsNameFgActive
