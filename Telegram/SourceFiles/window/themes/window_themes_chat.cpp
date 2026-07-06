@@ -80,7 +80,7 @@ struct HsvColor {
 };
 
 [[nodiscard]] HsvColor ToHsv(const QColor &color) {
-	auto hue = 0.f, saturation = 0.f, value = 0.f;
+	auto hue = 0., saturation = 0., value = 0.;
 	color.getHsvF(&hue, &saturation, &value);
 	return { float64(hue), float64(saturation), float64(value) };
 }
