@@ -80,9 +80,12 @@ struct HsvColor {
 };
 
 [[nodiscard]] HsvColor ToHsv(const QColor &color) {
-	auto hue = 0., saturation = 0., value = 0.;
-	color.getHsvF(&hue, &saturation, &value);
-	return { float64(hue), float64(saturation), float64(value) };
+	const auto hsv = color.toHsv();
+	return {
+		float64(hsv.hueF()),
+		float64(hsv.saturationF()),
+		float64(hsv.valueF()),
+	};
 }
 
 [[nodiscard]] QColor DarkChromeShift(QColor color, const QColor &accent) {
