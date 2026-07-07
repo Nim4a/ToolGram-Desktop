@@ -1550,6 +1550,7 @@ private:
 	base::weak_qptr<Ui::GenericBox> _discardConfirmation;
 	rpl::lifetime _lifetime;
 	int _emojiColumnExtendedBy = 0;
+	int _searchTopSlide = 0;
 	bool _emojiColumnShown = false;
 	bool _emojiColumnInteractionActive = false;
 	bool _closingApproved = false;
@@ -1876,6 +1877,19 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 	window->body()->sizeValue() | rpl::on_next([=](QSize) {
 		layout();
 	}, _lifetime);
+	editor->searchSlideHeightValue() | rpl::on_next([=](int slide) {
+		if (_searchTopSlide == slide) {
+			return;
+		}
+		_searchTopSlide = slide;
+		if (_top && _toolbar) {
+			_top->setGeometry(
+				0,
+				0,
+				_top->width(),
+				_toolbar->height() + slide);
+		}
+	}, _lifetime);
 	rpl::combine(
 		_scroll->scrollTopValue(),
 		_scroll->heightValue()
@@ -2027,7 +2041,7 @@ void WindowHost::Impl::layout() {
 	}
 	const auto bottomHeight = padding.top() + buttonsHeight + padding.bottom();
 	const auto buttonsTop = padding.top();
-	_top->setGeometry(0, 0, editorWidth, toolbarHeight);
+	_top->setGeometry(0, 0, editorWidth, toolbarHeight + _searchTopSlide);
 	_toolbar->setGeometry(0, 0, editorWidth, toolbarHeight);
 	_toolbar->raise();
 	_bottomFade->setGeometry(0, height - bottomHeight, editorWidth, bottomHeight);

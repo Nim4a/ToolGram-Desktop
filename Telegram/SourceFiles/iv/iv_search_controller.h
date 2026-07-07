@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/basic_types.h"
 #include "base/flat_map.h"
 #include "base/weak_ptr.h"
+#include "iv/iv_search_bar.h"
 
 #include <rpl/producer.h>
 
@@ -25,8 +26,6 @@ struct MarkdownArticleSearchSource;
 } // namespace Iv::Markdown
 
 namespace Iv {
-
-class SearchBar;
 
 struct SearchHost {
 	Fn<bool()> ready;
@@ -45,7 +44,8 @@ public:
 	SearchController(
 		not_null<QWidget*> barParent,
 		rpl::producer<int> barWidth,
-		SearchHost host);
+		SearchHost host,
+		SearchBarMode barMode = SearchBarMode::WindowStrip);
 	~SearchController();
 
 	void toggle();

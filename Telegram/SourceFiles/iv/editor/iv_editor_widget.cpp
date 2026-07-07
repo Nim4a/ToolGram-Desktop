@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "iv/markdown/iv_markdown_microtex.h"
 #include "iv/markdown/iv_markdown_prepare_links.h"
 #include "iv/markdown/iv_markdown_prepare_native_richtext.h"
+#include "iv/iv_search_bar.h"
 #include "iv/iv_search_controller.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
@@ -2939,9 +2940,19 @@ void Widget::createSearchController() {
 	};
 	_search = std::make_unique<SearchController>(
 		_outer,
-		widthValue(),
-		std::move(host));
-	_search->moveBar(0, _topContentPadding);
+		widthValue() | rpl::map([=](int outerWidth) {
+			return searchBarColumn(outerWidth).width;
+		}),
+		std::move(host),
+		SearchBarMode::EditorPill);
+	_searchSlideHeight = _search->barHeightValue();
+	_searchSlideHeight.changes() | rpl::on_next([=] {
+		resizeToWidth(width());
+		update();
+	}, lifetime());
+	widthValue() | rpl::on_next([=] {
+		updateSearchBarGeometry();
+	}, lifetime());
 	_search->raiseBar();
 }
 
@@ -2956,7 +2967,10 @@ void Widget::scrollToSearchSegment(int segmentIndex) {
 	if (rect.isEmpty()) {
 		return;
 	}
-	const auto topMargin = _topContentPadding + st::ivSearchBarHeight;
+	const auto topMargin = _topContentPadding
+		+ st::ivEditorToolbarPadding.top()
+		+ st::ivEditorToolbarButtonSize
+		+ 2 * st::ivEditorPillPadding;
 	const auto current = scroll->scrollTop();
 	const auto height = scroll->height();
 	const auto from = rect.y() - topMargin;
@@ -2968,6 +2982,26 @@ void Widget::scrollToSearchSegment(int segmentIndex) {
 		target = std::min(till - height, from);
 	}
 	scroll->scrollToY(target);
+}
+
+void Widget::updateSearchBarGeometry() {
+	if (!_search) {
+		return;
+	}
+	_search->moveBar(searchBarColumn(width()).left, searchBarTop());
+}
+
+Widget::ArticleColumn Widget::searchBarColumn(int outerWidth) const {
+	const auto column = articleColumnForWidth(outerWidth);
+	return (column.width >= _contentMaxWidth)
+		? column
+		: ArticleColumn{ 0, outerWidth };
+}
+
+int Widget::searchBarTop() const {
+	return st::ivEditorToolbarPadding.top()
+		+ st::ivEditorToolbarButtonSize
+		+ 2 * st::ivEditorPillPadding;
 }
 
 void Widget::refreshPreparedContent() {
@@ -4786,9 +4820,7 @@ void Widget::setTopContentPadding(int value) {
 		return;
 	}
 	_topContentPadding = value;
-	if (_search) {
-		_search->moveBar(0, _topContentPadding);
-	}
+	updateSearchBarGeometry();
 	resizeToWidth(width());
 	update();
 }
@@ -4808,6 +4840,10 @@ void Widget::setContentMaxWidth(int value) {
 	}
 	_contentMaxWidth = value;
 	update();
+}
+
+rpl::producer<int> Widget::searchSlideHeightValue() const {
+	return _searchSlideHeight.value();
 }
 
 int Widget::resizeGetHeight(int newWidth) {
@@ -11809,7 +11845,7 @@ style::margins Widget::effectiveBodyPadding() const {
 	const auto base = EditorBodyPadding();
 	return style::margins(
 		base.left(),
-		base.top() + _topContentPadding,
+		base.top() + _topContentPadding + _searchSlideHeight.current(),
 		base.right(),
 		base.bottom() + _bottomContentPadding);
 }

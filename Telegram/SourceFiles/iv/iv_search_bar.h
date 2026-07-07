@@ -11,6 +11,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/shadow.h"
 #include "ui/wrap/slide_wrap.h"
 
+#include <memory>
+#include <optional>
+
+class QPainter;
+
 namespace Ui {
 class CrossButton;
 class FlatLabel;
@@ -20,9 +25,17 @@ class MultiSelect;
 
 namespace Iv {
 
+enum class SearchBarMode : uchar {
+	WindowStrip,
+	EditorPill,
+};
+
 class SearchBar final {
 public:
-	SearchBar(not_null<QWidget*> parent, rpl::producer<int> width);
+	SearchBar(
+		not_null<QWidget*> parent,
+		rpl::producer<int> width,
+		SearchBarMode mode = SearchBarMode::WindowStrip);
 
 	void toggle(bool shown, anim::type animated);
 	void show(anim::type animated);
@@ -45,9 +58,15 @@ public:
 private:
 	void setup(rpl::producer<int> width);
 	void updateControlsGeometry();
+	[[nodiscard]] int pillHeight() const;
+	[[nodiscard]] QRect pillRect() const;
+	void paintPill(QPainter &p) const;
 
+	const SearchBarMode _mode;
 	Ui::SlideWrap<Ui::RpWidget> _wrap;
-	Ui::PlainShadow _shadow;
+	std::unique_ptr<Ui::PlainShadow> _shadow;
+	std::optional<Ui::BoxShadow> _pillShadow;
+	QMargins _pillShadowMargins;
 	Ui::MultiSelect *_select = nullptr;
 	Ui::FlatLabel *_counter = nullptr;
 	Ui::IconButton *_up = nullptr;

@@ -230,6 +230,7 @@ public:
 	void setTopContentPadding(int value);
 	void setBottomContentPadding(int value);
 	void setContentMaxWidth(int value);
+	[[nodiscard]] rpl::producer<int> searchSlideHeightValue() const;
 
 	struct ArticleColumn {
 		int left = 0;
@@ -522,6 +523,9 @@ private:
 	void toggleSearch();
 	void createSearchController();
 	void scrollToSearchSegment(int segmentIndex);
+	void updateSearchBarGeometry();
+	[[nodiscard]] ArticleColumn searchBarColumn(int outerWidth) const;
+	[[nodiscard]] int searchBarTop() const;
 	[[nodiscard]] bool searchBlockedByLayer() const;
 	void refreshPreparedLeafAtSource(
 		const Markdown::PreparedEditLeafSource &source);
@@ -937,6 +941,7 @@ private:
 	bool _articleEditableHeightOverrideClearDeferred = false;
 	int _inlineFieldRevealSuppressionDepth = 0;
 	std::unique_ptr<SearchController> _search;
+	rpl::variable<int> _searchSlideHeight = 0;
 };
 
 } // namespace Iv::Editor

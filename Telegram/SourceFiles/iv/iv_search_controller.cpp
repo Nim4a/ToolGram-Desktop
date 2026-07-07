@@ -24,11 +24,14 @@ using Markdown::MarkdownArticleSearchMatch;
 SearchController::SearchController(
 	not_null<QWidget*> barParent,
 	rpl::producer<int> barWidth,
-	SearchHost host)
+	SearchHost host,
+	SearchBarMode barMode)
 : _barParent(barParent)
 , _host(std::move(host))
-, _searchBar(
-	std::make_unique<SearchBar>(barParent, std::move(barWidth))) {
+, _searchBar(std::make_unique<SearchBar>(
+	barParent,
+	std::move(barWidth),
+	barMode)) {
 	_searchBar->raise();
 	_searchBar->closeRequests() | rpl::on_next([=] {
 		InvokeQueued(_barParent, [=] {
