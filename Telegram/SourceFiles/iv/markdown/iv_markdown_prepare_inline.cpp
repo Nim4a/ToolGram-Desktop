@@ -46,10 +46,15 @@ void FinalizePreparedExternalLink(
 		QStringView renderedText) {
 	if (!link
 		|| link->kind != PreparedLinkKind::External
-		|| link->entityType != EntityType::Url) {
+		|| (link->entityType != EntityType::Url
+			&& link->entityType != EntityType::Email)) {
 		return;
 	}
 	if (renderedText == QStringView(ExternalLinkDisplayText(*link))) {
+		return;
+	}
+	if (link->entityType == EntityType::Email) {
+		link->shown = EntityLinkShown::Partial;
 		return;
 	}
 	if (UrlClickHandler::EncodeForOpening(renderedText.toString())

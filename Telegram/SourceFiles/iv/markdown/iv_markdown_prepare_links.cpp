@@ -176,10 +176,16 @@ void NormalizePreparedUrlLink(PreparedLink *result, const QString &target) {
 void FinalizePreparedUrlLink(
 		PreparedLink *link,
 		QStringView renderedText) {
-	if (!link || link->entityType != EntityType::Url) {
+	if (!link
+		|| (link->entityType != EntityType::Url
+			&& link->entityType != EntityType::Email)) {
 		return;
 	}
 	if (renderedText == QStringView(ExternalLinkDisplayText(*link))) {
+		return;
+	}
+	if (link->entityType == EntityType::Email) {
+		link->shown = EntityLinkShown::Partial;
 		return;
 	}
 	if (UrlClickHandler::EncodeForOpening(renderedText.toString())
