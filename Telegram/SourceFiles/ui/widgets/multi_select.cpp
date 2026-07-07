@@ -550,7 +550,7 @@ MultiSelect::MultiSelect(
 		}
 	});
 
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, _st.bg->c.alpha() == 255);
 	auto defaultWidth = _st.item.maxWidth + _st.fieldMinWidth + _st.fieldCancelSkip;
 	resizeToWidth(_st.padding.left() + defaultWidth + _st.padding.right());
 }
