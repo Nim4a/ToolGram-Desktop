@@ -162,6 +162,7 @@ private:
 	std::shared_ptr<Ui::Show> _show;
 	std::unique_ptr<Ui::RpWidget> _preview;
 	std::unique_ptr<SearchController> _search;
+	rpl::variable<int> _searchBarHeight = 0;
 	std::vector<HistoryEntry> _history;
 	int _historyIndex = -1;
 	int _shownHistoryIndex = -1;

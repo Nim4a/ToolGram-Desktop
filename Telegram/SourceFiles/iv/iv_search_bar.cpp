@@ -38,10 +38,11 @@ void SearchBar::setup(rpl::producer<int> width) {
 		inner,
 		st::searchInChatMultiSelect,
 		tr::lng_dlg_filter());
+	_select->setCancelButtonShown(false);
 	_counter = Ui::CreateChild<Ui::FlatLabel>(
 		inner,
 		QString(),
-		st::defaultSettingsRightLabel);
+		st::ivSearchCounterLabel);
 	_counter->setAttribute(Qt::WA_TransparentForMouseEvents);
 	_counter->hide();
 	_up = Ui::CreateChild<Ui::IconButton>(inner, st::calendarPrevious);

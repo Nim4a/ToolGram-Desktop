@@ -95,6 +95,10 @@ void SearchController::raiseBar() {
 	_searchBar->raise();
 }
 
+rpl::producer<int> SearchController::barHeightValue() const {
+	return _searchBar->heightValue();
+}
+
 auto SearchController::ScanSearchEntries(
 		const SearchSources &sources,
 		const QString &query)

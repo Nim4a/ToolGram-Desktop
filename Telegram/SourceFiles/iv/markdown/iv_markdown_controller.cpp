@@ -1047,7 +1047,7 @@ void Controller::createSearchController() {
 			ScrollMarkdownPreviewToSegment(
 				_preview.get(),
 				segmentIndex,
-				st::ivSearchBarHeight);
+				0);
 		},
 		.expandDetails = [=](const QString &anchorId) {
 			return ExpandMarkdownPreviewDetails(
@@ -1062,6 +1062,7 @@ void Controller::createSearchController() {
 		_window->body().get(),
 		_window->body()->widthValue(),
 		std::move(host));
+	_searchBarHeight = _search->barHeightValue();
 	_search->moveBar(0, st::ivSubtitleHeight);
 	_search->raiseBar();
 	_titleShadow->raise();
@@ -1147,10 +1148,11 @@ void Controller::createWindow() {
 	_container = Ui::CreateChild<Ui::RpWidget>(window->body().get());
 	rpl::combine(
 		window->body()->sizeValue(),
-		_subtitleWrap->heightValue()
-	) | rpl::on_next([=](QSize size, int titleHeight) {
+		_subtitleWrap->heightValue(),
+		_searchBarHeight.value()
+	) | rpl::on_next([=](QSize size, int titleHeight, int barHeight) {
 		_container->setGeometry(QRect(QPoint(), size).marginsRemoved(
-			{ 0, titleHeight, 0, 0 }));
+			{ 0, titleHeight + barHeight, 0, 0 }));
 	}, _container->lifetime());
 	_container->paintRequest() | rpl::on_next([=](QRect clip) {
 		QPainter(_container).fillRect(clip, st::windowBg);

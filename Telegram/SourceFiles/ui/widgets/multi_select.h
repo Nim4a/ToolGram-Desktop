@@ -36,6 +36,7 @@ public:
 	void setCancelledCallback(Fn<void()> callback);
 	void setFocusedChangedCallback(Fn<void(bool focused)> callback);
 	void setResizedCallback(Fn<void()> callback);
+	void setCancelButtonShown(bool shown);
 
 	enum class AddItemWay {
 		Default,

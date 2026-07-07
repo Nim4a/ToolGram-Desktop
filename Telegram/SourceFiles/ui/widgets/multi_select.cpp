@@ -428,6 +428,7 @@ public:
 	void setSubmittedCallback(Fn<void(Qt::KeyboardModifiers)> callback);
 	void setCancelledCallback(Fn<void()> callback);
 	void setFocusedChangedCallback(Fn<void(bool focused)> callback);
+	void setCancelButtonShown(bool shown);
 
 	void addItemInBunch(std::unique_ptr<Item> item);
 	void finishItemsBunch(AddItemWay way);
@@ -498,6 +499,7 @@ private:
 	int _fieldWidth = 0;
 	object_ptr<Ui::InputField> _field;
 	object_ptr<Ui::CrossButton> _cancel;
+	bool _cancelShown = true;
 
 	int _newHeight = 0;
 	Ui::Animations::Simple _height;
@@ -590,6 +592,10 @@ void MultiSelect::setFocusedChangedCallback(Fn<void(bool focused)> callback) {
 
 void MultiSelect::setResizedCallback(Fn<void()> callback) {
 	_resizedCallback = std::move(callback);
+}
+
+void MultiSelect::setCancelButtonShown(bool shown) {
+	_inner->setCancelButtonShown(shown);
 }
 
 void MultiSelect::setInnerFocus() {
@@ -697,7 +703,7 @@ MultiSelect::Inner::Inner(
 
 void MultiSelect::Inner::queryChanged() {
 	auto query = getQuery();
-	_cancel->toggle(!query.isEmpty(), anim::type::normal);
+	_cancel->toggle(_cancelShown && !query.isEmpty(), anim::type::normal);
 	updateFieldGeometry();
 	if (_queryChangedCallback) {
 		_queryChangedCallback(query);
@@ -745,6 +751,18 @@ void MultiSelect::Inner::setCancelledCallback(Fn<void()> callback) {
 void MultiSelect::Inner::setFocusedChangedCallback(
 		Fn<void(bool focused)> callback) {
 	_focusedChangedCallback = std::move(callback);
+}
+
+void MultiSelect::Inner::setCancelButtonShown(bool shown) {
+	if (_cancelShown == shown) {
+		return;
+	}
+	_cancelShown = shown;
+	const auto toggled = _cancelShown && !getQuery().isEmpty();
+	if (_cancel->toggled() != toggled) {
+		_cancel->toggle(toggled, anim::type::instant);
+		updateFieldGeometry();
+	}
 }
 
 void MultiSelect::Inner::updateFieldGeometry() {

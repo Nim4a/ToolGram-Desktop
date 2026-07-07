@@ -54,6 +54,7 @@ public:
 	void refresh();
 	void moveBar(int x, int y);
 	void raiseBar();
+	[[nodiscard]] rpl::producer<int> barHeightValue() const;
 
 private:
 	struct SearchEntry {
