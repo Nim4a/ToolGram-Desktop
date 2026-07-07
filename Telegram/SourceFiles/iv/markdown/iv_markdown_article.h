@@ -301,6 +301,11 @@ struct MarkdownArticleAnchorExpansion {
 	bool changed = false;
 };
 
+struct MarkdownArticleScrollAnchor {
+	int segmentIndex = -1;
+	double fraction = 0.;
+};
+
 struct MarkdownArticleMediaGeometry {
 	PreparedEditBlockSource block;
 	QRect mediaRect;
@@ -378,6 +383,10 @@ public:
 	[[nodiscard]] bool updateHorizontalScroll(QPoint point);
 	void endHorizontalScroll();
 	[[nodiscard]] int anchorTop(const QString &anchorId) const;
+	[[nodiscard]] auto scrollAnchorForTop(int top) const
+	-> std::optional<MarkdownArticleScrollAnchor>;
+	[[nodiscard]] int scrollTopForAnchor(
+		const MarkdownArticleScrollAnchor &anchor) const;
 	[[nodiscard]] MarkdownArticleAnchorExpansion expandDetailsToAnchor(
 		const QString &anchorId);
 	[[nodiscard]] bool toggleDetails(const QString &anchorId);

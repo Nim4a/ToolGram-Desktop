@@ -3321,6 +3321,12 @@ public:
 
 	[[nodiscard]] int anchorTop(const QString &anchorId) const;
 
+	[[nodiscard]] auto scrollAnchorForTop(int top) const
+	-> std::optional<MarkdownArticleScrollAnchor>;
+
+	[[nodiscard]] int scrollTopForAnchor(
+		const MarkdownArticleScrollAnchor &anchor) const;
+
 	[[nodiscard]] MarkdownArticleAnchorExpansion expandDetailsToAnchor(
 		const QString &anchorId);
 
@@ -4109,6 +4115,59 @@ int MarkdownArticle::Impl::anchorTop(const QString &anchorId) const {
 		}
 	}
 	return -1;
+}
+
+auto MarkdownArticle::Impl::scrollAnchorForTop(int top) const
+-> std::optional<MarkdownArticleScrollAnchor> {
+	if (_segments.empty()) {
+		return std::nullopt;
+	}
+	const auto make = [&](const SelectableSegment &segment) {
+		const auto rect = segment.outerRect;
+		const auto height = std::max(rect.height(), 1);
+		const auto fraction = std::clamp(
+			(top - rect.top()) / double(height),
+			0.,
+			1.);
+		return MarkdownArticleScrollAnchor{ segment.index, fraction };
+	};
+	const auto span = LookupVisibleSegmentSpan(
+		_segmentTops,
+		_segmentBottoms,
+		{ top, top + 1 });
+	const auto containsVertically = [&](const SelectableSegment &segment) {
+		const auto rect = segment.outerRect;
+		return (rect.top() <= top) && (top < rect.top() + rect.height());
+	};
+	auto found = (const SelectableSegment*)nullptr;
+	for (auto i = span.from; i != span.till; ++i) {
+		const auto &segment = _segments[i];
+		if (!containsVertically(segment)) {
+			continue;
+		} else if (!found || (segment.isTextLeaf() && !found->isTextLeaf())) {
+			found = &segment;
+		}
+	}
+	if (found) {
+		return make(*found);
+	}
+	for (const auto &segment : _segments) {
+		if (segment.outerRect.top() >= top) {
+			return MarkdownArticleScrollAnchor{ segment.index, 0. };
+		}
+	}
+	return make(_segments.back());
+}
+
+int MarkdownArticle::Impl::scrollTopForAnchor(
+		const MarkdownArticleScrollAnchor &anchor) const {
+	const auto segment = FindSegment(&_segments, anchor.segmentIndex);
+	if (!segment) {
+		return -1;
+	}
+	const auto rect = segment->outerRect;
+	const auto fraction = std::clamp(anchor.fraction, 0., 1.);
+	return rect.top() + int(std::round(fraction * rect.height()));
 }
 
 MarkdownArticleAnchorExpansion MarkdownArticle::Impl::expandDetailsToAnchor(
@@ -5896,6 +5955,16 @@ void MarkdownArticle::endHorizontalScroll() {
 
 int MarkdownArticle::anchorTop(const QString &anchorId) const {
 	return _impl->anchorTop(anchorId);
+}
+
+auto MarkdownArticle::scrollAnchorForTop(int top) const
+-> std::optional<MarkdownArticleScrollAnchor> {
+	return _impl->scrollAnchorForTop(top);
+}
+
+int MarkdownArticle::scrollTopForAnchor(
+		const MarkdownArticleScrollAnchor &anchor) const {
+	return _impl->scrollTopForAnchor(anchor);
 }
 
 MarkdownArticleAnchorExpansion MarkdownArticle::expandDetailsToAnchor(

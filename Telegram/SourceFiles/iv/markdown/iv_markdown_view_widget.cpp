@@ -317,6 +317,23 @@ int MarkdownDocumentWidget::anchorTop(const QString &anchorId) const {
 	return int(std::floor(top * zoomScale()));
 }
 
+auto MarkdownDocumentWidget::scrollAnchorForTop(int top) const
+-> std::optional<MarkdownArticleScrollAnchor> {
+	if (!_article) {
+		return std::nullopt;
+	}
+	return _article->scrollAnchorForTop(int(std::floor(top / zoomScale())));
+}
+
+int MarkdownDocumentWidget::scrollTopForAnchor(
+		const MarkdownArticleScrollAnchor &anchor) const {
+	const auto top = _article ? _article->scrollTopForAnchor(anchor) : -1;
+	if (top < 0) {
+		return -1;
+	}
+	return int(std::floor(top * zoomScale()));
+}
+
 bool MarkdownDocumentWidget::expandDetailsToAnchor(const QString &anchorId) {
 	if (!_article) {
 		return false;

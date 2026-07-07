@@ -425,9 +425,20 @@ void MarkdownPreviewRoot::setup() {
 	if (_options.delegate) {
 		_options.delegate->ivZoomValue(
 		) | rpl::on_next([=](int value) {
-			if (_body) {
-				_body->setZoom(value);
-				updateChildrenGeometry(size());
+			if (!_body) {
+				return;
+			}
+			const auto scrollTop = _scroll ? _scroll->scrollTop() : 0;
+			const auto anchor = (scrollTop > 0)
+				? _body->scrollAnchorForTop(scrollTop)
+				: std::nullopt;
+			_body->setZoom(value);
+			updateChildrenGeometry(size());
+			if (anchor) {
+				const auto top = _body->scrollTopForAnchor(*anchor);
+				if (top >= 0) {
+					scrollToY(top, MarkdownPreviewScrollMode::Instant);
+				}
 			}
 		}, lifetime());
 	}

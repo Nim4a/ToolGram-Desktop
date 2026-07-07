@@ -63,6 +63,10 @@ public:
 	void invalidateRasterCache();
 	[[nodiscard]] int maxWidth() const;
 	[[nodiscard]] int anchorTop(const QString &anchorId) const;
+	[[nodiscard]] auto scrollAnchorForTop(int top) const
+	-> std::optional<MarkdownArticleScrollAnchor>;
+	[[nodiscard]] int scrollTopForAnchor(
+		const MarkdownArticleScrollAnchor &anchor) const;
 	[[nodiscard]] bool expandDetailsToAnchor(const QString &anchorId);
 	[[nodiscard]] bool toggleDetails(const QString &anchorId);
 	[[nodiscard]] int lastRelayoutMs() const;
