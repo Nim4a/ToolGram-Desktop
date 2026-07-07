@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_changes.h"
 #include "data/data_channel.h"
 #include "data/data_community.h"
+#include "data/data_peer.h"
 #include "data/data_session.h"
 #include "lang/lang_hardcoded.h"
 #include "lang/lang_keys.h"
@@ -41,7 +42,7 @@ class Controller final
 	, public base::has_weak_ptr {
 public:
 	Controller(
-		not_null<ChannelData*> group,
+		not_null<PeerData*> peer,
 		Fn<void(not_null<ChannelData*>)> callback);
 
 	Main::Session &session() const override;
@@ -56,21 +57,21 @@ private:
 	void appendRow(not_null<ChannelData*> community);
 	void updateStatus(not_null<PeerListRow*> row);
 
-	const not_null<ChannelData*> _group;
+	const not_null<PeerData*> _peer;
 	const Fn<void(not_null<ChannelData*>)> _callback;
 	rpl::variable<int> _count = 0;
 
 };
 
 Controller::Controller(
-	not_null<ChannelData*> group,
+	not_null<PeerData*> peer,
 	Fn<void(not_null<ChannelData*>)> callback)
-: _group(group)
+: _peer(peer)
 , _callback(std::move(callback)) {
 }
 
 Main::Session &Controller::session() const {
-	return _group->session();
+	return _peer->session();
 }
 
 void Controller::prepare() {
@@ -125,7 +126,7 @@ void Controller::updateStatus(not_null<PeerListRow*> row) {
 void CreateCommunityBox(
 		not_null<Ui::GenericBox*> box,
 		not_null<Window::SessionNavigation*> navigation,
-		not_null<ChannelData*> group) {
+		not_null<PeerData*> peer) {
 	box->setTitle(tr::lng_community_create_title());
 
 	const auto field = box->addRow(object_ptr<Ui::InputField>(
@@ -154,7 +155,7 @@ void CreateCommunityBox(
 		navigation->session().api().communities().create(
 			title,
 			QString(),
-			group,
+			peer,
 			hidden->checked(),
 			crl::guard(box, [=](not_null<ChannelData*> community) {
 				show->hideLayer();
@@ -234,18 +235,20 @@ void ChooseVisibilityBox(
 void ShowAddPeerToCommunity(
 		not_null<Window::SessionNavigation*> navigation,
 		not_null<ChannelData*> community,
-		not_null<ChannelData*> group) {
+		not_null<PeerData*> peer) {
 	const auto show = navigation->uiShow();
 	const auto add = [=](bool visible) {
 		const auto sure = [=](Fn<void()> &&close) {
 			close();
-			group->session().api().communities().addPeerLink(
+			peer->session().api().communities().addPeerLink(
 				community,
-				group,
+				peer,
 				visible,
 				[=] {
 					show->hideLayer();
-					show->showToast(group->isBroadcast()
+					show->showToast(peer->isUser()
+						? tr::lng_community_add_done_bot(tr::now)
+						: peer->isBroadcast()
 						? tr::lng_community_add_done_channel(tr::now)
 						: tr::lng_community_add_done(tr::now));
 				},
@@ -255,10 +258,8 @@ void ShowAddPeerToCommunity(
 						show->showToast(
 							tr::lng_community_request_sent(tr::now));
 					} else if (error == Api::kCommunityPeersTooMuch.utf16()) {
-						show->showToast(tr::lng_community_peers_limit(
-							tr::now,
-							lt_count,
-							Api::CommunityPeersLimit(&community->session())));
+						show->showToast(
+							Api::CommunityPeersLimitToast(peer));
 					} else {
 						show->showToast(error.isEmpty()
 							? Lang::Hard::ServerError()
@@ -272,7 +273,9 @@ void ShowAddPeerToCommunity(
 			sure([] {});
 		} else {
 			show->showBox(Ui::MakeConfirmBox({
-				.text = tr::lng_community_add_confirm(),
+				.text = (peer->isUser()
+					? tr::lng_community_add_confirm_bot()
+					: tr::lng_community_add_confirm()),
 				.confirmed = sure,
 				.confirmText = tr::lng_community_add_confirm_add(),
 				.title = tr::lng_community_add_to(),
@@ -284,18 +287,20 @@ void ShowAddPeerToCommunity(
 
 void ShowAddToCommunityBox(
 		not_null<Window::SessionNavigation*> navigation,
-		not_null<ChannelData*> group) {
+		not_null<PeerData*> peer) {
 	const auto choose = [=](not_null<ChannelData*> community) {
-		ShowAddPeerToCommunity(navigation, community, group);
+		ShowAddPeerToCommunity(navigation, community, peer);
 	};
-	auto controller = std::make_unique<Controller>(group, choose);
+	auto controller = std::make_unique<Controller>(peer, choose);
 	const auto raw = controller.get();
 	const auto init = [=](not_null<PeerListBox*> box) {
 		box->setTitle(tr::lng_community_title());
 		box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 
 		auto above = object_ptr<Ui::VerticalLayout>(box);
-		Ui::AddDividerText(above, tr::lng_community_add_about());
+		Ui::AddDividerText(above, peer->isUser()
+			? tr::lng_community_add_about_bot()
+			: tr::lng_community_add_about());
 		Ui::AddSkip(above);
 		Settings::AddButtonWithIcon(
 			above,
@@ -304,7 +309,7 @@ void ShowAddToCommunityBox(
 			{ &st::menuBlueIconGroupCreate }
 		)->addClickHandler([=] {
 			navigation->uiShow()->showBox(
-				Box(CreateCommunityBox, navigation, group));
+				Box(CreateCommunityBox, navigation, peer));
 		});
 		const auto wrap = above->add(
 			object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(

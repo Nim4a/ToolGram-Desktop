@@ -27,6 +27,7 @@ struct CommunityLinkedPeer {
 };
 
 [[nodiscard]] bool IsCommunityChatViewable(const CommunityLinkedPeer &linked);
+[[nodiscard]] ChannelId PeerLinkedCommunityId(not_null<PeerData*> peer);
 
 class CommunityInfo final {
 public:

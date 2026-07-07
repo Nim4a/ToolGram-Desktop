@@ -42,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/components/credits.h"
 #include "data/data_channel.h"
 #include "data/data_chat.h"
+#include "data/data_community.h"
 #include "data/data_peer.h"
 #include "data/data_session.h"
 #include "data/data_changes.h"
@@ -485,6 +486,7 @@ private:
 	void fillSignaturesButton();
 	void fillHistoryVisibilityButton();
 	void fillManageSection();
+	void fillCommunitySection();
 	void fillPendingRequestsButton();
 
 	void fillBotUsernamesButton();
@@ -1488,6 +1490,9 @@ void Controller::fillManageSection() {
 				st::boxDividerLabel),
 			st::defaultBoxDividerLabelPadding));
 		fillBotVerifyAccounts();
+		if (_peer->asUser()->botInfo->canEditInformation) {
+			fillCommunitySection();
+		}
 		return;
 	}
 
@@ -1545,10 +1550,6 @@ void Controller::fillManageSection() {
 		&& (channel->isMegagroup() || channel->isBroadcast())
 		&& !channel->isMonoforum()
 		&& channel->amCreator();
-	const auto canAddToCommunity = communityEligible
-		&& !channel->linkedCommunityId();
-	const auto linkedToCommunity = communityEligible
-		&& channel->linkedCommunityId();
 
 	::AddSkip(_controls.buttonsLayout, 0);
 
@@ -1749,74 +1750,11 @@ void Controller::fillManageSection() {
 			{ .icon = &st::menuIconStarRefShare });
 	}
 
-	if (canAddToCommunity) {
-		::AddSkip(_controls.buttonsLayout);
-		AddButtonWithCount(
-			_controls.buttonsLayout,
-			(_isGroup
-				? tr::lng_community_add_button()
-				: tr::lng_community_add_button_channel()),
-			rpl::single(QString()),
-			[=] { ShowAddToCommunityBox(_navigation, channel); },
-			{ &st::menuIconCommunity });
-		::AddSkip(_controls.buttonsLayout);
-		Ui::AddDividerText(
-			_controls.buttonsLayout,
-			tr::lng_community_add_about());
-	} else if (linkedToCommunity) {
-		const auto community = channel->owner().channel(
-			channel->linkedCommunityId());
-		::AddSkip(_controls.buttonsLayout);
-		AddCommunityRow(
-			_controls.buttonsLayout,
-			community,
-			[=] {
-				_navigation->parentController()->showPeerInfo(community);
-			});
-		AddButtonWithCount(
-			_controls.buttonsLayout,
-			(_isGroup
-				? tr::lng_community_remove_button()
-				: tr::lng_community_remove_button_channel()),
-			rpl::single(QString()),
-			[=] {
-				const auto show = _navigation->uiShow();
-				const auto done = [=] {
-					show->showToast(
-						tr::lng_community_remove_done(tr::now));
-				};
-				const auto fail = [=](const QString &error) {
-					show->showToast(error.isEmpty()
-						? Lang::Hard::ServerError()
-						: error);
-				};
-				const auto remove = [=](Fn<void()> close) {
-					community->session().api().communities().removePeerLink(
-						community,
-						channel,
-						done,
-						fail);
-					close();
-				};
-				show->show(Ui::MakeConfirmBox({
-					.text = tr::lng_community_remove_sure(
-						tr::now,
-						lt_group,
-						tr::bold(channel->name()),
-						tr::marked),
-					.confirmed = remove,
-					.confirmText = tr::lng_box_remove(),
-					.confirmStyle = &st::attentionBoxButton,
-				}));
-			},
-			{ &st::menuIconLeaveAttention },
-			st::manageGroupAttentionButton);
-		::AddSkip(_controls.buttonsLayout);
+	if (communityEligible) {
+		fillCommunitySection();
 	}
 
-	if ((canEditStickers || canDeleteChannel)
-		&& !canAddToCommunity
-		&& !linkedToCommunity) {
+	if ((canEditStickers || canDeleteChannel) && !communityEligible) {
 		::AddSkip(_controls.buttonsLayout);
 	}
 
@@ -1836,6 +1774,79 @@ void Controller::fillManageSection() {
 
 	if (canEditStickers || canDeleteChannel) {
 		::AddSkip(_controls.buttonsLayout);
+	}
+}
+
+void Controller::fillCommunitySection() {
+	const auto container = _controls.buttonsLayout;
+	const auto peer = _peer;
+	const auto isBot = peer->isUser();
+	if (const auto communityId = Data::PeerLinkedCommunityId(peer)) {
+		const auto community = peer->owner().channel(communityId);
+		::AddSkip(container);
+		AddCommunityRow(
+			container,
+			community,
+			[=] {
+				_navigation->parentController()->showPeerInfo(community);
+			});
+		AddButtonWithCount(
+			container,
+			(isBot
+				? tr::lng_community_remove_button_bot()
+				: _isGroup
+				? tr::lng_community_remove_button()
+				: tr::lng_community_remove_button_channel()),
+			rpl::single(QString()),
+			[=] {
+				const auto show = _navigation->uiShow();
+				const auto done = [=] {
+					show->showToast(
+						tr::lng_community_remove_done(tr::now));
+				};
+				const auto fail = [=](const QString &error) {
+					show->showToast(error.isEmpty()
+						? Lang::Hard::ServerError()
+						: error);
+				};
+				const auto remove = [=](Fn<void()> close) {
+					community->session().api().communities().removePeerLink(
+						community,
+						peer,
+						done,
+						fail);
+					close();
+				};
+				show->show(Ui::MakeConfirmBox({
+					.text = tr::lng_community_remove_sure(
+						tr::now,
+						lt_group,
+						tr::bold(peer->name()),
+						tr::marked),
+					.confirmed = remove,
+					.confirmText = tr::lng_box_remove(),
+					.confirmStyle = &st::attentionBoxButton,
+				}));
+			},
+			{ &st::menuIconLeaveAttention },
+			st::manageGroupAttentionButton);
+		::AddSkip(container);
+	} else {
+		::AddSkip(container);
+		AddButtonWithCount(
+			container,
+			(isBot
+				? tr::lng_community_add_button_bot()
+				: _isGroup
+				? tr::lng_community_add_button()
+				: tr::lng_community_add_button_channel()),
+			rpl::single(QString()),
+			[=] { ShowAddToCommunityBox(_navigation, peer); },
+			{ &st::menuIconCommunity });
+		::AddSkip(container);
+		Ui::AddDividerText(container, isBot
+			? tr::lng_community_add_about_bot()
+			: tr::lng_community_add_about());
 	}
 }
 

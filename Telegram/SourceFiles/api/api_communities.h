@@ -130,5 +130,7 @@ private:
 };
 
 [[nodiscard]] int CommunityPeersLimit(not_null<Main::Session*> session);
+[[nodiscard]] int CommunityBotPeersLimit(not_null<Main::Session*> session);
+[[nodiscard]] QString CommunityPeersLimitToast(not_null<PeerData*> peer);
 
 } // namespace Api

@@ -391,16 +391,16 @@ TopBar::TopBar(
 				? std::make_shared<Info::Memento>(topic, section)
 				: std::make_shared<Info::Memento>(shown, section));
 		});
-		_statusLabel->setHiddenLinkCallback([=] {
-			controller->showToast(Ui::Toast::Config{
-				.title = tr::lng_community_hidden_chat_title(tr::now),
-				.text = tr::lng_community_hidden_chat_about(
-					tr::now,
-					tr::marked),
-				.icon = &st::infoStatusHiddenToastIcon,
-			});
-		});
 	}
+	_statusLabel->setHiddenLinkCallback([=] {
+		controller->showToast(Ui::Toast::Config{
+			.title = tr::lng_community_hidden_chat_title(tr::now),
+			.text = tr::lng_community_hidden_chat_about(
+				tr::now,
+				tr::marked),
+			.icon = &st::infoStatusHiddenToastIcon,
+		});
+	});
 	if (!_peer->isMegagroup() && !_topic) {
 		setupStatusWithRating();
 	}

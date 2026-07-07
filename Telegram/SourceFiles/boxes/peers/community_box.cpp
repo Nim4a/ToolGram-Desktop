@@ -138,19 +138,24 @@ base::unique_qptr<Ui::PopupMenu> ChatsController::rowContextMenu(
 	const auto peer = row->peer();
 	const auto channel = peer->asChannel();
 	const auto broadcast = channel && channel->isBroadcast();
+	const auto user = peer->asUser();
 	auto result = base::make_unique_q<Ui::PopupMenu>(
 		parent,
 		st::popupMenuWithIcons);
 	const auto addAction = Ui::Menu::CreateAddActionCallback(result);
 	addAction({
-		.text = (broadcast
+		.text = (user
+			? tr::lng_community_chat_view_bot
+			: broadcast
 			? tr::lng_community_chat_view_channel
 			: tr::lng_community_chat_view_group)(tr::now),
 		.handler = [=] { _callback(peer); },
 		.icon = &st::menuIconShowInChat,
 	});
 	addAction({
-		.text = (broadcast
+		.text = (user
+			? tr::lng_community_chat_remove_bot
+			: broadcast
 			? tr::lng_community_chat_remove_channel
 			: tr::lng_community_chat_remove_group)(tr::now),
 		.handler = [=] { _remove(row); },
@@ -188,6 +193,20 @@ void ShowCommunityChatJoinConfirm(
 			? tr::lng_profile_join_group(tr::now)
 			: tr::lng_profile_join_channel(tr::now)),
 	}));
+}
+
+void OpenCommunityLinkedPeer(
+		not_null<Window::SessionController*> controller,
+		not_null<Data::CommunityInfo*> community,
+		not_null<PeerData*> peer) {
+	if (peer->isUser() && !community->isHidden(peer)) {
+		controller->showPeerHistory(
+			peer,
+			Window::SectionShow::Way::ClearStack,
+			ShowAtUnreadMsgId);
+	} else {
+		ShowCommunityChatJoinConfirm(controller->uiShow(), community, peer);
+	}
 }
 
 void SetupCommunityContent(
@@ -301,7 +320,7 @@ void SetupCommunityContent(
 	}) | rpl::start_spawning(container->lifetime());
 
 	const auto openChat = [=](not_null<PeerData*> peer) {
-		ShowCommunityChatJoinConfirm(show, info, peer);
+		OpenCommunityLinkedPeer(controller, info, peer);
 	};
 
 	const auto addPeerListSection = [&](

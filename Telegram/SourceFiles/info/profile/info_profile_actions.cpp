@@ -1262,7 +1262,7 @@ private:
 	void addManagedBotFooter(not_null<UserData*> managerUser);
 	[[nodiscard]] Section makeReportOrDeleteReaction();
 	[[nodiscard]] Section makeViewChannel(not_null<ChannelData*> channel);
-	[[nodiscard]] Section makeCommunityLink(not_null<ChannelData*> channel);
+	[[nodiscard]] Section makeCommunityLink(not_null<PeerData*> peer);
 	[[nodiscard]] Section makeTopicsList(not_null<Data::Forum*> forum);
 
 	[[nodiscard]] Section makeDeleteReactionSection(GroupReactionOrigin data);
@@ -2540,7 +2540,7 @@ Section DetailsFiller::makeViewChannel(not_null<ChannelData*> channel) {
 	};
 }
 
-Section DetailsFiller::makeCommunityLink(not_null<ChannelData*> channel) {
+Section DetailsFiller::makeCommunityLink(not_null<PeerData*> peer) {
 	const auto parent = _stack->layout();
 	auto wrap = object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
 		parent,
@@ -2548,8 +2548,8 @@ Section DetailsFiller::makeCommunityLink(not_null<ChannelData*> channel) {
 	const auto raw = wrap.data();
 	const auto container = raw->entity();
 	const auto window = _controller->parentController();
-	const auto community = channel->owner().channel(
-		channel->linkedCommunityId());
+	const auto community = peer->owner().channel(
+		Data::PeerLinkedCommunityId(peer));
 
 	class Controller final : public PeerListController {
 	public:
@@ -2611,7 +2611,7 @@ Section DetailsFiller::makeCommunityLink(not_null<ChannelData*> channel) {
 	delegate->setContent(content);
 	controller->setDelegate(delegate);
 
-	auto hidden = channel->session().changes().peerFlagsValue(
+	auto hidden = peer->session().changes().peerFlagsValue(
 		community,
 		Data::PeerUpdate::Flag::FullInfo
 	) | rpl::map([=] {
@@ -2621,7 +2621,7 @@ Section DetailsFiller::makeCommunityLink(not_null<ChannelData*> channel) {
 			return rpl::single(false);
 		}
 		return info->linkedPeersValue() | rpl::map([=] {
-			return info->isHidden(channel);
+			return info->isHidden(peer);
 		});
 	}) | rpl::flatten_latest() | rpl::start_spawning(container->lifetime());
 
@@ -2702,10 +2702,8 @@ void DetailsFiller::buildSections() {
 		_stack->add(makePersonalChannel(user));
 		_stack->addPlainSeparator();
 	}
-	if (const auto channel = _peer->asChannel()) {
-		if (channel->linkedCommunityId()) {
-			_stack->add(makeCommunityLink(channel));
-		}
+	if (Data::PeerLinkedCommunityId(_peer)) {
+		_stack->add(makeCommunityLink(_peer));
 	}
 	_stack->add(makeInfo());
 	if (const auto user = _peer->asUser()) {

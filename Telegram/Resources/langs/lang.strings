@@ -2203,11 +2203,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_community_manage" = "Manage Community";
 "lng_community_add_button" = "Add Group to a Community";
 "lng_community_add_button_channel" = "Add Channel to a Community";
+"lng_community_add_button_bot" = "Add Bot to a Community";
 "lng_community_remove_button" = "Remove Group from Community";
 "lng_community_remove_button_channel" = "Remove Channel from Community";
+"lng_community_remove_button_bot" = "Remove Bot from Community";
 "lng_community_remove_done" = "Removed from the community.";
 "lng_community_remove_sure" = "Remove {group} from the community?";
 "lng_community_add_about" = "Make your group part of a community with multiple related chats.";
+"lng_community_add_about_bot" = "Make your bot part of a community with multiple related chats.";
 "lng_community_create" = "Create Community";
 "lng_community_existing" = "Add to an existing community";
 "lng_community_status" = "community";
@@ -2225,9 +2228,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_community_visibility_note" = "You won't be able to change this later.";
 "lng_community_add_to" = "Add to Community";
 "lng_community_add_confirm" = "If this group is approved by a community admin, its members will be able to join or request to join other chats in the community.";
+"lng_community_add_confirm_bot" = "If this bot is approved by a community admin, community members will be able to see and use it.";
 "lng_community_add_confirm_add" = "Add";
 "lng_community_add_done" = "Group added to the community.";
 "lng_community_add_done_channel" = "Channel added to the community.";
+"lng_community_add_done_bot" = "Bot added to the community.";
 "lng_community_request_sent" = "Your request was sent to the community admins.";
 "lng_community_manage_name" = "Community name";
 "lng_community_manage_who_add" = "Who can add chats";
@@ -2261,11 +2266,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_community_requests_button#other" = "{count} Pending Requests";
 "lng_community_request_suggested_group" = "{user} suggested this group";
 "lng_community_request_suggested_channel" = "{user} suggested this channel";
+"lng_community_request_suggested_bot" = "{user} suggested this bot";
 "lng_community_request_only_members" = "Only visible to its members";
 "lng_community_request_add" = "Add";
 "lng_community_request_decline" = "Decline";
 "lng_community_request_invite_only" = "This group is invite-only. Only its members can view it.";
+"lng_community_request_invite_only_bot" = "This bot is invite-only. Only invited members can use it.";
 "lng_community_request_message_owner" = "Message Group Owner";
+"lng_community_request_message_owner_bot" = "Message Bot Owner";
 "lng_community_requests_add_all" = "Add All";
 "lng_community_requests_decline_all" = "Decline All";
 "lng_community_requests_add_all_title" = "Add All Chats";
@@ -2304,11 +2312,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_community_removed_list_about" = "Users removed from the community will be shown here.";
 "lng_community_chat_view_channel" = "View Channel";
 "lng_community_chat_view_group" = "View Group";
+"lng_community_chat_view_bot" = "View Bot";
 "lng_community_chat_remove_channel" = "Remove Channel";
 "lng_community_chat_remove_group" = "Remove Group";
+"lng_community_chat_remove_bot" = "Remove Bot";
 "lng_community_chat_loading" = "Loading...";
 "lng_community_peers_limit#one" = "Limit of {count} chat reached.";
 "lng_community_peers_limit#other" = "Limit of {count} chats reached.";
+"lng_community_bot_peers_limit#one" = "Limit of {count} bot reached.";
+"lng_community_bot_peers_limit#other" = "Limit of {count} bots reached.";
 
 "lng_manage_monoforum" = "Direct Messages";
 "lng_manage_monoforum_off" = "Off";

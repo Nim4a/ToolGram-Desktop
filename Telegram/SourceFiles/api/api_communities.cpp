@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_session.h"
 #include "data/data_user.h"
 #include "history/history.h"
+#include "lang/lang_keys.h"
 #include "main/main_app_config.h"
 #include "main/main_session.h"
 
@@ -52,6 +53,25 @@ int CommunityPeersLimit(not_null<Main::Session*> session) {
 	return session->appConfig().get<int>(
 		u"community_peers_limit"_q,
 		session->isTestMode() ? 10 : 100);
+}
+
+int CommunityBotPeersLimit(not_null<Main::Session*> session) {
+	return session->appConfig().get<int>(
+		u"community_bot_peers_limit"_q,
+		session->isTestMode() ? 10 : 100);
+}
+
+QString CommunityPeersLimitToast(not_null<PeerData*> peer) {
+	const auto session = &peer->session();
+	return peer->isUser()
+		? tr::lng_community_bot_peers_limit(
+			tr::now,
+			lt_count,
+			CommunityBotPeersLimit(session))
+		: tr::lng_community_peers_limit(
+			tr::now,
+			lt_count,
+			CommunityPeersLimit(session));
 }
 
 Communities::Communities(not_null<ApiWrap*> api)

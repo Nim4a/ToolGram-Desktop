@@ -46,6 +46,11 @@ void ShowCommunityChatJoinConfirm(
 	not_null<Data::CommunityInfo*> community,
 	not_null<PeerData*> peer);
 
+void OpenCommunityLinkedPeer(
+	not_null<Window::SessionController*> controller,
+	not_null<Data::CommunityInfo*> community,
+	not_null<PeerData*> peer);
+
 void ShowChooseChatToAddBox(
 	not_null<Window::SessionNavigation*> navigation,
 	not_null<ChannelData*> community);

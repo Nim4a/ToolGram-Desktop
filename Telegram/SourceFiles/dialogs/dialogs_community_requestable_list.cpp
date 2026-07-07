@@ -119,7 +119,7 @@ CommunityRequestableList::CommunityRequestableList(
 	}) | rpl::start_spawning(lifetime());
 
 	const auto openChat = [=](not_null<PeerData*> peer) {
-		ShowCommunityChatJoinConfirm(_controller->uiShow(), community, peer);
+		OpenCommunityLinkedPeer(_controller, community, peer);
 	};
 
 	const auto delegate = lifetime().make_state<

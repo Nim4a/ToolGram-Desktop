@@ -233,23 +233,28 @@ void MessageGroupOwnerBox(
 		st::boxRowPadding,
 		style::al_top);
 
-	Ui::AddSkip(content, st::boostTextSkip);
-	const auto channel = chat->asChannel();
-	const auto count = (channel && channel->membersCountKnown())
-		? channel->membersCount()
-		: 0;
-	box->addRow(
-		object_ptr<Ui::FlatLabel>(
-			box,
-			tr::lng_chat_status_members(tr::now, lt_count, count),
-			st::showOrLabel),
-		st::boxRowPadding,
-		style::al_top);
+	const auto bot = chat->isUser();
+	if (!bot) {
+		Ui::AddSkip(content, st::boostTextSkip);
+		const auto channel = chat->asChannel();
+		const auto count = (channel && channel->membersCountKnown())
+			? channel->membersCount()
+			: 0;
+		box->addRow(
+			object_ptr<Ui::FlatLabel>(
+				box,
+				tr::lng_chat_status_members(tr::now, lt_count, count),
+				st::showOrLabel),
+			st::boxRowPadding,
+			style::al_top);
+	}
 
 	Ui::AddSkip(content, st::boostTextSkip);
 	auto info = Ui::Text::IconEmoji(&st::requestHiddenIcon)
 		.append(' ')
-		.append(tr::lng_community_request_invite_only(tr::now));
+		.append((bot
+			? tr::lng_community_request_invite_only_bot
+			: tr::lng_community_request_invite_only)(tr::now));
 	box->addRow(
 		object_ptr<Ui::FlatLabel>(
 			box,
@@ -263,7 +268,9 @@ void MessageGroupOwnerBox(
 	const auto message = content->add(
 		object_ptr<Ui::RoundButton>(
 			content,
-			tr::lng_community_request_message_owner(),
+			(bot
+				? tr::lng_community_request_message_owner_bot()
+				: tr::lng_community_request_message_owner()),
 			st::defaultActiveButton),
 		st::boxRowPadding,
 		style::al_justify);
@@ -382,7 +389,13 @@ Row::Row(
 		? request.requestedBy->shortName()
 		: QString();
 	_userWidth = st::requestSuggestStyle.font->width(user);
-	auto suggest = request.peer->isBroadcast()
+	auto suggest = request.peer->isUser()
+		? tr::lng_community_request_suggested_bot(
+			tr::now,
+			lt_user,
+			tr::link(user),
+			tr::marked)
+		: request.peer->isBroadcast()
 		? tr::lng_community_request_suggested_channel(
 			tr::now,
 			lt_user,
@@ -398,16 +411,18 @@ Row::Row(
 		suggest,
 		Ui::NameTextOptions());
 
-	const auto channel = request.peer->asChannel();
-	const auto count = (channel && channel->membersCountKnown())
-		? channel->membersCount()
-		: 0;
-	auto members = Ui::Text::IconEmoji(&st::requestMembersIcon)
-		.append(Lang::FormatCountToShort(count).string);
-	_members.setMarkedText(
-		st::requestMembersStyle,
-		members,
-		Ui::NameTextOptions());
+	if (!request.peer->isUser()) {
+		const auto channel = request.peer->asChannel();
+		const auto count = (channel && channel->membersCountKnown())
+			? channel->membersCount()
+			: 0;
+		auto members = Ui::Text::IconEmoji(&st::requestMembersIcon)
+			.append(Lang::FormatCountToShort(count).string);
+		_members.setMarkedText(
+			st::requestMembersStyle,
+			members,
+			Ui::NameTextOptions());
+	}
 
 	_hiddenChat = !request.visible;
 	if (!request.visible) {
@@ -1089,10 +1104,7 @@ void Controller::performNow(const std::shared_ptr<PendingAction> &action) {
 		crl::guard(this, [=](const QString &error) {
 			const auto show = delegate()->peerListUiShow();
 			if (error == Api::kCommunityPeersTooMuch.utf16()) {
-				show->showToast(tr::lng_community_peers_limit(
-					tr::now,
-					lt_count,
-					Api::CommunityPeersLimit(&session())));
+				show->showToast(Api::CommunityPeersLimitToast(peer));
 			} else {
 				show->showToast(error);
 			}

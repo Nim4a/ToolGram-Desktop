@@ -96,6 +96,15 @@ bool IsCommunityChatViewable(const CommunityLinkedPeer &linked) {
 	return linked.canViewHistory;
 }
 
+ChannelId PeerLinkedCommunityId(not_null<PeerData*> peer) {
+	if (const auto channel = peer->asChannel()) {
+		return channel->linkedCommunityId();
+	} else if (const auto user = peer->asUser()) {
+		return user->linkedCommunityId();
+	}
+	return ChannelId();
+}
+
 CommunityInfo::CommunityInfo(not_null<ChannelData*> channel)
 : _channel(channel)
 , _chatsList(

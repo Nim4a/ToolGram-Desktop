@@ -75,17 +75,13 @@ namespace {
 };
 
 [[nodiscard]] bool PeerHiddenInCommunity(not_null<PeerData*> peer) {
-	const auto channel = peer->asChannel();
-	if (!channel) {
-		return false;
-	}
-	const auto communityId = channel->linkedCommunityId();
+	const auto communityId = Data::PeerLinkedCommunityId(peer);
 	if (!communityId) {
 		return false;
 	}
-	const auto community = channel->owner().channel(communityId);
+	const auto community = peer->owner().channel(communityId);
 	const auto info = community->communityInfo();
-	return info && info->isHidden(channel);
+	return info && info->isHidden(peer);
 }
 
 [[nodiscard]] TextWithEntities MaybeHiddenPrefixed(
@@ -110,16 +106,14 @@ StatusLabel::StatusLabel(
 : _label(label)
 , _peer(peer)
 , _refreshTimer([=] { refresh(); }) {
-	if (const auto channel = _peer->asChannel()) {
-		if (const auto communityId = channel->linkedCommunityId()) {
-			const auto community = channel->owner().channel(communityId);
-			community->session().changes().peerFlagsValue(
-				community,
-				Data::PeerUpdate::Flag::FullInfo
-			) | rpl::on_next([=] {
-				refresh();
-			}, _lifetime);
-		}
+	if (const auto communityId = Data::PeerLinkedCommunityId(_peer)) {
+		const auto community = _peer->owner().channel(communityId);
+		community->session().changes().peerFlagsValue(
+			community,
+			Data::PeerUpdate::Flag::FullInfo
+		) | rpl::on_next([=] {
+			refresh();
+		}, _lifetime);
 	}
 }
 
@@ -150,9 +144,11 @@ void StatusLabel::refresh() {
 			if (showOnline) {
 				_refreshTimer.callOnce(updateIn);
 			}
-			return (showOnline && _colorized)
-				? Ui::Text::Colorized(result)
-				: TextWithEntities{ .text = result };
+			return MaybeHiddenPrefixed(
+				(showOnline && _colorized)
+					? Ui::Text::Colorized(result)
+					: TextWithEntities{ .text = result },
+				hidden);
 		} else if (auto chat = _peer->asChat()) {
 			if (!chat->amIn()) {
 				return tr::lng_chat_status_unaccessible(
