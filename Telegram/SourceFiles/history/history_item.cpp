@@ -3284,6 +3284,7 @@ bool HistoryItem::translationShowRequiresRequest(LanguageId to) {
 		translation->requested = true;
 		translation->failed = false;
 		translation->text = {};
+		translation->richPage = nullptr;
 		return true;
 	} else {
 		AddComponents(HistoryMessageTranslation::Bit());
@@ -3305,11 +3306,28 @@ void HistoryItem::translationToggle(
 }
 
 void HistoryItem::translationDone(LanguageId to, TextWithEntities result) {
+	translationDone(to, std::move(result), nullptr);
+}
+
+void HistoryItem::translationDone(
+		LanguageId to,
+		std::shared_ptr<const Iv::RichPage> result) {
+	auto summary = result
+		? Iv::FlattenRichPageSummary(result)
+		: TextWithEntities();
+	translationDone(to, std::move(summary), std::move(result));
+}
+
+void HistoryItem::translationDone(
+		LanguageId to,
+		TextWithEntities result,
+		std::shared_ptr<const Iv::RichPage> page) {
 	const auto set = [&](not_null<HistoryMessageTranslation*> translation) {
 		if (result.empty()) {
 			translation->failed = true;
 		} else {
 			translation->text = std::move(result);
+			translation->richPage = std::move(page);
 			if (_history->translatedTo() == to) {
 				translationToggle(translation, true);
 			}
@@ -3740,6 +3758,21 @@ TextWithEntities HistoryItem::translatedTextWithLocalEntities() const {
 	}
 
 	return result;
+}
+
+auto HistoryItem::translatedRichPage() const
+-> std::shared_ptr<const Iv::RichPage> {
+	const auto original = richPage();
+	if (!original) {
+		return nullptr;
+	} else if (const auto translation = this->translation()
+		; translation
+		&& translation->used
+		&& translation->richPage
+		&& (translation->to == history()->translatedTo())) {
+		return translation->richPage;
+	}
+	return original;
 }
 
 void HistoryItem::setHasHiddenLinks(bool has) const {

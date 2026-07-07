@@ -2088,13 +2088,13 @@ void Element::validateText() {
 			setTextWithLinks(tr::italic(unavailable));
 		} else {
 			setTextWithLinks(_textItem->translatedTextWithLocalEntities());
-			richPage = _textItem->richPage();
+			richPage = _textItem->translatedRichPage();
 		}
 	}
 	if (!richPage
 		&& !(_flags & Flag::ServiceMessage)
 		&& item->computeUnavailableReason().isEmpty()) {
-		richPage = _textItem->richPage();
+		richPage = _textItem->translatedRichPage();
 	}
 	ensureRichPage(std::move(richPage));
 }

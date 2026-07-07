@@ -492,6 +492,9 @@ public:
 	[[nodiscard]] bool translationShowRequiresCheck(LanguageId to) const;
 	bool translationShowRequiresRequest(LanguageId to);
 	void translationDone(LanguageId to, TextWithEntities result);
+	void translationDone(
+		LanguageId to,
+		std::shared_ptr<const Iv::RichPage> result);
 
 	[[nodiscard]] bool canReact() const;
 	void toggleReaction(
@@ -541,6 +544,8 @@ public:
 		return _media.get();
 	}
 	[[nodiscard]] std::shared_ptr<const Iv::RichPage> richPage() const;
+	[[nodiscard]] auto translatedRichPage() const
+		-> std::shared_ptr<const Iv::RichPage>;
 	[[nodiscard]] std::shared_ptr<const Iv::RichPage> fullRichPage() const;
 	[[nodiscard]] uint64 fullRichPageVersion() const;
 	[[nodiscard]] bool computeDropForwardedInfo() const;
@@ -726,6 +731,10 @@ private:
 	void translationToggle(
 		not_null<HistoryMessageTranslation*> translation,
 		bool used);
+	void translationDone(
+		LanguageId to,
+		TextWithEntities result,
+		std::shared_ptr<const Iv::RichPage> page);
 	void setSelfDestruct(HistorySelfDestructType type, MTPint mtpTTLvalue);
 
 	void resolveDependent(not_null<HistoryServiceDependentData*> dependent);

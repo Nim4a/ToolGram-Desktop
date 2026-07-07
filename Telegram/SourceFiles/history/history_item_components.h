@@ -439,6 +439,7 @@ private:
 struct HistoryMessageTranslation
 : RuntimeComponent<HistoryMessageTranslation, HistoryItem> {
 	TextWithEntities text;
+	std::shared_ptr<const Iv::RichPage> richPage;
 	LanguageId to;
 	bool requested = false;
 	bool failed = false;
