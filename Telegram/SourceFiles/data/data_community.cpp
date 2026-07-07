@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_channel.h"
 #include "data/data_peer.h"
 #include "data/data_session.h"
+#include "data/data_user.h"
 #include "history/history.h"
 #include "history/history_item.h"
 #include "lang/lang_keys.h"
@@ -148,6 +149,8 @@ void CommunityInfo::applyLinkedPeers(const QVector<MTPCommunityPeer> &list) {
 	for (const auto &linked : _linkedPeers) {
 		if (const auto channel = linked.peer->asChannel()) {
 			channel->setLinkedCommunityId(communityId);
+		} else if (const auto user = linked.peer->asUser()) {
+			user->setLinkedCommunityId(communityId);
 		}
 	}
 	const auto stillLinked = [&](not_null<History*> history) {
@@ -161,9 +164,13 @@ void CommunityInfo::applyLinkedPeers(const QVector<MTPCommunityPeer> &list) {
 		for (const auto &history : base::duplicate(set)) {
 			if (!stillLinked(history)) {
 				const auto channel = history->peer->asChannel();
+				const auto user = history->peer->asUser();
 				if (channel
 					&& channel->linkedCommunityId() == communityId) {
 					channel->setLinkedCommunityId(ChannelId());
+				} else if (user
+					&& user->linkedCommunityId() == communityId) {
+					user->setLinkedCommunityId(ChannelId());
 				}
 			}
 		}

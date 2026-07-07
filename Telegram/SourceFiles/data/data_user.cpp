@@ -318,6 +318,14 @@ void UserData::setPersonalChannel(ChannelId channelId, MsgId messageId) {
 	}
 }
 
+ChannelId UserData::linkedCommunityId() const {
+	return _linkedCommunityId;
+}
+
+void UserData::setLinkedCommunityId(ChannelId id) {
+	_linkedCommunityId = id;
+}
+
 UserId UserData::botManagerId() const {
 	return _botManagerId;
 }
