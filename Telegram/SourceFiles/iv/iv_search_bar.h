@@ -22,7 +22,7 @@ namespace Iv {
 
 class SearchBar final {
 public:
-	explicit SearchBar(not_null<Ui::RpWidget*> parent);
+	SearchBar(not_null<QWidget*> parent, rpl::producer<int> width);
 
 	void toggle(bool shown, anim::type animated);
 	void show(anim::type animated);
@@ -42,7 +42,7 @@ public:
 	[[nodiscard]] rpl::lifetime &lifetime();
 
 private:
-	void setup(not_null<Ui::RpWidget*> parent);
+	void setup(rpl::producer<int> width);
 	void updateControlsGeometry();
 
 	Ui::SlideWrap<Ui::RpWidget> _wrap;

@@ -64,6 +64,10 @@ class Session;
 class SessionShow;
 } // namespace Main
 
+namespace Iv {
+class SearchController;
+} // namespace Iv
+
 namespace Iv::Editor {
 
 class Widget;
@@ -113,6 +117,7 @@ public:
 	void activateSegment(int segmentIndex, int cursorOffset);
 	[[nodiscard]] State::ApplyResult commitInlineField();
 	[[nodiscard]] State::ApplyResult commitInlineFieldForClose();
+	[[nodiscard]] bool closeSearch();
 	void refreshPreparedContent();
 	void refreshPreparedLeafAtActiveSource();
 	void applyExternalRichPageMutation(Fn<bool(RichPage&)> mutation);
@@ -514,6 +519,10 @@ private:
 	void hideInlineField();
 	void acceptInlineField();
 	void hideInlineFieldAndRefresh();
+	void toggleSearch();
+	void createSearchController();
+	void scrollToSearchSegment(int segmentIndex);
+	[[nodiscard]] bool searchBlockedByLayer() const;
 	void refreshPreparedLeafAtSource(
 		const Markdown::PreparedEditLeafSource &source);
 	void activateTextOrdinalAtEnd(int ordinal);
@@ -927,6 +936,7 @@ private:
 	bool _inlineFieldHeightOverrideDeferred = false;
 	bool _articleEditableHeightOverrideClearDeferred = false;
 	int _inlineFieldRevealSuppressionDepth = 0;
+	std::unique_ptr<SearchController> _search;
 };
 
 } // namespace Iv::Editor

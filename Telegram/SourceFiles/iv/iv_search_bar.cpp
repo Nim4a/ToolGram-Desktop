@@ -22,15 +22,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace Iv {
 
-SearchBar::SearchBar(not_null<Ui::RpWidget*> parent)
+SearchBar::SearchBar(not_null<QWidget*> parent, rpl::producer<int> width)
 : _wrap(parent, object_ptr<Ui::RpWidget>(parent.get()))
 , _shadow(parent) {
-	setup(parent);
+	setup(std::move(width));
 	_wrap.hide(anim::type::instant);
 	_shadow.hide();
 }
 
-void SearchBar::setup(not_null<Ui::RpWidget*> parent) {
+void SearchBar::setup(rpl::producer<int> width) {
 	const auto inner = _wrap.entity();
 	inner->resize(inner->width(), st::ivSearchBarHeight);
 
@@ -56,8 +56,7 @@ void SearchBar::setup(not_null<Ui::RpWidget*> parent) {
 		QPainter(inner).fillRect(clip, st::windowBg);
 	}, inner->lifetime());
 
-	parent->widthValue(
-	) | rpl::on_next([=](int width) {
+	std::move(width) | rpl::on_next([=](int width) {
 		_wrap.resizeToWidth(width);
 	}, _wrap.lifetime());
 

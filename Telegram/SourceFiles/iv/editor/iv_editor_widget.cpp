@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/editor/iv_editor_widget.h"
 
+#include "base/event_filter.h"
 #include "base/qthelp_url.h"
 #include "base/qt/qt_common_adapters.h"
 #include "base/random.h"
@@ -21,10 +22,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "editor/photo_editor.h"
 #include "editor/photo_editor_common.h"
 #include "iv/editor/iv_editor_text_entities.h"
+#include "iv/editor/iv_editor_window.h"
 #include "iv/markdown/iv_markdown_article_paint.h"
 #include "iv/markdown/iv_markdown_microtex.h"
 #include "iv/markdown/iv_markdown_prepare_links.h"
 #include "iv/markdown/iv_markdown_prepare_native_richtext.h"
+#include "iv/iv_search_controller.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
 #include "main/session/session_show.h"
@@ -2714,6 +2717,26 @@ Widget::Widget(
 	refreshPreparedContent();
 	_history.push_back(captureHistoryEntry());
 	_historyIndex = 0;
+
+	base::install_event_filter(this, qApp, [=](not_null<QEvent*> e) {
+		if (e->type() != QEvent::ShortcutOverride) {
+			return base::EventFilterResult::Continue;
+		}
+		const auto top = window();
+		if (!top || !top->isActiveWindow()) {
+			return base::EventFilterResult::Continue;
+		}
+		const auto event = static_cast<QKeyEvent*>(e.get());
+		if (!event->isAccepted()
+			&& (event->modifiers() & Qt::ControlModifier)
+			&& event->key() == Qt::Key_F
+			&& !searchBlockedByLayer()) {
+			event->accept();
+			toggleSearch();
+			return base::EventFilterResult::Cancel;
+		}
+		return base::EventFilterResult::Continue;
+	});
 }
 
 Widget::~Widget() {
@@ -2876,10 +2899,83 @@ void Widget::acceptInlineField() {
 	hideInlineFieldAndRefresh();
 }
 
+void Widget::toggleSearch() {
+	if (_search && _search->shown()) {
+		_search->hide();
+		return;
+	}
+	hideInlineFieldAndRefresh();
+	clearStructuralSelection();
+	if (!_search) {
+		createSearchController();
+	}
+	_search->toggle();
+}
+
+bool Widget::closeSearch() {
+	if (!_search || !_search->shown()) {
+		return false;
+	}
+	_search->hide();
+	return true;
+}
+
+void Widget::createSearchController() {
+	auto host = SearchHost{
+		.ready = [=] { return _article != nullptr; },
+		.sources = [=] { return _article->searchSources(); },
+		.applyMatches = [=](
+				std::vector<Markdown::MarkdownArticleSearchMatch> matches,
+				int current) {
+			_article->setSearchMatches(std::move(matches), current);
+			update();
+		},
+		.scrollToSegment = [=](int segmentIndex) {
+			scrollToSearchSegment(segmentIndex);
+		},
+		.expandDetails = [](const QString &) { return false; },
+		.focusContent = [=] { setFocus(); },
+	};
+	_search = std::make_unique<SearchController>(
+		_outer,
+		widthValue(),
+		std::move(host));
+	_search->moveBar(0, _topContentPadding);
+	_search->raiseBar();
+}
+
+void Widget::scrollToSearchSegment(int segmentIndex) {
+	const auto scroll = selectionScrollArea();
+	if (!scroll || !_article) {
+		return;
+	}
+	const auto rect = _article->segmentRect(
+		segmentIndex
+	).translated(articleTopLeft());
+	if (rect.isEmpty()) {
+		return;
+	}
+	const auto topMargin = _topContentPadding + st::ivSearchBarHeight;
+	const auto current = scroll->scrollTop();
+	const auto height = scroll->height();
+	const auto from = rect.y() - topMargin;
+	const auto till = rect.y() + rect.height() + _bottomContentPadding;
+	auto target = current;
+	if (from < current) {
+		target = from;
+	} else if (till > current + height) {
+		target = std::min(till - height, from);
+	}
+	scroll->scrollToY(target);
+}
+
 void Widget::refreshPreparedContent() {
 	setDocument(_state->prepared());
 	relayoutCurrentContent();
 	update();
+	if (_search) {
+		_search->refresh();
+	}
 }
 
 void Widget::refreshPreparedLeafAtActiveSource() {
@@ -2894,6 +2990,9 @@ void Widget::refreshPreparedLeafAtSource(
 		const Markdown::PreparedEditLeafSource &source) {
 	_article->updatePreparedLeaf(source, _state->prepared());
 	relayoutCurrentContent();
+	if (_search) {
+		_search->refresh();
+	}
 }
 
 void Widget::applyExternalRichPageMutation(Fn<bool(RichPage&)> mutation) {
@@ -4686,6 +4785,9 @@ void Widget::setTopContentPadding(int value) {
 		return;
 	}
 	_topContentPadding = value;
+	if (_search) {
+		_search->moveBar(0, _topContentPadding);
+	}
 	resizeToWidth(width());
 	update();
 }
@@ -4889,7 +4991,10 @@ bool Widget::focusNextPrevChild(bool next) {
 }
 
 void Widget::keyPressEvent(QKeyEvent *e) {
-	if (handleUndoRedoShortcut(e)) {
+	if (e->key() == Qt::Key_Escape && closeSearch()) {
+		e->accept();
+		return;
+	} else if (handleUndoRedoShortcut(e)) {
 		return;
 	} else if (handleSelectAllShortcut(e)) {
 		return;
@@ -10942,6 +11047,11 @@ Ui::ElasticScroll *Widget::selectionScrollArea() const {
 	return nullptr;
 }
 
+bool Widget::searchBlockedByLayer() const {
+	const auto editorWindow = dynamic_cast<Window*>(window());
+	return editorWindow && editorWindow->isLayerShown();
+}
+
 bool Widget::articleSelectionAutoScrollActive() const {
 	return _articleSelectionDrag.active
 		&& _articleSelectionDrag.dragStarted
@@ -11795,6 +11905,10 @@ Markdown::MarkdownArticlePaintContext Widget::textPaintContext(QRect clip) {
 	if (!_structuralSelection.empty()) {
 		context.selectionState.structuralSelection = &_structuralSelection;
 	}
+	context.searchState.allBg = st::msgSelectOverlay->c;
+	auto currentBg = st::windowBgActive->c;
+	currentBg.setAlphaF(0.5);
+	context.searchState.currentBg = currentBg;
 	return context;
 }
 

@@ -7,8 +7,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "iv/markdown/iv_markdown_controller.h"
 #include "base/event_filter.h"
-#include "base/invoke_queued.h"
-#include "base/weak_ptr.h"
 #include "core/click_handler_types.h"
 #include "core/credits_amount.h"
 #include "core/file_utilities.h"
@@ -16,7 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "iv/markdown/iv_markdown_parse.h"
 #include "iv/markdown/iv_markdown_view.h"
 #include "iv/iv_delegate_impl.h"
-#include "iv/iv_search_bar.h"
+#include "iv/iv_search_controller.h"
 #include "iv/iv_zoom_controls.h"
 #include "lang/lang_keys.h"
 #include "ui/layers/layer_manager.h"
@@ -407,7 +405,9 @@ void Controller::setContent(
 					_preview->setFocus();
 				}
 				updateHistoryButtons();
-				refreshSearchResults();
+				if (_search) {
+					_search->refresh();
+				}
 			}
 			return;
 		}
@@ -1024,319 +1024,60 @@ void Controller::createPreview() {
 
 	_preview->show();
 	updateHistoryButtons();
-	refreshSearchResults();
+	if (_search) {
+		_search->refresh();
+	}
 }
 
-void Controller::createSearchBar() {
-	_searchBar = std::make_unique<SearchBar>(_window->body().get());
-	_searchBar->move(0, st::ivSubtitleHeight);
-	_searchBar->raise();
+void Controller::createSearchController() {
+	auto host = SearchHost{
+		.ready = [=] { return _preview != nullptr; },
+		.sources = [=] {
+			return MarkdownPreviewSearchSources(_preview.get());
+		},
+		.applyMatches = [=](
+				std::vector<MarkdownArticleSearchMatch> matches,
+				int current) {
+			SetMarkdownPreviewSearchMatches(
+				_preview.get(),
+				std::move(matches),
+				current);
+		},
+		.scrollToSegment = [=](int segmentIndex) {
+			ScrollMarkdownPreviewToSegment(
+				_preview.get(),
+				segmentIndex,
+				st::ivSearchBarHeight);
+		},
+		.expandDetails = [=](const QString &anchorId) {
+			return ExpandMarkdownPreviewDetails(
+				_preview.get(),
+				anchorId);
+		},
+		.focusContent = [=] {
+			_preview->setFocus();
+		},
+	};
+	_search = std::make_unique<SearchController>(
+		_window->body().get(),
+		_window->body()->widthValue(),
+		std::move(host));
+	_search->moveBar(0, st::ivSubtitleHeight);
+	_search->raiseBar();
 	_titleShadow->raise();
-	_searchBar->closeRequests() | rpl::on_next([=] {
-		InvokeQueued(_window->body().get(), [=] {
-			hideSearchBar();
-		});
-	}, _searchBar->lifetime());
-	_searchBar->queryChanges() | rpl::on_next([=](const QString &query) {
-		applySearchQuery(query);
-	}, _searchBar->lifetime());
-	_searchBar->navigateRequests() | rpl::on_next([=](int delta) {
-		stepSearchResult(delta);
-	}, _searchBar->lifetime());
 }
 
 void Controller::toggleSearchBar() {
 	if (!_window) {
 		return;
-	} else if (_searchBar && _searchBar->shown()) {
-		hideSearchBar();
+	} else if (_search && _search->shown()) {
+		_search->hide();
 		return;
 	}
-	if (!_searchBar) {
-		createSearchBar();
+	if (!_search) {
+		createSearchController();
 	}
-	_searchBar->show(anim::type::normal);
-	_searchBar->setInnerFocus();
-	refreshSearchResults();
-}
-
-void Controller::hideSearchBar() {
-	if (_searchBar) {
-		_searchBar->hide(anim::type::normal);
-		_searchBar->setResults(0, 0);
-	}
-	if (_preview) {
-		SetMarkdownPreviewSearchMatches(_preview.get(), {}, -1);
-		_preview->setFocus();
-	}
-	invalidateSearchSession();
-	_searchEntries.clear();
-	_searchCurrentEntry = -1;
-}
-
-std::vector<Controller::SearchEntry> Controller::ScanSearchEntries(
-		const SearchSources &sources,
-		const QString &query) {
-	auto result = std::vector<SearchEntry>();
-	if (query.isEmpty()) {
-		return result;
-	}
-	const auto scan = [&](const QString &text, auto &&push) {
-		auto from = 0;
-		while ((from = int(text.indexOf(
-				query,
-				from,
-				Qt::CaseInsensitive))) >= 0) {
-			push(from, from + int(query.size()));
-			from += int(query.size());
-		}
-	};
-	for (auto i = 0; i != int(sources.size()); ++i) {
-		const auto &source = sources[i];
-		scan(source.text, [&](int from, int to) {
-			result.push_back({ .segment = i, .from = from, .to = to });
-		});
-		if (!source.hiddenText.isEmpty()) {
-			scan(source.hiddenText, [&](int, int) {
-				result.push_back({
-					.hiddenDetailsId = source.detailsAnchorId,
-				});
-			});
-		}
-	}
-	return result;
-}
-
-void Controller::ensureSearchSnapshot() {
-	if (_searchSnapshot || !_preview) {
-		return;
-	}
-	_searchSnapshot = std::make_shared<const SearchSources>(
-		MarkdownPreviewSearchSources(_preview.get()));
-}
-
-void Controller::invalidateSearchSession() {
-	_searchSnapshot = nullptr;
-	_searchCache.clear();
-	++_searchGeneration;
-}
-
-std::vector<Controller::SearchEntry> Controller::rescanSearchEntries() {
-	invalidateSearchSession();
-	ensureSearchSnapshot();
-	if (!_searchSnapshot || _searchQuery.isEmpty()) {
-		return {};
-	}
-	auto result = ScanSearchEntries(*_searchSnapshot, _searchQuery);
-	_searchCache.emplace(_searchQuery, result);
-	return result;
-}
-
-void Controller::applySearchQuery(const QString &query) {
-	_searchQuery = query;
-	if (!_searchBar) {
-		return;
-	}
-	rebuildSearchResults(0, true);
-}
-
-void Controller::refreshSearchResults() {
-	invalidateSearchSession();
-	if (_searchBar && _searchBar->shown()) {
-		rebuildSearchResults(_searchCurrentEntry, false);
-	}
-}
-
-void Controller::rebuildSearchResults(int preferredCurrent, bool activate) {
-	_searchDesiredCurrent = preferredCurrent;
-	_searchDesiredActivate = activate;
-	if (_searchQuery.isEmpty() || !_preview) {
-		applySearchEntries({}, preferredCurrent, activate);
-		return;
-	}
-	const auto i = _searchCache.find(_searchQuery);
-	if (i != end(_searchCache)) {
-		DEBUG_LOG(("Native Markdown IV: search cache hit: %1"
-			).arg(_searchQuery));
-		auto entries = i->second;
-		applySearchEntries(std::move(entries), preferredCurrent, activate);
-		return;
-	}
-	if (_searchScanInFlight) {
-		DEBUG_LOG(("Native Markdown IV: search coalesced: %1"
-			).arg(_searchQuery));
-		return;
-	}
-	startSearchScan();
-}
-
-void Controller::applySearchEntries(
-		std::vector<SearchEntry> &&entries,
-		int preferredCurrent,
-		bool activate) {
-	_searchEntries = std::move(entries);
-	const auto total = int(_searchEntries.size());
-	_searchCurrentEntry = total
-		? std::clamp(preferredCurrent, 0, total - 1)
-		: -1;
-	applyCurrentSearchEntry(activate);
-}
-
-void Controller::startSearchScan() {
-	Expects(!_searchScanInFlight);
-
-	ensureSearchSnapshot();
-	if (!_searchSnapshot) {
-		return;
-	}
-	_searchScanInFlight = true;
-	DEBUG_LOG(("Native Markdown IV: search request: %1"
-		).arg(_searchQuery));
-	const auto weak = base::make_weak(this);
-	crl::async([
-		weak,
-		query = _searchQuery,
-		generation = _searchGeneration,
-		snapshot = _searchSnapshot
-	] {
-		if (!weak) {
-			return;
-		}
-		auto entries = ScanSearchEntries(*snapshot, query);
-		crl::on_main([
-			weak,
-			query,
-			generation,
-			entries = std::move(entries)
-		]() mutable {
-			if (const auto strong = weak.get()) {
-				strong->finishSearchScan(
-					query,
-					generation,
-					std::move(entries));
-			}
-		});
-	});
-}
-
-void Controller::finishSearchScan(
-		const QString &query,
-		int generation,
-		std::vector<SearchEntry> &&entries) {
-	_searchScanInFlight = false;
-	if (generation != _searchGeneration) {
-		DEBUG_LOG(("Native Markdown IV: search response dropped: %1"
-			).arg(query));
-	} else {
-		DEBUG_LOG(("Native Markdown IV: search response: %1 (%2 matches)"
-			).arg(query
-			).arg(int(entries.size())));
-		_searchCache[query] = entries;
-	}
-	if (!_searchBar || !_searchBar->shown() || _searchQuery.isEmpty()) {
-		return;
-	}
-	if (generation == _searchGeneration && query == _searchQuery) {
-		applySearchEntries(
-			std::move(entries),
-			_searchDesiredCurrent,
-			_searchDesiredActivate);
-	} else {
-		rebuildSearchResults(
-			_searchDesiredCurrent,
-			_searchDesiredActivate);
-	}
-}
-
-void Controller::resolveCurrentSearchEntry() {
-	if (!_preview) {
-		return;
-	}
-	while (_searchCurrentEntry >= 0
-		&& _searchCurrentEntry < int(_searchEntries.size())) {
-		const auto anchorId
-			= _searchEntries[_searchCurrentEntry].hiddenDetailsId;
-		if (anchorId.isEmpty()) {
-			return;
-		}
-		auto runStart = _searchCurrentEntry;
-		while (runStart > 0
-			&& (_searchEntries[runStart - 1].hiddenDetailsId
-				== anchorId)) {
-			--runStart;
-		}
-		auto runEnd = _searchCurrentEntry + 1;
-		while (runEnd < int(_searchEntries.size())
-			&& _searchEntries[runEnd].hiddenDetailsId == anchorId) {
-			++runEnd;
-		}
-		const auto offset = _searchCurrentEntry - runStart;
-		const auto oldTotal = int(_searchEntries.size());
-		if (!ExpandMarkdownPreviewDetails(_preview.get(), anchorId)) {
-			return;
-		}
-		_searchEntries = rescanSearchEntries();
-		const auto newTotal = int(_searchEntries.size());
-		const auto materialized = newTotal
-			- (oldTotal - (runEnd - runStart));
-		if (!newTotal) {
-			_searchCurrentEntry = -1;
-		} else if (materialized <= 0) {
-			_searchCurrentEntry = std::min(runStart, newTotal - 1);
-		} else {
-			_searchCurrentEntry = runStart
-				+ std::min(offset, materialized - 1);
-		}
-	}
-}
-
-void Controller::applyCurrentSearchEntry(bool activate) {
-	if (!_searchBar) {
-		return;
-	}
-	if (activate) {
-		resolveCurrentSearchEntry();
-	}
-	const auto total = int(_searchEntries.size());
-	auto matches = std::vector<MarkdownArticleSearchMatch>();
-	auto currentMatch = -1;
-	auto currentSegment = -1;
-	for (auto i = 0; i != total; ++i) {
-		const auto &entry = _searchEntries[i];
-		if (entry.segment < 0) {
-			continue;
-		} else if (i == _searchCurrentEntry) {
-			currentMatch = int(matches.size());
-			currentSegment = entry.segment;
-		}
-		matches.push_back({
-			.segment = entry.segment,
-			.from = entry.from,
-			.to = entry.to,
-		});
-	}
-	if (_preview) {
-		SetMarkdownPreviewSearchMatches(
-			_preview.get(),
-			std::move(matches),
-			currentMatch);
-		if (activate && currentSegment >= 0) {
-			ScrollMarkdownPreviewToSegment(
-				_preview.get(),
-				currentSegment,
-				st::ivSearchBarHeight);
-		}
-	}
-	_searchBar->setResults(total ? (_searchCurrentEntry + 1) : 0, total);
-}
-
-void Controller::stepSearchResult(int delta) {
-	const auto total = int(_searchEntries.size());
-	if (!total || !_preview) {
-		return;
-	}
-	_searchCurrentEntry = (_searchCurrentEntry + delta + total) % total;
-	applyCurrentSearchEntry(true);
+	_search->toggle();
 }
 
 void Controller::createWindow() {
@@ -1428,8 +1169,8 @@ void Controller::createWindow() {
 			const auto event = static_cast<QKeyEvent*>(e.get());
 			if (event->key() == Qt::Key_Escape) {
 				event->accept();
-				if (_searchBar && _searchBar->shown()) {
-					hideSearchBar();
+				if (_search && _search->shown()) {
+					_search->hide();
 				} else {
 					close();
 				}

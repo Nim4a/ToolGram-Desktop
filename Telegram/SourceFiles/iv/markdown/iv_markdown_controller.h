@@ -7,7 +7,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
-#include "base/flat_map.h"
 #include "base/object_ptr.h"
 #include "base/unique_qptr.h"
 #include "base/weak_ptr.h"
@@ -32,12 +31,10 @@ class FadeWrapScaled;
 } // namespace Ui
 
 namespace Iv {
-class SearchBar;
+class SearchController;
 } // namespace Iv
 
 namespace Iv::Markdown {
-
-struct MarkdownArticleSearchSource;
 
 class Controller final : public base::has_weak_ptr {
 public:
@@ -77,9 +74,6 @@ public:
 
 private:
 	struct HistoryEntry;
-	struct SearchEntry;
-
-	using SearchSources = std::vector<MarkdownArticleSearchSource>;
 
 	void close();
 	void createWindow();
@@ -96,30 +90,8 @@ private:
 		bool preserveScroll);
 	void updateTitleGeometry(int newWidth) const;
 	void showMenu();
-	void createSearchBar();
+	void createSearchController();
 	void toggleSearchBar();
-	void hideSearchBar();
-	void applySearchQuery(const QString &query);
-	void refreshSearchResults();
-	void rebuildSearchResults(int preferredCurrent, bool activate);
-	void resolveCurrentSearchEntry();
-	void applyCurrentSearchEntry(bool activate);
-	void stepSearchResult(int delta);
-	[[nodiscard]] static std::vector<SearchEntry> ScanSearchEntries(
-		const SearchSources &sources,
-		const QString &query);
-	void ensureSearchSnapshot();
-	void invalidateSearchSession();
-	[[nodiscard]] std::vector<SearchEntry> rescanSearchEntries();
-	void applySearchEntries(
-		std::vector<SearchEntry> &&entries,
-		int preferredCurrent,
-		bool activate);
-	void startSearchScan();
-	void finishSearchScan(
-		const QString &query,
-		int generation,
-		std::vector<SearchEntry> &&entries);
 	void openSource();
 	[[nodiscard]] ViewerKind viewerKind() const;
 	[[nodiscard]] QString subtitleText() const;
@@ -167,13 +139,6 @@ private:
 		}
 	};
 
-	struct SearchEntry {
-		int segment = -1;
-		int from = 0;
-		int to = 0;
-		QString hiddenDetailsId;
-	};
-
 	const not_null<Delegate*> _delegate;
 
 	const std::shared_ptr<const PreparedDocument> _document;
@@ -196,16 +161,7 @@ private:
 	std::unique_ptr<Ui::LayerManager> _layerManager;
 	std::shared_ptr<Ui::Show> _show;
 	std::unique_ptr<Ui::RpWidget> _preview;
-	std::unique_ptr<SearchBar> _searchBar;
-	QString _searchQuery;
-	std::vector<SearchEntry> _searchEntries;
-	int _searchCurrentEntry = -1;
-	std::shared_ptr<const SearchSources> _searchSnapshot;
-	base::flat_map<QString, std::vector<SearchEntry>> _searchCache;
-	int _searchGeneration = 0;
-	int _searchDesiredCurrent = 0;
-	bool _searchDesiredActivate = false;
-	bool _searchScanInFlight = false;
+	std::unique_ptr<SearchController> _search;
 	std::vector<HistoryEntry> _history;
 	int _historyIndex = -1;
 	int _shownHistoryIndex = -1;

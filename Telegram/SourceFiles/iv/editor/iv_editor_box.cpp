@@ -1887,6 +1887,9 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 			const auto event = static_cast<QKeyEvent*>(e.get());
 			if (event->key() == Qt::Key_Escape) {
 				event->accept();
+				if (_editor && _editor->closeSearch()) {
+					return;
+				}
 				if (confirmCancel()) {
 					finishClose();
 				}
