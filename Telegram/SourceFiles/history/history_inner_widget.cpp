@@ -803,7 +803,9 @@ void HistoryInner::setupSwipeReplyAndBack() {
 }
 
 bool HistoryInner::hasSelectRestriction() const {
-	if (session().frozen()) {
+	if (_chooseForReportReason.has_value()) {
+		return false;
+	} else if (session().frozen()) {
 		return true;
 	} else if (!_sharingDisallowed.current()) {
 		return false;
