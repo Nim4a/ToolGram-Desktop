@@ -92,6 +92,8 @@ private:
 	void createSearchBar();
 	void toggleSearchBar();
 	void hideSearchBar();
+	void applySearchQuery(const QString &query);
+	void refreshSearchResults();
 	void openSource();
 	[[nodiscard]] ViewerKind viewerKind() const;
 	[[nodiscard]] QString subtitleText() const;
@@ -162,6 +164,7 @@ private:
 	std::shared_ptr<Ui::Show> _show;
 	std::unique_ptr<Ui::RpWidget> _preview;
 	std::unique_ptr<SearchBar> _searchBar;
+	QString _searchQuery;
 	std::vector<HistoryEntry> _history;
 	int _historyIndex = -1;
 	int _shownHistoryIndex = -1;

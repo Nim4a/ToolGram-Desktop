@@ -212,6 +212,10 @@ public:
 	[[nodiscard]] int scrollTop() const;
 	[[nodiscard]] rpl::producer<int> scrollTopValue() const;
 	bool updateContent(MarkdownArticleContent prepared, OpenOptions options);
+	[[nodiscard]] std::vector<QString> searchTexts() const;
+	void setSearchMatches(
+		std::vector<MarkdownArticleSearchMatch> matches,
+		int current);
 
 private:
 	struct PendingEmbedState {
@@ -828,6 +832,18 @@ rpl::producer<int> MarkdownPreviewRoot::scrollTopValue() const {
 		: rpl::single(0) | rpl::type_erased;
 }
 
+std::vector<QString> MarkdownPreviewRoot::searchTexts() const {
+	return _article ? _article->searchableTexts() : std::vector<QString>();
+}
+
+void MarkdownPreviewRoot::setSearchMatches(
+		std::vector<MarkdownArticleSearchMatch> matches,
+		int current) {
+	if (_body) {
+		_body->setSearchMatches(std::move(matches), current);
+	}
+}
+
 bool ScrollMarkdownPreviewToAnchor(
 		Ui::RpWidget *preview,
 		const QString &anchorId,
@@ -853,6 +869,20 @@ int MarkdownPreviewScrollTop(Ui::RpWidget *preview) {
 rpl::producer<int> MarkdownPreviewScrollTopValue(Ui::RpWidget *preview) {
 	const auto root = dynamic_cast<MarkdownPreviewRoot*>(preview);
 	return root ? root->scrollTopValue() : rpl::single(0);
+}
+
+std::vector<QString> MarkdownPreviewSearchTexts(Ui::RpWidget *preview) {
+	const auto root = dynamic_cast<MarkdownPreviewRoot*>(preview);
+	return root ? root->searchTexts() : std::vector<QString>();
+}
+
+void SetMarkdownPreviewSearchMatches(
+		Ui::RpWidget *preview,
+		std::vector<MarkdownArticleSearchMatch> matches,
+		int current) {
+	if (const auto root = dynamic_cast<MarkdownPreviewRoot*>(preview)) {
+		root->setSearchMatches(std::move(matches), current);
+	}
 }
 
 void MarkdownPreviewRoot::scrollToTop() {

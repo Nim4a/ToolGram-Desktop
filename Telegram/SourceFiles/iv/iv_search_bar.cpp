@@ -117,12 +117,7 @@ void SearchBar::updateControlsGeometry() {
 
 void SearchBar::setResults(int current, int total) {
 	if (total > 0) {
-		_counter->setText(tr::lng_search_messages_n_of_amount(
-			tr::now,
-			lt_n,
-			QString::number(current),
-			lt_amount,
-			QString::number(total)));
+		_counter->setText(u"%1 / %2"_q.arg(current).arg(total));
 		_counter->show();
 	} else {
 		_counter->hide();

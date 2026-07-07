@@ -133,6 +133,23 @@ struct PaintSelectionState {
 	}
 };
 
+struct MarkdownArticleSearchMatch {
+	int segment = -1;
+	int from = 0;
+	int to = 0;
+};
+
+struct PaintSearchState {
+	const std::vector<MarkdownArticleSearchMatch> *matches = nullptr;
+	int current = -1;
+	QColor allBg;
+	QColor currentBg;
+
+	[[nodiscard]] bool empty() const {
+		return !matches || matches->empty();
+	}
+};
+
 struct MarkdownArticleThinkingPaintCache {
 	QImage mask;
 	QImage gradient;
@@ -181,6 +198,7 @@ struct MarkdownArticlePaintContext final : Ui::ChatPaintContext {
 
 	MarkdownArticlePaintCaches caches;
 	PaintSelectionState selectionState;
+	PaintSearchState searchState;
 	MarkdownArticleRevealPaintState *reveal = nullptr;
 	int hiddenTextSegmentIndex = -1;
 	int hiddenSegmentIndex = -1;
@@ -333,6 +351,10 @@ public:
 		Fn<void(QRect)> repaintRect,
 		Fn<bool(const ClickContext&)> spoilerLinkFilter = nullptr);
 	void setContent(MarkdownArticleContent content);
+	void setSearchMatches(
+		std::vector<MarkdownArticleSearchMatch> matches,
+		int current);
+	[[nodiscard]] std::vector<QString> searchableTexts() const;
 	void updatePreparedLeaf(
 		const PreparedEditLeafSource &source,
 		const MarkdownArticleContent &prepared);

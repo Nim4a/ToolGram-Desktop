@@ -270,6 +270,15 @@ void MarkdownDocumentWidget::articleContentChanged() {
 	forceRelayoutCurrentWidth();
 }
 
+void MarkdownDocumentWidget::setSearchMatches(
+		std::vector<MarkdownArticleSearchMatch> matches,
+		int current) {
+	if (_article) {
+		_article->setSearchMatches(std::move(matches), current);
+	}
+	update();
+}
+
 void MarkdownDocumentWidget::setZoom(int value) {
 	value = (value > 0) ? value : 100;
 	if (_zoom == value) {
@@ -1217,6 +1226,10 @@ MarkdownArticlePaintContext MarkdownDocumentWidget::textPaintContext(
 	context.selectionState.endpoints = !_selection.empty()
 		? &_selectionEndpoints
 		: &_savedSelectionEndpoints;
+	context.searchState.allBg = st::msgSelectOverlay->c;
+	auto currentBg = st::windowBgActive->c;
+	currentBg.setAlphaF(0.5);
+	context.searchState.currentBg = currentBg;
 	return context;
 }
 

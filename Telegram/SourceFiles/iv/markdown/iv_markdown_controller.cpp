@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/click_handler_types.h"
 #include "core/credits_amount.h"
 #include "core/file_utilities.h"
+#include "iv/markdown/iv_markdown_article.h"
 #include "iv/markdown/iv_markdown_parse.h"
 #include "iv/markdown/iv_markdown_view.h"
 #include "iv/iv_delegate_impl.h"
@@ -264,6 +265,31 @@ void LogDocumentWarnings(
 	}
 }
 
+[[nodiscard]] std::vector<MarkdownArticleSearchMatch> FindSearchMatches(
+		const std::vector<QString> &texts,
+		const QString &query) {
+	auto result = std::vector<MarkdownArticleSearchMatch>();
+	if (query.isEmpty()) {
+		return result;
+	}
+	for (auto i = 0; i != int(texts.size()); ++i) {
+		const auto &text = texts[i];
+		auto from = 0;
+		while ((from = int(text.indexOf(
+				query,
+				from,
+				Qt::CaseInsensitive))) >= 0) {
+			result.push_back({
+				.segment = i,
+				.from = from,
+				.to = from + int(query.size()),
+			});
+			from += int(query.size());
+		}
+	}
+	return result;
+}
+
 } // namespace
 
 Controller::Controller(
@@ -406,6 +432,7 @@ void Controller::setContent(
 					_preview->setFocus();
 				}
 				updateHistoryButtons();
+				refreshSearchResults();
 			}
 			return;
 		}
@@ -1022,6 +1049,7 @@ void Controller::createPreview() {
 
 	_preview->show();
 	updateHistoryButtons();
+	refreshSearchResults();
 }
 
 void Controller::createSearchBar() {
@@ -1033,6 +1061,9 @@ void Controller::createSearchBar() {
 		InvokeQueued(_window->body().get(), [=] {
 			hideSearchBar();
 		});
+	}, _searchBar->lifetime());
+	_searchBar->queryChanges() | rpl::on_next([=](const QString &query) {
+		applySearchQuery(query);
 	}, _searchBar->lifetime());
 }
 
@@ -1048,14 +1079,43 @@ void Controller::toggleSearchBar() {
 	}
 	_searchBar->show(anim::type::normal);
 	_searchBar->setInnerFocus();
+	refreshSearchResults();
 }
 
 void Controller::hideSearchBar() {
 	if (_searchBar) {
 		_searchBar->hide(anim::type::normal);
+		_searchBar->setResults(0, 0);
 	}
 	if (_preview) {
+		SetMarkdownPreviewSearchMatches(_preview.get(), {}, -1);
 		_preview->setFocus();
+	}
+}
+
+void Controller::applySearchQuery(const QString &query) {
+	_searchQuery = query;
+	if (!_searchBar) {
+		return;
+	}
+	auto matches = _preview
+		? FindSearchMatches(
+			MarkdownPreviewSearchTexts(_preview.get()),
+			query)
+		: std::vector<MarkdownArticleSearchMatch>();
+	const auto total = int(matches.size());
+	if (_preview) {
+		SetMarkdownPreviewSearchMatches(
+			_preview.get(),
+			std::move(matches),
+			total ? 0 : -1);
+	}
+	_searchBar->setResults(total ? 1 : 0, total);
+}
+
+void Controller::refreshSearchResults() {
+	if (_searchBar && _searchBar->shown()) {
+		applySearchQuery(_searchQuery);
 	}
 }
 

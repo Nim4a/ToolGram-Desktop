@@ -3252,6 +3252,10 @@ public:
 		Fn<bool(const ClickContext&)> spoilerLinkFilter);
 
 	void setContent(MarkdownArticleContent content);
+	void setSearchMatches(
+		std::vector<MarkdownArticleSearchMatch> matches,
+		int current);
+	[[nodiscard]] std::vector<QString> searchableTexts() const;
 	void updatePreparedLeaf(
 		const PreparedEditLeafSource &source,
 		const MarkdownArticleContent &prepared);
@@ -3588,6 +3592,8 @@ private:
 		PendingHighlightEntry> _pendingHighlightEntries;
 	std::vector<std::pair<QString, int>> _anchors;
 	std::vector<SelectableSegment> _segments;
+	std::vector<MarkdownArticleSearchMatch> _searchMatches;
+	int _currentSearchMatch = -1;
 	std::optional<LogicalVisibleRange> _visibleRange;
 	SegmentSpan _visibleSegmentSpan;
 	std::vector<int> _segmentTops;
@@ -3682,7 +3688,30 @@ void MarkdownArticle::Impl::setContent(MarkdownArticleContent content) {
 	prunePendingHighlightProcessesForContent();
 	ClearInlineFormulaObjectCache(_inlineFormulaObjects);
 	resetFormulaRasterCache();
+	_searchMatches.clear();
+	_currentSearchMatch = -1;
 	invalidateLayout(false);
+}
+
+void MarkdownArticle::Impl::setSearchMatches(
+		std::vector<MarkdownArticleSearchMatch> matches,
+		int current) {
+	_searchMatches = std::move(matches);
+	_currentSearchMatch = (current >= 0
+		&& current < int(_searchMatches.size()))
+		? current
+		: -1;
+}
+
+std::vector<QString> MarkdownArticle::Impl::searchableTexts() const {
+	auto result = std::vector<QString>();
+	result.reserve(_segments.size());
+	for (const auto &segment : _segments) {
+		result.push_back(segment.isTextLeaf()
+			? segment.leaf->toString()
+			: QString());
+	}
+	return result;
 }
 
 void MarkdownArticle::Impl::updatePreparedLeaf(
@@ -3941,6 +3970,8 @@ void MarkdownArticle::Impl::paint(
 	const auto &st = layoutStyle();
 	auto local = context;
 	local.selectionState.segments = &_segments;
+	local.searchState.matches = &_searchMatches;
+	local.searchState.current = _currentSearchMatch;
 	const auto &paintSt = local.paintMarkdownStyle(st);
 	auto textPalette = paintSt.textPalette;
 	auto markBg = MarkBgColorForStyle(paintSt);
@@ -5804,6 +5835,16 @@ void MarkdownArticle::setTextRepaintCallbacks(
 
 void MarkdownArticle::setContent(MarkdownArticleContent content) {
 	_impl->setContent(std::move(content));
+}
+
+void MarkdownArticle::setSearchMatches(
+		std::vector<MarkdownArticleSearchMatch> matches,
+		int current) {
+	_impl->setSearchMatches(std::move(matches), current);
+}
+
+std::vector<QString> MarkdownArticle::searchableTexts() const {
+	return _impl->searchableTexts();
 }
 
 void MarkdownArticle::updatePreparedLeaf(

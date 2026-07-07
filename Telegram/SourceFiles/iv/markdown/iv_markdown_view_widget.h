@@ -58,6 +58,9 @@ public:
 		std::shared_ptr<QVariant> contextRef = nullptr);
 	void setArticle(std::shared_ptr<MarkdownArticle> article);
 	void articleContentChanged();
+	void setSearchMatches(
+		std::vector<MarkdownArticleSearchMatch> matches,
+		int current);
 	void setZoom(int value);
 	void refreshPalette();
 	void invalidateRasterCache();
