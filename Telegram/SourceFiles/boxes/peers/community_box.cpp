@@ -505,7 +505,7 @@ public:
 	ChooseChatController(
 		not_null<Main::Session*> session,
 		not_null<ChannelData*> community,
-		Fn<void(not_null<ChannelData*>)> callback);
+		Fn<void(not_null<PeerData*>)> callback);
 	~ChooseChatController();
 
 	Main::Session &session() const override;
@@ -515,15 +515,16 @@ public:
 private:
 	const not_null<Main::Session*> _session;
 	const not_null<ChannelData*> _community;
-	Fn<void(not_null<ChannelData*>)> _callback;
+	Fn<void(not_null<PeerData*>)> _callback;
 	mtpRequestId _requestId = 0;
+	mtpRequestId _botsRequestId = 0;
 
 };
 
 ChooseChatController::ChooseChatController(
 	not_null<Main::Session*> session,
 	not_null<ChannelData*> community,
-	Fn<void(not_null<ChannelData*>)> callback)
+	Fn<void(not_null<PeerData*>)> callback)
 : _session(session)
 , _community(community)
 , _callback(std::move(callback)) {
@@ -532,6 +533,9 @@ ChooseChatController::ChooseChatController(
 ChooseChatController::~ChooseChatController() {
 	if (_requestId) {
 		_session->api().request(_requestId).cancel();
+	}
+	if (_botsRequestId) {
+		_session->api().request(_botsRequestId).cancel();
 	}
 }
 
@@ -590,12 +594,26 @@ void ChooseChatController::prepare() {
 		}
 		delegate()->peerListRefreshRows();
 	}).send();
+
+	_botsRequestId = _session->api().request(
+		MTPbots_GetAdminedBots()
+	).done([=](const MTPVector<MTPUser> &result) {
+		_botsRequestId = 0;
+
+		for (const auto &user : result.v) {
+			const auto bot = _session->data().processUser(user);
+			if (bot->isBot()
+				&& !bot->linkedCommunityId()
+				&& !delegate()->peerListFindRow(bot->id.value)) {
+				delegate()->peerListAppendRow(MakeCommunityChatRow(bot));
+			}
+		}
+		delegate()->peerListRefreshRows();
+	}).send();
 }
 
 void ChooseChatController::rowClicked(not_null<PeerListRow*> row) {
-	if (const auto channel = row->peer()->asChannel()) {
-		_callback(channel);
-	}
+	_callback(row->peer());
 }
 
 } // namespace
@@ -731,8 +749,8 @@ void ShowCommunityAdminBox(
 void ShowChooseChatToAddBox(
 		not_null<Window::SessionNavigation*> navigation,
 		not_null<ChannelData*> community) {
-	const auto choose = [=](not_null<ChannelData*> group) {
-		ShowAddPeerToCommunity(navigation, community, group);
+	const auto choose = [=](not_null<PeerData*> peer) {
+		ShowAddPeerToCommunity(navigation, community, peer);
 	};
 	auto controller = std::make_unique<ChooseChatController>(
 		&community->session(),
