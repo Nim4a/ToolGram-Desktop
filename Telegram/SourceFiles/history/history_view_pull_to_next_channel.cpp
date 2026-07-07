@@ -677,6 +677,7 @@ void PullToNextChannel::handleOverscroll(
 			&& (next->unreadCount() > 0)
 			&& active()) {
 			_pulling = false;
+			_jumping = true;
 			_scroll->setContentBottomInset(int(base::SafeRound(_effective)));
 			crl::on_main(_parent.get(), [=] { jumpWhenReady(next, 0); });
 			return;
@@ -691,6 +692,7 @@ void PullToNextChannel::clearState() {
 	_dwellTimer.cancel();
 	_pulling = false;
 	_committed = false;
+	_jumping = false;
 	_reached = false;
 	_peakPull = 0.;
 	_pull = 0.;
@@ -725,8 +727,8 @@ void PullToNextChannel::pushIndicator() {
 		float64(st::historyPullNextMaxHeight),
 		_pull + expand * (card - threshold));
 	_effective = effective;
-	_scroll->setContentBottomInset(
-		std::max(0, int(base::SafeRound(effective - _pull))));
+	_scroll->setContentBottomInset(std::max(0, int(base::SafeRound(
+		_jumping ? effective : (effective - _pull)))));
 	_indicator->setData(effective, _reached, _next);
 	_hint->setData(_pull > 0., _reached, _next);
 }

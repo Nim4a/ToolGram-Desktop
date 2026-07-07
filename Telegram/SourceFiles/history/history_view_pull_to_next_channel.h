@@ -68,6 +68,7 @@ private:
 
 	bool _pulling = false;
 	bool _committed = false;
+	bool _jumping = false;
 	bool _reached = false;
 	bool _expandTo = false;
 	float64 _pull = 0.;
