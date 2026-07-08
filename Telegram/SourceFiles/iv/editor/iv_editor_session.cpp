@@ -888,7 +888,7 @@ private:
 			showAttachmentFailedToast();
 			return false;
 		}
-		if (auto simple = SerializeAsSimple(_state->richPage())) {
+		if (auto simple = SerializeAsSimple(_state->richPage(), _session)) {
 			return submitSimpleText(std::move(*simple));
 		}
 		if (!CanUseRichMessages(_session)) {

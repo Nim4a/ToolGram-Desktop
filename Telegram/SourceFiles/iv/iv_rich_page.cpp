@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_document.h"
 #include "data/data_peer.h"
 #include "data/data_photo.h"
+#include "data/data_premium_limits.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
 #include "data/stickers/data_custom_emoji.h"
@@ -1749,6 +1750,7 @@ void AppendSimpleBlock(
 		const Block &quote,
 		TextWithEntities *body) {
 	if (quote.pullquote
+		|| !quote.author.trimmed().isEmpty()
 		|| !quote.caption.text.text.trimmed().isEmpty()) {
 		return false;
 	}
@@ -2197,7 +2199,9 @@ TextWithEntities FlattenRichPageToSimpleText(const RichPage &page) {
 	return result;
 }
 
-std::optional<TextWithEntities> SerializeAsSimple(const RichPage &page) {
+std::optional<TextWithEntities> SerializeAsSimple(
+		const RichPage &page,
+		not_null<Main::Session*> session) {
 	auto result = TextWithEntities();
 	for (const auto &block : page.blocks) {
 		switch (block.kind) {
@@ -2208,7 +2212,7 @@ std::optional<TextWithEntities> SerializeAsSimple(const RichPage &page) {
 			AppendSimpleBlock(&result, TextWithEntities(block.text.text));
 			break;
 		case BlockKind::Code:
-			if (!SimpleTextEntitiesAllowed(block.text.text)) {
+			if (!block.text.text.entities.isEmpty()) {
 				return std::nullopt;
 			}
 			AppendSimpleBlock(
@@ -2234,6 +2238,11 @@ std::optional<TextWithEntities> SerializeAsSimple(const RichPage &page) {
 	}
 	TextUtilities::Trim(result);
 	if (result.empty()) {
+		return std::nullopt;
+	}
+	const auto lengthLimit = ::Data::PremiumLimits(session)
+		.messageLengthCurrent();
+	if (int(result.text.size()) > lengthLimit) {
 		return std::nullopt;
 	}
 	return result;
