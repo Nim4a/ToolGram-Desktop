@@ -2352,6 +2352,9 @@ bool WindowHost::Impl::showDiscardConfirmation() {
 
 bool WindowHost::Impl::confirmCancel() {
 	if (!articleChanged()) {
+		if (_changedCancelled && !articleEmptyForDiscard()) {
+			return _changedCancelled();
+		}
 		return !_cancelled || _cancelled();
 	} else if (_changedCancelled) {
 		return _changedCancelled();
