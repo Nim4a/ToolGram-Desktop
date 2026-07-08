@@ -397,7 +397,6 @@ msgBotKbButton: BotKeyboardButton {
 
 botDescSkip: 8px;
 
-botKbDuration: 200;
 botKbStyle: TextStyle(defaultTextStyle) {
 	font: font(15px semibold);
 }
