@@ -3664,6 +3664,11 @@ std::optional<::Data::Draft> ArticleSession::prepareRichDraftForAutosave() const
 	draft.webpage = ::Data::WebPageDraft();
 	draft.reply.topicRootId = topicRootId;
 	draft.reply.monoforumPeerId = monoforumPeerId;
+	if (_state->articleEmpty()) {
+		draft.richMessage = nullptr;
+		draft.richMessageSummary = {};
+		return draft;
+	}
 	if (auto simple = SerializeAsSimple(_state->richPage(), _session)) {
 		draft.textWithTags = {
 			simple->text,
