@@ -96,6 +96,40 @@ constexpr auto kMaxCommittedFieldLength = 256 * 1024;
 	return before;
 }
 
+[[nodiscard]] bool BlockConversionExpandsToActiveLine(InsertBlockType type) {
+	switch (type) {
+	case InsertBlockType::Heading:
+	case InsertBlockType::Blockquote:
+	case InsertBlockType::Pullquote:
+	case InsertBlockType::Code:
+		return true;
+	default:
+		return false;
+	}
+}
+
+void ExpandInsertContextToActiveLine(State::ActiveTextInsertContext &context) {
+	if (!context.selected.text.isEmpty()) {
+		return;
+	}
+	const auto lineStart = context.before.text.lastIndexOf('\n');
+	const auto lineEnd = context.after.text.indexOf('\n');
+	auto lineHead = Ui::Text::Mid(context.before, lineStart + 1);
+	auto lineTail = (lineEnd >= 0)
+		? Ui::Text::Mid(context.after, 0, lineEnd)
+		: context.after;
+	auto newBefore = (lineStart >= 0)
+		? Ui::Text::Mid(context.before, 0, lineStart)
+		: TextWithEntities();
+	auto newAfter = (lineEnd >= 0)
+		? Ui::Text::Mid(context.after, lineEnd + 1)
+		: TextWithEntities();
+	lineHead.append(std::move(lineTail));
+	context.before = std::move(newBefore);
+	context.selected = std::move(lineHead);
+	context.after = std::move(newAfter);
+}
+
 [[nodiscard]] bool RangeInsideText(
 		const QString &text,
 		int offset,
@@ -7692,6 +7726,7 @@ State::ActiveTextBlockActionResult State::applyActiveTextBlockAction(
 			&& candidate.unwrapActiveCodeBlockUnchecked(context, &target)) {
 			return changed();
 		}
+		ExpandInsertContextToActiveLine(context);
 		auto blocks = std::vector<Block>();
 		blocks.push_back(candidate.makeBlock(action));
 		const auto applied = candidate.insertBlocksAfterActiveUnchecked(
@@ -7771,6 +7806,9 @@ bool State::insertBlockAfterActive(
 		std::optional<ActiveTextInsertContext> context) {
 	return applyCheckedMutation(false, [action, context = std::move(context)](
 			State &candidate) mutable {
+		if (context && BlockConversionExpandsToActiveLine(action.type)) {
+			ExpandInsertContextToActiveLine(*context);
+		}
 		auto blocks = std::vector<Block>();
 		blocks.push_back(candidate.makeBlock(action));
 		if (action.type == InsertBlockType::Divider) {
