@@ -338,7 +338,7 @@ HistoryWidget::HistoryWidget(
 				controller,
 				_history->peer,
 				prepareSendAction({}),
-				[=] { return sendMenuDetails(); });
+				sendMenuDetails());
 		}
 	},
 	[=] {
@@ -1421,8 +1421,7 @@ void HistoryWidget::initExpandButton() {
 				Iv::Editor::ShowEditFromFieldBox(
 					window,
 					item,
-					prepareSendAction({}),
-					[=] { return sendMenuDetails(); });
+					prepareSendAction({}));
 			}
 			return;
 		}
@@ -1430,7 +1429,7 @@ void HistoryWidget::initExpandButton() {
 			window,
 			_history->peer,
 			prepareSendAction({}),
-			[=] { return sendMenuDetails(); });
+			sendMenuDetails());
 	});
 }
 

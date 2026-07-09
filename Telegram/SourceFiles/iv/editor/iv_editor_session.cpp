@@ -550,7 +550,7 @@ public:
 		not_null<Main::Session*> session,
 		not_null<PeerData*> peer,
 		Api::SendAction action,
-		Fn<SendMenu::Details()> sendMenuDetails,
+		SendMenu::Details sendMenuDetails,
 		base::weak_ptr<Window::SessionController> controller) {
 		const auto history = action.history;
 		const auto topicRootId = action.replyTo.topicRootId;
@@ -624,7 +624,7 @@ public:
 			item->fullId(),
 			std::make_shared<RichPage>(*richPage),
 			std::nullopt,
-			nullptr,
+			{},
 			EditedItemSnapshot{
 				.item = item,
 				.inlinePage = item->richPage(),
@@ -639,7 +639,6 @@ public:
 	static void ShowEditFromField(
 			not_null<HistoryItem*> item,
 			Api::SendAction action,
-			Fn<SendMenu::Details()> sendMenuDetails,
 			base::weak_ptr<Window::SessionController> controller) {
 		const auto session = &item->history()->session();
 		const auto topicRootId = action.replyTo.topicRootId;
@@ -672,7 +671,7 @@ public:
 			item->fullId(),
 			std::move(page),
 			std::move(action),
-			std::move(sendMenuDetails),
+			{},
 			EditedItemSnapshot{
 				.item = item,
 				.inlinePage = item->richPage(),
@@ -774,7 +773,7 @@ private:
 		FullMsgId articleId,
 		std::shared_ptr<RichPage> page,
 		std::optional<Api::SendAction> action,
-		Fn<SendMenu::Details()> sendMenuDetails,
+		SendMenu::Details sendMenuDetails,
 		std::optional<EditedItemSnapshot> edited,
 		std::optional<ComposeThreadKey> composeThreadKey,
 		base::weak_ptr<Window::SessionController> controller = {})
@@ -1404,7 +1403,7 @@ private:
 
 	void setupSubmitButton(not_null<Ui::RpWidget*> button) {
 		_submitButton = button;
-		if (_mode != Mode::Compose || !_sendMenuDetails) {
+		if (_mode != Mode::Compose) {
 			return;
 		}
 		const auto show = _editorShow;
@@ -1420,14 +1419,7 @@ private:
 		SendMenu::SetupMenuAndShortcuts(
 			button,
 			show,
-			[weak] {
-				if (const auto session = weak.get()) {
-					return session->_sendMenuDetails
-						? session->_sendMenuDetails()
-						: SendMenu::Details();
-				}
-				return SendMenu::Details();
-			},
+			[details = _sendMenuDetails] { return details; },
 			SendMenu::DefaultCallback(show, submit));
 	}
 
@@ -3568,7 +3560,7 @@ private:
 	const ShowWindowDescriptor::SubmitType _submitType;
 	const FullMsgId _articleId;
 	std::optional<Api::SendAction> _composeAction;
-	const Fn<SendMenu::Details()> _sendMenuDetails;
+	const SendMenu::Details _sendMenuDetails;
 	const std::optional<EditedItemSnapshot> _edited;
 	const std::optional<ComposeThreadKey> _composeThreadKey;
 	const std::shared_ptr<RichPage> _page;
@@ -4184,7 +4176,7 @@ void ShowComposeBox(
 		not_null<Window::SessionController*> controller,
 		not_null<PeerData*> peer,
 		Api::SendAction action,
-		Fn<SendMenu::Details()> sendMenuDetails) {
+		SendMenu::Details sendMenuDetails) {
 	ArticleSession::ShowCompose(
 		&controller->session(),
 		peer,
@@ -4228,12 +4220,10 @@ void ShowEditBox(
 void ShowEditFromFieldBox(
 		not_null<Window::SessionController*> controller,
 		not_null<HistoryItem*> item,
-		Api::SendAction action,
-		Fn<SendMenu::Details()> sendMenuDetails) {
+		Api::SendAction action) {
 	ArticleSession::ShowEditFromField(
 		item,
 		std::move(action),
-		std::move(sendMenuDetails),
 		base::make_weak(controller));
 }
 

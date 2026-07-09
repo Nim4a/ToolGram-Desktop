@@ -1108,7 +1108,7 @@ ComposeControls::ComposeControls(
 				_regularWindow,
 				_history->peer,
 				_sendActionFactory(),
-				[=] { return sendMenuDetails(); });
+				sendMenuDetails());
 		}
 	},
 	[=] {
@@ -3762,8 +3762,7 @@ void ComposeControls::initExpandButton() {
 				Iv::Editor::ShowEditFromFieldBox(
 					_regularWindow,
 					item,
-					_sendActionFactory(),
-					[=] { return sendMenuDetails(); });
+					_sendActionFactory());
 			}
 			return;
 		}
@@ -3771,7 +3770,7 @@ void ComposeControls::initExpandButton() {
 			_regularWindow,
 			_history->peer,
 			_sendActionFactory(),
-			[=] { return sendMenuDetails(); });
+			sendMenuDetails());
 	});
 }
 

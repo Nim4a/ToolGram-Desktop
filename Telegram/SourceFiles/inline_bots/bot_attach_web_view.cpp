@@ -2984,18 +2984,22 @@ std::unique_ptr<Ui::DropdownMenu> MakeAttachBotsMenu(
 	if (Iv::Editor::CanAuthorRichMessages(&controller->session())
 		&& Data::CanSendAnyOf(peer, ChatRestriction::SendOther, false)) {
 		raw->addAction(tr::lng_article_menu_item(tr::now), [=] {
+			const auto action = actionFactory();
 			if (ShowEphemeralReplyTextOnlyError(
 					controller->uiShow(),
 					&controller->session(),
-					actionFactory().replyTo.messageId)) {
+					action.replyTo.messageId)) {
 				return;
 			}
-			const auto openCompose = [=] {
-				Iv::Editor::ShowComposeBox(
-					controller,
-					peer,
-					actionFactory(),
-					sendMenuDetails);
+			const auto details = sendMenuDetails();
+			const auto openCompose = [=, weak = base::make_weak(controller)] {
+				if (const auto strong = weak.get()) {
+					Iv::Editor::ShowComposeBox(
+						strong,
+						peer,
+						action,
+						details);
+				}
 			};
 			const auto handled
 				= Iv::Editor::RequestCloseOpenEditWindowThenCompose(
