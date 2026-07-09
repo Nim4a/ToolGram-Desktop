@@ -1843,7 +1843,7 @@ void Controller::fillCommunitySection() {
 			rpl::single(QString()),
 			[=] { ShowAddToCommunityBox(_navigation, peer); },
 			{ &st::menuIconCommunity });
-		::AddSkip(container);
+		Ui::AddSkip(container);
 		Ui::AddDividerText(container, isBot
 			? tr::lng_community_add_about_bot()
 			: tr::lng_community_add_about());
