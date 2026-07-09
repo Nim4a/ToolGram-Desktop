@@ -809,7 +809,7 @@ int InnerWidget::communityRequestableTop() const {
 
 int InnerWidget::communitySectionsBottom() const {
 	auto result = communityRequestableTop();
-	if (_communityRequestableList && !_communityRequestableList->isHidden()) {
+	if (_communityRequestableList && (_communityRequestableCount > 0)) {
 		result += st::searchedBarHeight + _communityRequestableList->height();
 	}
 	return result;
@@ -928,13 +928,15 @@ void InnerWidget::changeOpenedCommunity(Data::CommunityInfo *community) {
 	refreshShownList();
 	_openedCommunityLifetime.destroy();
 	_communityRequestableList.destroy();
+	_communityRequestableCount = 0;
 	if (community) {
 		_communityRequestableList = object_ptr<CommunityRequestableList>(
 			this,
 			_controller,
 			community);
 		_communityRequestableList->countValue(
-		) | rpl::on_next([=] {
+		) | rpl::on_next([=](int count) {
+			_communityRequestableCount = count;
 			refresh();
 		}, _openedCommunityLifetime);
 
@@ -1365,7 +1367,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 				tr::lng_community_chats_viewable(tr::now),
 				0);
 			if (_communityRequestableList
-				&& !_communityRequestableList->isHidden()) {
+				&& (_communityRequestableCount > 0)) {
 				p.save();
 				p.translate(0, communityRequestableTop());
 				paintBar(tr::lng_community_chats_requestable(tr::now));
@@ -4757,7 +4759,7 @@ void InnerWidget::refresh(bool toTop) {
 	if (_state == WidgetState::Default) {
 		if (_openedCommunity) {
 			const auto requestableShown = _communityRequestableList
-				&& !_communityRequestableList->isHidden();
+				&& (_communityRequestableCount > 0);
 			if (_shownList->empty()
 				&& _communityViewable.empty()
 				&& !requestableShown) {
@@ -4842,9 +4844,7 @@ void InnerWidget::refreshEmpty() {
 			? EmptyState::EmptyForum
 			: EmptyState::Loading)
 		: _openedCommunity
-		? ((_communityViewable.empty()
-			&& (!_communityRequestableList
-				|| _communityRequestableList->isHidden()))
+		? ((_communityViewable.empty() && !_communityRequestableCount)
 			? EmptyState::Loading
 			: EmptyState::None)
 		: (!_filterId && data->contactsLoaded().current())
@@ -4994,7 +4994,14 @@ void InnerWidget::resizeEmpty() {
 }
 
 void InnerWidget::updateCommunityRequestableGeometry() {
-	if (_communityRequestableList && !_communityRequestableList->isHidden()) {
+	if (!_communityRequestableList) {
+		return;
+	}
+	const auto shown = _openedCommunity
+		&& (_state == WidgetState::Default)
+		&& (_communityRequestableCount > 0);
+	_communityRequestableList->setVisible(shown);
+	if (shown) {
 		_communityRequestableList->resizeToWidth(width());
 		_communityRequestableList->moveToLeft(
 			0,
@@ -5196,6 +5203,7 @@ void InnerWidget::clearFilter() {
 
 void InnerWidget::setState(WidgetState state) {
 	_state = state;
+	updateCommunityRequestableGeometry();
 }
 
 void InnerWidget::selectSkip(int32 direction) {

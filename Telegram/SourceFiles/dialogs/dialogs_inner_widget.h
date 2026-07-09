@@ -733,6 +733,7 @@ private:
 		= { nullptr };
 	int _communitySelected = -1;
 	int _communityPressed = -1;
+	int _communityRequestableCount = 0;
 	rpl::lifetime _openedCommunityLifetime;
 
 	WidgetState _state = WidgetState::Default;

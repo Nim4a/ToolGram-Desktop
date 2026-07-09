@@ -134,16 +134,13 @@ CommunityRequestableList::CommunityRequestableList(
 	chatsController->setDelegate(delegate);
 
 	_count = chatsController->countValue();
-	_count.value(
-	) | rpl::on_next([=](int count) {
-		setVisible(count > 0);
-		resizeToWidth(width());
-	}, lifetime());
 
 	_content->heightValue(
 	) | rpl::on_next([=] {
 		resizeToWidth(width());
 	}, lifetime());
+
+	hide();
 }
 
 CommunityRequestableList::~CommunityRequestableList() = default;

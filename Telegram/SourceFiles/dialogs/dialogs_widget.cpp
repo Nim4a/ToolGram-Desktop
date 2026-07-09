@@ -1283,10 +1283,27 @@ void Widget::updateTopBarSuggestions() {
 	}
 }
 
+bool Widget::communityOverlaysShown() const {
+	return _openedCommunity
+		&& (_inner->state() == WidgetState::Default);
+}
+
+void Widget::updateCommunityOverlaysVisibility() {
+	if (_communityRequests) {
+		_communityRequests->toggle(
+			communityOverlaysShown() && (_communityRequestsCount > 0),
+			anim::type::instant);
+	}
+	if (_communityAddChat) {
+		_communityAddChatRefresh.fire({});
+	}
+}
+
 void Widget::updateCommunityRequestsBubble() {
 	_communityRequestsLifetime.destroy();
 	_communityRequestsPlaceholder = nullptr;
 	_communityRequests = nullptr;
+	_communityRequestsCount = 0;
 
 	const auto channel = _openedCommunity
 		? _openedCommunity->channel().get()
@@ -1340,7 +1357,8 @@ void Widget::updateCommunityRequestsBubble() {
 	});
 
 	std::move(count) | rpl::on_next([=](int c) {
-		_communityRequests->toggle(c > 0, anim::type::instant);
+		_communityRequestsCount = c;
+		updateCommunityOverlaysVisibility();
 	}, _communityRequestsLifetime);
 }
 
@@ -1406,6 +1424,7 @@ void Widget::updateCommunityAddChatButton() {
 	narrowButton->hide();
 
 	const auto pinToBottom = [=] {
+		const auto shown = communityOverlaysShown();
 		const auto narrow
 			= (_scroll->width() < st::columnMinimalWidthLeft / 2);
 		const auto buttonHeight = st::communityAddChatButton.height;
@@ -1414,7 +1433,11 @@ void Widget::updateCommunityAddChatButton() {
 		const auto stripHeight = buttonHeight
 			+ st::defaultDialogRow.padding.top()
 			+ st::defaultDialogRow.padding.bottom();
-		if (narrow) {
+		if (!shown) {
+			raw->toggle(false, anim::type::instant);
+			narrowButton->hide();
+			placeholder->resize(placeholder->width(), 0);
+		} else if (narrow) {
 			placeholder->resize(placeholder->width(), stripHeight);
 			const auto bottom = std::max(0, _scroll->height() - stripHeight);
 			raw->toggle(false, anim::type::instant);
@@ -1431,18 +1454,18 @@ void Widget::updateCommunityAddChatButton() {
 			const auto bottom = std::max(0, _scroll->height() - height);
 			raw->moveToLeft(0, bottom);
 		}
+		_scroll->setBarBottomInset(shown
+			? (st::communityAddChatButtonMargin.top()
+				+ buttonHeight
+				+ st::communityAddChatButtonMargin.bottom())
+			: 0);
 	};
-	_scroll->sizeValue(
-	) | rpl::to_empty | rpl::on_next(pinToBottom, _communityAddChatLifetime);
-	raw->heightValue(
-	) | rpl::to_empty | rpl::on_next(pinToBottom, _communityAddChatLifetime);
+	rpl::merge(
+		_scroll->sizeValue() | rpl::to_empty,
+		raw->heightValue() | rpl::to_empty,
+		_communityAddChatRefresh.events()
+	) | rpl::on_next(pinToBottom, _communityAddChatLifetime);
 	pinToBottom();
-
-	_scroll->setBarBottomInset(st::communityAddChatButtonMargin.top()
-		+ st::communityAddChatButton.height
-		+ st::communityAddChatButtonMargin.bottom());
-
-	raw->toggle(true, anim::type::instant);
 }
 
 void Widget::setupMoreChatsBar() {
@@ -1894,6 +1917,7 @@ void Widget::updateControlsVisibility(bool fast) {
 	if (_chatFilters) {
 		_chatFilters->setVisible(!_openedForum && !_openedCommunity);
 	}
+	updateCommunityOverlaysVisibility();
 	if (_openedFolder || _openedForum || _openedCommunity) {
 		_subsectionTopBar->show();
 		if (_forumTopShadow) {
@@ -4098,6 +4122,7 @@ bool Widget::applySearchState(SearchState state) {
 		setSearchQuery(_searchState.query);
 	}
 	_inner->applySearchState(_searchState);
+	updateCommunityOverlaysVisibility();
 
 	if (!_postponeProcessSearchFocusChange) {
 		// Suggestions depend on _inner->state(), not on _searchState.

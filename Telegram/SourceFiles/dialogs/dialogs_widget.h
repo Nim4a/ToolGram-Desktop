@@ -238,6 +238,8 @@ private:
 	void updateTopBarSuggestions();
 	void updateCommunityRequestsBubble();
 	void updateCommunityAddChatButton();
+	void updateCommunityOverlaysVisibility();
+	[[nodiscard]] bool communityOverlaysShown() const;
 	void updateFrozenAccountBar();
 	void updateControlsVisibility(bool fast = false);
 	void updateLockUnlockVisibility(
@@ -351,10 +353,12 @@ private:
 	base::unique_qptr<Ui::SlideWrap<Ui::RpWidget>> _communityRequests;
 	base::unique_qptr<Ui::RpWidget> _communityRequestsPlaceholder;
 	rpl::lifetime _communityRequestsLifetime;
+	int _communityRequestsCount = 0;
 	base::unique_qptr<Ui::SlideWrap<Ui::VerticalLayout>> _communityAddChat;
 	base::unique_qptr<Ui::RpWidget> _communityAddChatPlaceholder;
 	rpl::lifetime _communityAddChatLifetime;
 	base::unique_qptr<Ui::RpWidget> _communityAddChatNarrow;
+	rpl::event_stream<> _communityAddChatRefresh;
 	rpl::event_stream<bool> _searchStateForTopBarSuggestion;
 	rpl::event_stream<> _prepareTopBarSnapshot;
 	rpl::event_stream<bool> _openedFolderOrForumChanges;
