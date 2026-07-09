@@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_changes.h"
 #include "data/data_drafts.h"
 #include "data/data_file_origin.h"
+#include "data/data_peer_values.h"
 #include "data/data_session.h"
 #include "data/data_thread.h"
 #include "data/data_user.h"
@@ -991,7 +992,7 @@ void DraftOptionsBox(
 					? tr::lng_forward_action_hide_sender
 					: tr::lng_forward_action_hide_senders)(),
 				st::settingsButtonDisabledWithIcon,
-				{ &st::menuIconUserHide }
+				{ &st::menuIconUserHideDisabled }
 			)->setClickedCallback([=] {
 				Settings::ShowPremiumPromoToast(
 					show,
@@ -1225,6 +1226,12 @@ void DraftOptionsBox(
 		if (state->wrap->hasViewForItem(item)) {
 			state->rebuild();
 		}
+	}, box->lifetime());
+
+	Data::AmPremiumValue(
+		&args.show->session()
+	) | rpl::skip(1) | rpl::on_next([=] {
+		state->shown.force_assign(state->shown.current());
 	}, box->lifetime());
 
 }
