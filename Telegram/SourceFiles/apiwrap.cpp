@@ -4476,9 +4476,9 @@ void ApiWrap::sendRichMessage(
 			? std::make_optional(std::move(*serialized.value))
 			: std::nullopt;
 	};
+	const auto itemId = item->fullId();
 	const auto recoverRichFailure = [=](const QString &type) {
-		const auto show = ShowForPeer(peer);
-		if (const auto failed = _session->data().message(item->fullId())) {
+		if (const auto failed = _session->data().message(itemId)) {
 			const auto fullPage = failed->fullRichPage();
 			if (const auto page = fullPage ? fullPage : failed->richPage()) {
 				auto draft = Data::Draft();
@@ -4497,10 +4497,12 @@ void ApiWrap::sendRichMessage(
 			}
 			failed->destroy();
 		}
-		if (show) {
-			show->showToast(type.isEmpty()
-				? tr::lng_edit_error(tr::now)
-				: type);
+		if (type.isEmpty()) {
+			if (const auto show = ShowForPeer(peer)) {
+				show->showToast(tr::lng_edit_error(tr::now));
+			}
+		} else {
+			sendMessageFail(type, peer, randomId, itemId);
 		}
 	};
 	const auto performRequest = [=](
@@ -4613,6 +4615,7 @@ void ApiWrap::sendMessage(
 	).messageLengthCurrent();
 
 	const auto exactWebPage = !message.webPage.url.isEmpty();
+	const auto webPageDraft = message.webPage;
 	auto isFirst = true;
 	while (TextUtilities::CutPart(sending, left, messageLengthLimit)
 		|| (isFirst && exactWebPage)) {
@@ -4764,6 +4767,44 @@ void ApiWrap::sendMessage(
 				lastMessage->destroy();
 			} else {
 				sendMessageFail(error, peer, randomId, newId);
+				if (!action.options.scheduled
+					&& !action.options.shortcutId) {
+					const auto failed = _session->data().message(newId);
+					const auto local = history->localDraft(
+						draftTopicRootId,
+						draftMonoforumPeerId);
+					const auto cloud = history->cloudDraft(
+						draftTopicRootId,
+						draftMonoforumPeerId);
+					if (failed
+						&& Data::DraftIsNull(local)
+						&& Data::DraftIsNull(cloud)) {
+						const auto text = failed->originalText();
+						auto draft = Data::Draft();
+						draft.textWithTags = {
+							text.text,
+							TextUtilities::ConvertEntitiesToTextTags(
+								text.entities),
+						};
+						draft.reply = action.replyTo;
+						draft.suggest = action.options.suggest;
+						draft.cursor = MessageCursor(
+							int(text.text.size()),
+							int(text.text.size()),
+							Ui::kQFixedMax);
+						draft.webpage = webPageDraft;
+						if (!Data::DraftIsNull(&draft)) {
+							history->createCloudDraft(
+								draftTopicRootId,
+								draftMonoforumPeerId,
+								&draft);
+							history->applyCloudDraft(
+								draftTopicRootId,
+								draftMonoforumPeerId);
+							failed->destroy();
+						}
+					}
+				}
 			}
 			if (clearCloudDraft) {
 				history->finishSavingCloudDraft(
