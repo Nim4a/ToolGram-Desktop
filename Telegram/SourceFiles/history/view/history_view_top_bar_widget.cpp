@@ -1294,21 +1294,21 @@ void TopBarWidget::updateControlsVisibility() {
 			Ui::Menu::MenuCallback(callback));
 		return !empty;
 	}();
-	const auto hasMenu = !_activeChat.key.folder()
-		&& (section == Section::History
-			? true
-			: (section == Section::Scheduled)
-			? (hasPollsMenu || hasTodoListsMenu)
-			: (section == Section::Replies)
-			? (hasPollsMenu || hasTodoListsMenu || hasTopicMenu)
-			: (section == Section::ChatsList)
-			? (_activeChat.key.peer() && _activeChat.key.peer()->isForum())
-			: (section == Section::SavedSublist)
-			? (_activeChat.key.peer()
-				&& _activeChat.key.peer()->isChannel()
-				&& _activeChat.key.peer()->owner().commonStarsPerMessage(
-					_activeChat.key.peer()->asChannel()))
-			: false);
+	const auto hasMenu = (section == Section::History)
+		? !_activeChat.key.folder()
+		: (section == Section::Scheduled)
+		? (hasPollsMenu || hasTodoListsMenu)
+		: (section == Section::Replies)
+		? (hasPollsMenu || hasTodoListsMenu || hasTopicMenu)
+		: (section == Section::ChatsList)
+		? (_activeChat.key.folder()
+			|| (_activeChat.key.peer() && _activeChat.key.peer()->isForum()))
+		: (section == Section::SavedSublist)
+		? (_activeChat.key.peer()
+			&& _activeChat.key.peer()->isChannel()
+			&& _activeChat.key.peer()->owner().commonStarsPerMessage(
+				_activeChat.key.peer()->asChannel()))
+		: false;
 	const auto hasInfo = !_activeChat.key.folder()
 		&& (section == Section::History
 			? true

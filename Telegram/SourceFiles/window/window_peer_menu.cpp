@@ -1930,44 +1930,51 @@ void Filler::fillArchiveActions() {
 	if (_folder->id() != Data::Folder::kId) {
 		return;
 	}
-	addNewWindow();
-
 	const auto controller = _controller;
-	const auto hidden = controller->session().settings().archiveCollapsed();
-	const auto inmenu = controller->session().settings().archiveInMainMenu();
-	if (!inmenu) {
-		const auto text = hidden
-			? tr::lng_context_archive_expand(tr::now)
-			: tr::lng_context_archive_collapse(tr::now);
-		_addAction(text, [=] {
-			controller->session().settings().setArchiveCollapsed(!hidden);
-			controller->session().saveSettingsDelayed();
-		}, hidden ? &st::menuIconExpand : &st::menuIconCollapse);
-	}
-	{
-		const auto text = inmenu
-			? tr::lng_context_archive_to_list(tr::now)
-			: tr::lng_context_archive_to_menu(tr::now);
-		_addAction(text, [=] {
-			if (!inmenu) {
-				controller->showToast({
-					.text = {
-						tr::lng_context_archive_to_menu_info(tr::now)
-					},
-					.st = &st::windowArchiveToast,
-					.duration = kArchivedToastDuration,
-				});
-			}
-			controller->session().settings().setArchiveInMainMenu(!inmenu);
-			controller->session().saveSettingsDelayed();
-			controller->window().hideSettingsAndLayer();
-		}, inmenu ? &st::menuIconFromMainMenu : &st::menuIconToMainMenu);
-	}
+	if (_request.section == Section::ChatsList) {
+		const auto folder = _folder;
+		_addAction(tr::lng_dlg_filter(tr::now), [=] {
+			controller->searchInChat(folder);
+		}, &st::menuIconSearch);
+	} else {
+		addNewWindow();
 
-	MenuAddMarkAsReadChatListAction(
-		controller,
-		[folder = _folder] { return folder->chatsList(); },
-		_addAction);
+		const auto hidden = controller->session().settings().archiveCollapsed();
+		const auto inmenu = controller->session().settings().archiveInMainMenu();
+		if (!inmenu) {
+			const auto text = hidden
+				? tr::lng_context_archive_expand(tr::now)
+				: tr::lng_context_archive_collapse(tr::now);
+			_addAction(text, [=] {
+				controller->session().settings().setArchiveCollapsed(!hidden);
+				controller->session().saveSettingsDelayed();
+			}, hidden ? &st::menuIconExpand : &st::menuIconCollapse);
+		}
+		{
+			const auto text = inmenu
+				? tr::lng_context_archive_to_list(tr::now)
+				: tr::lng_context_archive_to_menu(tr::now);
+			_addAction(text, [=] {
+				if (!inmenu) {
+					controller->showToast({
+						.text = {
+							tr::lng_context_archive_to_menu_info(tr::now)
+						},
+						.st = &st::windowArchiveToast,
+						.duration = kArchivedToastDuration,
+					});
+				}
+				controller->session().settings().setArchiveInMainMenu(!inmenu);
+				controller->session().saveSettingsDelayed();
+				controller->window().hideSettingsAndLayer();
+			}, inmenu ? &st::menuIconFromMainMenu : &st::menuIconToMainMenu);
+		}
+
+		MenuAddMarkAsReadChatListAction(
+			controller,
+			[folder = _folder] { return folder->chatsList(); },
+			_addAction);
+	}
 
 	_addAction({ .isSeparator = true });
 

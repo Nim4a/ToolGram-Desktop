@@ -1804,9 +1804,12 @@ void Widget::setupShortcuts() {
 					const auto history = forum->history();
 					controller()->searchInChat(history);
 					return true;
-				} else if (!_openedFolder
-					&& !_childList
-					&& _search->isVisible()) {
+				} else if (_openedFolder) {
+					if (!_subsectionTopBar->searchSetFocus()) {
+						showSearchInTopBar(anim::type::normal);
+					}
+					return true;
+				} else if (!_childList && _search->isVisible()) {
 					_search->setFocus();
 					return true;
 				}
@@ -3107,7 +3110,8 @@ void Widget::searchMessages(SearchState state) {
 		if (_openedForum) {
 			controller()->closeForum();
 		}
-		if (_layout == Layout::Main) {
+		if (_layout == Layout::Main
+			&& (!_openedFolder || state.inChat.folder() != _openedFolder)) {
 			controller()->closeFolder();
 		}
 	}
@@ -3854,7 +3858,9 @@ bool Widget::applySearchState(SearchState state) {
 		}
 		hideChildList();
 	}
-	if (state.inChat && _layout == Layout::Main) {
+	if (state.inChat
+		&& _layout == Layout::Main
+		&& state.inChat.folder() != _openedFolder) {
 		controller()->closeFolder();
 	}
 
@@ -3867,7 +3873,8 @@ bool Widget::applySearchState(SearchState state) {
 	const auto peer = state.inChat.peer();
 	const auto topic = state.inChat.topic();
 	const auto forum = peer ? peer->forum() : nullptr;
-	if (state.inChat.folder() || (forum && !topic)) {
+	const auto folder = state.inChat.folder();
+	if (folder || (forum && !topic)) {
 		state.inChat = {};
 	}
 	if (!state.inChat && !forum && !_openedForum) {
@@ -3919,6 +3926,8 @@ bool Widget::applySearchState(SearchState state) {
 		} else {
 			return false;
 		}
+	} else if (folder && folder == _openedFolder) {
+		showSearchInTopBar(anim::type::normal);
 	} else if (peer && (_layout != Layout::Main)) {
 		return false;
 	}
