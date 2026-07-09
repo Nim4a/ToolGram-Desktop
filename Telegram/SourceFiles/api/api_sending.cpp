@@ -76,6 +76,28 @@ void SendSimpleMedia(SendAction action, MTPInputMedia inputMedia) {
 	action.generateLocal = false;
 	api->sendAction(action);
 
+	if (!action.options.scheduled
+		&& !action.options.shortcutId
+		&& session->ephemeralMessages().sendSimpleMedia(
+			history,
+			action.replyTo,
+			inputMedia)) {
+		api->finishForwarding(action);
+		return;
+	}
+
+	if (action.replyTo.messageId
+		&& !IsServerMsgId(action.replyTo.messageId.msg)
+		&& !session->data().message(action.replyTo.messageId)) {
+		action.replyTo = {
+			.messageId = (action.replyTo.topicRootId
+				? FullMsgId(peer->id, action.replyTo.topicRootId)
+				: FullMsgId()),
+			.topicRootId = action.replyTo.topicRootId,
+			.monoforumPeerId = action.replyTo.monoforumPeerId,
+		};
+	}
+
 	const auto randomId = base::RandomValue<uint64>();
 
 	auto flags = NewMessageFlags(peer);

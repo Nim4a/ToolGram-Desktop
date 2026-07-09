@@ -472,6 +472,31 @@ bool EphemeralMessages::sendMedia(
 	return true;
 }
 
+bool EphemeralMessages::sendSimpleMedia(
+		not_null<History*> history,
+		FullReplyTo replyTo,
+		const MTPInputMedia &media) {
+	const auto target = _session->data().message(replyTo.messageId);
+	if (!target || !target->isEphemeral()) {
+		return false;
+	}
+	if (!target->out()) {
+		const auto entry = findByItem(target);
+		const auto bot = entry ? botForSending(*entry) : nullptr;
+		if (bot) {
+			request(
+				history,
+				bot,
+				TextWithEntities(),
+				media,
+				true,
+				entry->ephemeralId,
+				MsgId(0));
+		}
+	}
+	return true;
+}
+
 void EphemeralMessages::request(
 		not_null<History*> history,
 		not_null<UserData*> bot,

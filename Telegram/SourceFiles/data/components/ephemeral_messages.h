@@ -54,6 +54,10 @@ public:
 	[[nodiscard]] bool sendMedia(
 		not_null<HistoryItem*> item,
 		const MTPInputMedia &media);
+	[[nodiscard]] bool sendSimpleMedia(
+		not_null<History*> history,
+		FullReplyTo replyTo,
+		const MTPInputMedia &media);
 	void noteCallbackTopic(
 		not_null<History*> history,
 		PeerId botId,
