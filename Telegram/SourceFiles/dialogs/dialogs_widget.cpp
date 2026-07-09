@@ -901,6 +901,19 @@ void Widget::setupSwipeBack() {
 				}
 			});
 		}
+		if (controller()->openedCommunity().current()) {
+			if (!isRightToLeft) {
+				return Ui::Controls::SwipeHandlerFinishData();
+			}
+			return Ui::Controls::DefaultSwipeBackHandlerFinishData([=] {
+				_swipeBackData = {};
+				if (controller()->openedCommunity().current()) {
+					if (!controller()->windowId().community()) {
+						controller()->closeCommunity();
+					}
+				}
+			});
+		}
 		if (isRightToLeft && isMainList()) {
 			_swipeBackIconMirrored = true;
 			return Ui::Controls::DefaultSwipeBackHandlerFinishData([=] {
