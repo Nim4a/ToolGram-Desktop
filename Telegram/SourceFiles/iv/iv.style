@@ -1380,3 +1380,6 @@ messageMarkdownOutSelected: Markdown(messageMarkdown) {
 aiComposeCardMarkdown: Markdown(messageMarkdown) {
 	textPadding: margins(12px, 8px, 12px, 8px);
 }
+translateBoxMarkdown: Markdown(messageMarkdown) {
+	textPadding: boxRowPadding;
+}

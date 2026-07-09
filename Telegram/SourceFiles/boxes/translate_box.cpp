@@ -194,7 +194,7 @@ void SetupRichArticleBody(
 			[](QString) {},
 			::Data::FileOrigin()),
 		.dimensionsOverride = Iv::Markdown::CaptureMarkdownPrepareDimensions(
-			st::messageMarkdown),
+			st::translateBoxMarkdown),
 		.tableRenderLimits
 			= Iv::Markdown::PrepareTableRenderLimitsForRichMessage(limits),
 	});
@@ -203,7 +203,7 @@ void SetupRichArticleBody(
 	}
 	if (!*article) {
 		*article = std::make_shared<Iv::Markdown::MarkdownArticle>(
-			st::messageMarkdown);
+			st::translateBoxMarkdown);
 		(*article)->setContent(std::move(prepared.content));
 		body->setArticle(*article);
 	} else {
@@ -298,7 +298,8 @@ void SetupRichArticleBody(
 	const auto original = box->addRow(
 		object_ptr<SlideWrap<Iv::Markdown::MarkdownDocumentWidget>>(
 			box,
-			std::move(originalBody)));
+			std::move(originalBody)),
+		style::margins());
 	original->hide(anim::type::instant);
 	SetupRichArticleBody(box, original->entity(), session, peer, itemId);
 
@@ -328,7 +329,8 @@ void SetupRichArticleBody(
 	const auto translated = box->addRow(
 		object_ptr<SlideWrap<Iv::Markdown::MarkdownDocumentWidget>>(
 			box,
-			object_ptr<Iv::Markdown::MarkdownDocumentWidget>(box)));
+			object_ptr<Iv::Markdown::MarkdownDocumentWidget>(box)),
+		style::margins());
 	translated->hide(anim::type::instant);
 	SetupRichArticleBody(box, translated->entity(), session, peer, itemId);
 
