@@ -1807,6 +1807,13 @@ void Widget::setupShortcuts() {
 						controller()->searchInChat(_openedFolder);
 					}
 					return true;
+				} else if (const auto community = _openedCommunity) {
+					if (!_subsectionTopBar->searchSetFocus()) {
+						const auto history = session().data().history(
+							community->channel());
+						controller()->searchInChat(history);
+					}
+					return true;
 				} else if (!_childList && _search->isVisible()) {
 					_search->setFocus();
 					return true;
@@ -2669,6 +2676,7 @@ void Widget::updateStoriesVisibility() {
 		&& (!_suggestions || !_hidingSuggestions.empty());
 	const auto hiddenInstant = _showAnimation
 		|| _openedForum
+		|| _openedCommunity
 		|| (widthAnimation && !suggestionsAnimation)
 		|| _childList
 		|| _stories->empty()
@@ -3891,7 +3899,11 @@ bool Widget::applySearchState(SearchState state) {
 	const auto topic = state.inChat.topic();
 	const auto forum = peer ? peer->forum() : nullptr;
 	const auto folder = state.inChat.folder();
-	if (folder || (forum && !topic)) {
+	const auto community = (_openedCommunity
+		&& peer == _openedCommunity->channel())
+		? _openedCommunity
+		: nullptr;
+	if (folder || (forum && !topic) || community) {
 		state.inChat = {};
 	}
 	if (!state.inChat && !forum && !_openedForum) {
@@ -3950,7 +3962,7 @@ bool Widget::applySearchState(SearchState state) {
 		} else {
 			return false;
 		}
-	} else if (folder && folder == _openedFolder) {
+	} else if ((folder && folder == _openedFolder) || community) {
 		showSearchInTopBar(anim::type::normal);
 	} else if (peer && (_layout != Layout::Main)) {
 		return false;

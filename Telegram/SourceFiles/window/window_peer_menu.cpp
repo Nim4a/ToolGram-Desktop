@@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "export/export_manager.h"
 #include "boxes/peers/edit_participants_box.h"
 #include "boxes/peers/edit_peer_info_box.h"
+#include "boxes/peers/manage_community_box.h"
 #include "boxes/premium_preview_box.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
@@ -295,6 +296,7 @@ private:
 	using Section = Dialogs::EntryState::Section;
 
 	void fillChatsListActions();
+	void fillCommunityChatsListActions();
 	void fillHistoryActions();
 	void fillProfileActions();
 	void fillRepliesActions();
@@ -1785,8 +1787,32 @@ void Filler::addSearchTopics() {
 	}, &st::menuIconSearch);
 }
 
+void Filler::fillCommunityChatsListActions() {
+	const auto channel = _peer ? _peer->asChannel() : nullptr;
+	const auto history = _request.key.history();
+	if (!channel || !history) {
+		return;
+	}
+	const auto controller = _controller;
+	_addAction(tr::lng_context_view_community(tr::now), [=] {
+		controller->showPeerInfo(channel);
+	}, &st::menuIconInfo);
+	_addAction(tr::lng_dlg_filter(tr::now), [=] {
+		controller->searchInChat(history);
+	}, &st::menuIconSearch);
+	if (channel->canManageLinkedPeers()) {
+		_addAction(tr::lng_manage_community_title(tr::now), [=] {
+			ShowManageCommunityBox(controller, channel);
+		}, &st::menuIconManage);
+	}
+}
+
 void Filler::fillChatsListActions() {
-	if (!_peer || !_peer->isForum()) {
+	const auto channel = _peer ? _peer->asChannel() : nullptr;
+	if (channel && channel->isCommunity()) {
+		fillCommunityChatsListActions();
+		return;
+	} else if (!_peer || !_peer->isForum()) {
 		return;
 	}
 	addCreateTopic();

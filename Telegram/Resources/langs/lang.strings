@@ -1909,6 +1909,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 "lng_manage_group_title" = "Manage group";
 "lng_manage_channel_title" = "Manage Channel";
+"lng_manage_community_title" = "Manage community";
 "lng_manage_bot_title" = "Manage Bot";
 "lng_manage_peer_recent_actions" = "Recent actions";
 "lng_manage_peer_star_ref" = "Affiliate programs";
@@ -5229,6 +5230,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_context_send_message" = "Send message";
 "lng_context_view_group" = "View group info";
 "lng_context_view_channel" = "View channel info";
+"lng_context_view_community" = "View community info";
 "lng_context_view_topic" = "View topic info";
 "lng_context_view_thread" = "View thread info";
 "lng_context_hide_psa" = "Hide this announcement";
