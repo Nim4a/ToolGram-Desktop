@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/create_ai_box.h"
 #include "boxes/premium_preview_box.h"
 #include "chat_helpers/compose/compose_show.h"
+#include "data/data_changes.h"
 #include "data/data_file_origin.h"
 #include "data/data_msg_id.h"
 #include "data/data_types.h"
@@ -1827,6 +1828,22 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 	if (descriptor.setupSubmitButton) {
 		descriptor.setupSubmitButton(
 			not_null<Ui::RpWidget*>(raw));
+	}
+	if (!save) {
+		const auto session = descriptor.session;
+		const auto peer = descriptor.peer;
+		session->changes().peerFlagsValue(
+			peer,
+			Data::PeerUpdate::Flag::StarsPerMessage
+		) | rpl::on_next([=] {
+			raw->setState({
+				.starsToSend = peer->starsPerMessageChecked(),
+			});
+		}, raw->lifetime());
+		raw->finishAnimating();
+		raw->widthValue() | rpl::skip(1) | rpl::on_next([=] {
+			layout();
+		}, raw->lifetime());
 	}
 	{
 		const auto lockIcon = &st::ivEditorSendLockIcon;
