@@ -6220,28 +6220,9 @@ void HistoryWidget::sendBotCommand(
 	// replyTo != 0 from ReplyKeyboardMarkup, == 0 from command links
 	if (_peer != request.peer.get()) {
 		return;
-	} else if (showSlowmodeError()) {
-		return;
 	}
-
-	const auto withPaymentApproved = [=](int approved) {
-		auto copy = options;
-		copy.starsApproved = approved;
-		sendBotCommand(request, copy);
-	};
 
 	const auto action = prepareSendAction(options);
-	const auto checked = checkSendPayment(
-		1,
-		action.options,
-		withPaymentApproved);
-	if (!checked) {
-		return;
-	}
-
-	const auto forMsgId = _keyboard->forMsgId();
-	const auto lastKeyboardUsed = (forMsgId == request.replyTo.messageId)
-		&& (forMsgId == FullMsgId(_peer->id, _history->lastKeyboardId));
 
 	// 'bot' may be nullptr in case of sending from FieldAutocomplete.
 	const auto toSend = (request.replyTo/* || !bot*/)
@@ -6255,6 +6236,30 @@ void HistoryWidget::sendBotCommand(
 			? request.replyTo
 			: replyTo())
 		: FullReplyTo();
+
+	const auto ephemeral = session().ephemeralMessages().wouldSend(message);
+	if (!ephemeral && showSlowmodeError()) {
+		return;
+	}
+	if (!ephemeral) {
+		const auto withPaymentApproved = [=](int approved) {
+			auto copy = options;
+			copy.starsApproved = approved;
+			sendBotCommand(request, copy);
+		};
+		const auto checked = checkSendPayment(
+			1,
+			action.options,
+			withPaymentApproved);
+		if (!checked) {
+			return;
+		}
+	}
+
+	const auto forMsgId = _keyboard->forMsgId();
+	const auto lastKeyboardUsed = (forMsgId == request.replyTo.messageId)
+		&& (forMsgId == FullMsgId(_peer->id, _history->lastKeyboardId));
+
 	session().api().sendMessage(std::move(message));
 	if (request.replyTo) {
 		if (_replyTo == request.replyTo) {
@@ -7340,12 +7345,27 @@ void HistoryWidget::updateFieldPlaceholder() {
 bool HistoryWidget::showSendingFilesError(
 		const Ui::PreparedList &list) const {
 	const auto show = controller()->uiShow();
-	return Data::ShowSendError(show, _peer, list, std::nullopt);
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(replyTo().messageId);
+	return Data::ShowSendError(
+		show,
+		_peer,
+		list,
+		std::nullopt,
+		false,
+		ephemeralReply);
 }
 
 bool HistoryWidget::showSendingFilesError(
 		const Ui::PreparedBundle &bundle) const {
-	return Data::ShowSendError(controller()->uiShow(), _peer, bundle);
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(replyTo().messageId);
+	return Data::ShowSendError(
+		controller()->uiShow(),
+		_peer,
+		bundle,
+		false,
+		ephemeralReply);
 }
 
 MsgId HistoryWidget::resolveReplyToTopicRootId() {
@@ -7527,9 +7547,9 @@ void HistoryWidget::sendingFilesConfirmed(
 	if (!_peer || showSendingFilesError(*bundle)) {
 		return;
 	}
-	if (bundle->totalCount > 1
-		&& session().ephemeralMessages().isEphemeralBotReply(
-			replyTo().messageId)) {
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(replyTo().messageId);
+	if (bundle->totalCount > 1 && ephemeralReply) {
 		controller()->showToast(
 			tr::lng_ephemeral_reply_single_message(tr::now));
 		return;
@@ -7540,17 +7560,19 @@ void HistoryWidget::sendingFilesConfirmed(
 	auto action = prepareSendAction(options);
 	action.clearDraft = false;
 
-	const auto withPaymentApproved = [=](int approved) {
-		auto copy = options;
-		copy.starsApproved = approved;
-		sendingFilesConfirmed(bundle, copy);
-	};
-	const auto checked = checkSendPayment(
-		bundle->totalCount,
-		action.options,
-		withPaymentApproved);
-	if (!checked) {
-		return;
+	if (!ephemeralReply) {
+		const auto withPaymentApproved = [=](int approved) {
+			auto copy = options;
+			copy.starsApproved = approved;
+			sendingFilesConfirmed(bundle, copy);
+		};
+		const auto checked = checkSendPayment(
+			bundle->totalCount,
+			action.options,
+			withPaymentApproved);
+		if (!checked) {
+			return;
+		}
 	}
 
 	auto &api = session().api();
@@ -9580,17 +9602,19 @@ bool HistoryWidget::sendExistingDocument(
 		|| ShowSendPremiumError(controller(), document)) {
 		return false;
 	}
-	const auto withPaymentApproved = [=](int approved) {
-		auto copy = messageToSend;
-		copy.action.options.starsApproved = approved;
-		sendExistingDocument(document, std::move(copy), localId);
-	};
-	const auto checked = checkSendPayment(
-		1,
-		messageToSend.action.options,
-		withPaymentApproved);
-	if (!checked) {
-		return false;
+	if (!ephemeralReply) {
+		const auto withPaymentApproved = [=](int approved) {
+			auto copy = messageToSend;
+			copy.action.options.starsApproved = approved;
+			sendExistingDocument(document, std::move(copy), localId);
+		};
+		const auto checked = checkSendPayment(
+			1,
+			messageToSend.action.options,
+			withPaymentApproved);
+		if (!checked) {
+			return false;
+		}
 	}
 
 	Api::SendExistingDocument(
@@ -9630,17 +9654,19 @@ bool HistoryWidget::sendExistingPhoto(
 	}
 	const auto action = prepareSendAction(options);
 
-	const auto withPaymentApproved = [=](int approved) {
-		auto copy = options;
-		copy.starsApproved = approved;
-		sendExistingPhoto(photo, copy);
-	};
-	const auto checked = checkSendPayment(
-		1,
-		action.options,
-		withPaymentApproved);
-	if (!checked) {
-		return false;
+	if (!ephemeralReply) {
+		const auto withPaymentApproved = [=](int approved) {
+			auto copy = options;
+			copy.starsApproved = approved;
+			sendExistingPhoto(photo, copy);
+		};
+		const auto checked = checkSendPayment(
+			1,
+			action.options,
+			withPaymentApproved);
+		if (!checked) {
+			return false;
+		}
 	}
 
 	Api::SendExistingPhoto(Api::MessageToSend(action), photo);

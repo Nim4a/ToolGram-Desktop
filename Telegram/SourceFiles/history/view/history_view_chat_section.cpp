@@ -872,9 +872,6 @@ void ChatWidget::setupComposeControls() {
 
 	_composeControls->sendCommandRequests(
 	) | rpl::on_next([=](const QString &command) {
-		if (showSlowmodeError()) {
-			return;
-		}
 		listSendBotCommand(command, FullMsgId());
 		session().api().finishForwarding(prepareSendAction({}));
 	}, lifetime());
@@ -1142,11 +1139,14 @@ void ChatWidget::setupSwipeReplyAndBack() {
 void ChatWidget::chooseAttach(
 		std::optional<bool> overrideSendImagesAsPhotos) {
 	_choosingAttach = false;
-	if (const auto error = Data::AnyFileRestrictionError(_peer)) {
-		Data::ShowSendErrorToast(controller(), _peer, error);
-		return;
-	} else if (showSlowmodeError()) {
-		return;
+	if (!session().ephemeralMessages().isEphemeralBotReply(
+			replyTo().messageId)) {
+		if (const auto error = Data::AnyFileRestrictionError(_peer)) {
+			Data::ShowSendErrorToast(controller(), _peer, error);
+			return;
+		} else if (showSlowmodeError()) {
+			return;
+		}
 	}
 
 	const auto filter = (overrideSendImagesAsPhotos == true)
@@ -1274,25 +1274,27 @@ void ChatWidget::sendingFilesConfirmed(
 	if (showSendingFilesError(*bundle)) {
 		return;
 	}
-	if (bundle->totalCount > 1
-		&& session().ephemeralMessages().isEphemeralBotReply(
-			replyTo().messageId)) {
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(replyTo().messageId);
+	if (bundle->totalCount > 1 && ephemeralReply) {
 		controller()->showToast(
 			tr::lng_ephemeral_reply_single_message(tr::now));
 		return;
 	}
 
-	const auto withPaymentApproved = [=](int approved) {
-		auto copy = options;
-		copy.starsApproved = approved;
-		sendingFilesConfirmed(bundle, copy);
-	};
-	const auto checked = checkSendPayment(
-		bundle->totalCount,
-		options,
-		withPaymentApproved);
-	if (!checked) {
-		return;
+	if (!ephemeralReply) {
+		const auto withPaymentApproved = [=](int approved) {
+			auto copy = options;
+			copy.starsApproved = approved;
+			sendingFilesConfirmed(bundle, copy);
+		};
+		const auto checked = checkSendPayment(
+			bundle->totalCount,
+			options,
+			withPaymentApproved);
+		if (!checked) {
+			return;
+		}
 	}
 
 	const auto compress = bundle->way.sendImagesAsPhotos();
@@ -1386,12 +1388,27 @@ void ChatWidget::uploadFile(
 bool ChatWidget::showSendingFilesError(
 		const Ui::PreparedList &list) const {
 	const auto show = controller()->uiShow();
-	return Data::ShowSendError(show, _peer, list, std::nullopt);
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(replyTo().messageId);
+	return Data::ShowSendError(
+		show,
+		_peer,
+		list,
+		std::nullopt,
+		false,
+		ephemeralReply);
 }
 
 bool ChatWidget::showSendingFilesError(
 		const Ui::PreparedBundle &bundle) const {
-	return Data::ShowSendError(controller()->uiShow(), _peer, bundle);
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(replyTo().messageId);
+	return Data::ShowSendError(
+		controller()->uiShow(),
+		_peer,
+		bundle,
+		false,
+		ephemeralReply);
 }
 
 Api::SendAction ChatWidget::prepareSendAction(
@@ -1894,27 +1911,31 @@ bool ChatWidget::sendExistingDocument(
 		not_null<DocumentData*> document,
 		Api::MessageToSend messageToSend,
 		std::optional<MsgId> localId) {
-	const auto error = Data::RestrictionError(
-		_peer,
-		ChatRestriction::SendStickers);
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(messageToSend.action.replyTo.messageId);
+	const auto error = !ephemeralReply
+		? Data::RestrictionError(_peer, ChatRestriction::SendStickers)
+		: Data::SendError();
 	if (error) {
 		Data::ShowSendErrorToast(controller(), _peer, error);
 		return false;
-	} else if (showSlowmodeError()
+	} else if ((!ephemeralReply && showSlowmodeError())
 		|| ShowSendPremiumError(controller(), document)) {
 		return false;
 	}
-	const auto withPaymentApproved = [=](int approved) {
-		auto copy = messageToSend;
-		copy.action.options.starsApproved = approved;
-		sendExistingDocument(document, std::move(copy), localId);
-	};
-	const auto checked = checkSendPayment(
-		1,
-		messageToSend.action.options,
-		withPaymentApproved);
-	if (!checked) {
-		return false;
+	if (!ephemeralReply) {
+		const auto withPaymentApproved = [=](int approved) {
+			auto copy = messageToSend;
+			copy.action.options.starsApproved = approved;
+			sendExistingDocument(document, std::move(copy), localId);
+		};
+		const auto checked = checkSendPayment(
+			1,
+			messageToSend.action.options,
+			withPaymentApproved);
+		if (!checked) {
+			return false;
+		}
 	}
 
 	Api::SendExistingDocument(
@@ -1934,27 +1955,31 @@ void ChatWidget::sendExistingPhoto(not_null<PhotoData*> photo) {
 bool ChatWidget::sendExistingPhoto(
 		not_null<PhotoData*> photo,
 		Api::SendOptions options) {
-	const auto error = Data::RestrictionError(
-		_peer,
-		ChatRestriction::SendPhotos);
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(replyTo().messageId);
+	const auto error = !ephemeralReply
+		? Data::RestrictionError(_peer, ChatRestriction::SendPhotos)
+		: Data::SendError();
 	if (error) {
 		Data::ShowSendErrorToast(controller(), _peer, error);
 		return false;
-	} else if (showSlowmodeError()) {
+	} else if (!ephemeralReply && showSlowmodeError()) {
 		return false;
 	}
 
-	const auto withPaymentApproved = [=](int approved) {
-		auto copy = options;
-		copy.starsApproved = approved;
-		sendExistingPhoto(photo, copy);
-	};
-	const auto checked = checkSendPayment(
-		1,
-		options,
-		withPaymentApproved);
-	if (!checked) {
-		return false;
+	if (!ephemeralReply) {
+		const auto withPaymentApproved = [=](int approved) {
+			auto copy = options;
+			copy.starsApproved = approved;
+			sendExistingPhoto(photo, copy);
+		};
+		const auto checked = checkSendPayment(
+			1,
+			options,
+			withPaymentApproved);
+		if (!checked) {
+			return false;
+		}
 	}
 
 	Api::SendExistingPhoto(
@@ -3490,25 +3515,32 @@ void ChatWidget::sendBotCommandWithOptions(
 		const QString &command,
 		const FullMsgId &context,
 		Api::SendOptions options) {
-	const auto withPaymentApproved = [=](int approved) {
-		auto copy = options;
-		copy.starsApproved = approved;
-		sendBotCommandWithOptions(command, context, copy);
-	};
-	const auto checked = checkSendPayment(
-		1,
-		options,
-		withPaymentApproved);
-	if (!checked) {
-		return;
-	}
-
 	const auto text = Bot::WrapCommandInChat(
 		_peer,
 		command,
 		context);
 	auto message = Api::MessageToSend(prepareSendAction(options));
 	message.textWithTags = { text };
+
+	const auto ephemeral = session().ephemeralMessages().wouldSend(message);
+	if (!ephemeral && showSlowmodeError()) {
+		return;
+	}
+	if (!ephemeral) {
+		const auto withPaymentApproved = [=](int approved) {
+			auto copy = options;
+			copy.starsApproved = approved;
+			sendBotCommandWithOptions(command, context, copy);
+		};
+		const auto checked = checkSendPayment(
+			1,
+			options,
+			withPaymentApproved);
+		if (!checked) {
+			return;
+		}
+	}
+
 	session().api().sendMessage(std::move(message));
 	finishSending();
 }

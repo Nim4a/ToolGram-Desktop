@@ -271,11 +271,13 @@ bool ShowSendError(
 	not_null<PeerData*> peer,
 	const Ui::PreparedList &list,
 	std::optional<bool> compress,
-	bool ignoreSlowmodeLeft = false);
+	bool ignoreSlowmodeLeft = false,
+	bool ignoreRestrictions = false);
 bool ShowSendError(
 	std::shared_ptr<ChatHelpers::Show> show,
 	not_null<PeerData*> peer,
 	const Ui::PreparedBundle &bundle,
-	bool ignoreSlowmodeLeft = false);
+	bool ignoreSlowmodeLeft = false,
+	bool ignoreRestrictions = false);
 
 } // namespace Data
