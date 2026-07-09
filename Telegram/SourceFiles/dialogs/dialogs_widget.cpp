@@ -1716,6 +1716,7 @@ void Widget::setupStories() {
 	_stories->collapsedGeometryChanged(
 	) | rpl::on_next([=] {
 		updateLockUnlockPosition();
+		updateStoriesTitleShown();
 	}, lifetime());
 
 	_stories->clicks(
@@ -2320,6 +2321,10 @@ void Widget::refreshTopBars() {
 			) | rpl::on_next([=](QString query) {
 				applySearchUpdate();
 			}, _subsectionTopBar->lifetime());
+			_subsectionTopBar->searchModeChanges(
+			) | rpl::on_next([=](bool) {
+				updateStoriesVisibility();
+			}, _subsectionTopBar->lifetime());
 			_subsectionTopBar->jumpToDateRequest(
 			) | rpl::on_next([=] {
 				showCalendar();
@@ -2675,7 +2680,10 @@ void Widget::updateStoriesVisibility() {
 		|| _searchSuggestionsLocked
 		|| !_searchState.query.isEmpty()
 		|| _searchState.inChat
-		|| suggestionsAnimation;
+		|| suggestionsAnimation
+		|| (_openedFolder
+			&& _subsectionTopBar
+			&& _subsectionTopBar->searchMode());
 	const auto hidden = hiddenInstant || hiddenAnimated;
 	const auto changed = (_stories->toggledHidden() != hidden);
 	_stories->setToggledHidden(hiddenInstant, hiddenAnimated);
@@ -2699,6 +2707,19 @@ void Widget::updateStoriesVisibility() {
 		}
 		updateLockUnlockPosition();
 	}
+	updateStoriesTitleShown();
+}
+
+void Widget::updateStoriesTitleShown() {
+	if (!_subsectionTopBar || !_openedFolder) {
+		return;
+	}
+	const auto shown = (!_stories
+		|| _stories->empty()
+		|| _stories->toggledHidden())
+		? 1.
+		: _stories->collapsedGeometryCurrent().expanded;
+	_subsectionTopBar->setTitleShownRatio(shown);
 }
 
 void Widget::showFast() {
@@ -4312,9 +4333,15 @@ void Widget::updateControlsGeometry() {
 		+ st::dialogsStories.photo;
 	const auto added = (st::dialogsFilter.heightMin - storiesHeight) / 2;
 	if (_stories) {
+		const auto inFolderTitle = _openedFolder && _subsectionTopBar;
+		const auto storiesLeft = inFolderTitle
+			? (_subsectionTopBar->titleLeft()
+				- st::dialogsStories.left
+				- st::dialogsStories.photoLeft)
+			: (filterLeft + filterWidth);
 		_stories->setLayoutConstraints(
-			{ filterLeft + filterWidth, filterTop + added },
-			style::al_right,
+			{ storiesLeft, filterTop + added },
+			inFolderTitle ? style::al_left : style::al_right,
 			{ 0, expandedStoriesTop, barw, st::dialogsStoriesFull.height });
 	}
 	if (_forumTopShadow) {

@@ -598,17 +598,22 @@ void TopBarWidget::paintTopBar(Painter &p) {
 			: peer->isVerifyCodes()
 			? tr::lng_verification_codes(tr::now)
 			: peer->name();
-		const auto textWidth = st::historySavedFont->width(text);
-		if (namewidth < textWidth) {
-			text = st::historySavedFont->elided(text, namewidth);
+		const auto opacity = folder ? _titleShownRatio : 1.;
+		if (opacity > 0.) {
+			const auto textWidth = st::historySavedFont->width(text);
+			if (namewidth < textWidth) {
+				text = st::historySavedFont->elided(text, namewidth);
+			}
+			p.setOpacity(opacity);
+			p.setPen(st::dialogsNameFg);
+			p.setFont(st::historySavedFont);
+			p.drawTextLeft(
+				nameleft,
+				(height() - st::historySavedFont->height) / 2,
+				width(),
+				text);
+			p.setOpacity(1.);
 		}
-		p.setPen(st::dialogsNameFg);
-		p.setFont(st::historySavedFont);
-		p.drawTextLeft(
-			nameleft,
-			(height() - st::historySavedFont->height) / 2,
-			width(),
-			text);
 	} else if (_activeChat.section == Section::Replies) {
 		p.setPen(st::dialogsNameFg);
 		p.setFont(st::semiboldFont);
@@ -987,6 +992,17 @@ void TopBarWidget::setCustomTitle(const QString &title) {
 		_customTitleText = title;
 		update();
 	}
+}
+
+void TopBarWidget::setTitleShownRatio(float64 shown) {
+	if (_titleShownRatio != shown) {
+		_titleShownRatio = shown;
+		update();
+	}
+}
+
+int TopBarWidget::titleLeft() const {
+	return _leftTaken;
 }
 
 bool TopBarWidget::rootChatsListBar() const {
@@ -1495,6 +1511,7 @@ bool TopBarWidget::toggleSearch(bool shown, anim::type animated) {
 	} else {
 		Assert(_searchField != nullptr);
 	}
+	_searchModeChanges.fire_copy(shown);
 	_searchQuery = shown ? _searchField->getLastText() : QString();
 	if (animated == anim::type::normal) {
 		_searchShown.start(
@@ -1616,6 +1633,10 @@ bool TopBarWidget::searchSetFocus() {
 
 bool TopBarWidget::searchMode() const {
 	return _searchMode;
+}
+
+rpl::producer<bool> TopBarWidget::searchModeChanges() const {
+	return _searchModeChanges.events();
 }
 
 bool TopBarWidget::searchHasFocus() const {

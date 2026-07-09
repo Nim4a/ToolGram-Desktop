@@ -242,6 +242,7 @@ private:
 		anim::type animated = anim::type::instant);
 	void updateLoadMoreChatsVisibility();
 	void updateStoriesVisibility();
+	void updateStoriesTitleShown();
 	void updateJumpToDateVisibility(bool fast = false);
 	void updateSearchFromVisibility(bool fast = false);
 	void updateControlsGeometry();
