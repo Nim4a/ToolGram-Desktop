@@ -501,6 +501,9 @@ bool PeerData::useEmptyUserpic(Ui::PeerUserpicView &view) const {
 }
 
 InMemoryKey PeerData::userpicUniqueKey(Ui::PeerUserpicView &view) const {
+	if (const auto broadcast = monoforumBroadcast()) {
+		return broadcast->userpicUniqueKey(view);
+	}
 	return useEmptyUserpic(view)
 		? ensureEmptyUserpic()->uniqueKey()
 		: inMemoryKey(_userpic.location());
