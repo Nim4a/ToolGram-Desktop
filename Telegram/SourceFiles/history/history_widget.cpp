@@ -7527,6 +7527,13 @@ void HistoryWidget::sendingFilesConfirmed(
 	if (!_peer || showSendingFilesError(*bundle)) {
 		return;
 	}
+	if (bundle->totalCount > 1
+		&& session().ephemeralMessages().isEphemeralBotReply(
+			replyTo().messageId)) {
+		controller()->showToast(
+			tr::lng_ephemeral_reply_single_message(tr::now));
+		return;
+	}
 
 	const auto compress = bundle->way.sendImagesAsPhotos();
 	const auto type = compress ? SendMediaType::Photo : SendMediaType::File;

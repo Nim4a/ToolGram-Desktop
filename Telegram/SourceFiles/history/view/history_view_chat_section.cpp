@@ -1274,6 +1274,13 @@ void ChatWidget::sendingFilesConfirmed(
 	if (showSendingFilesError(*bundle)) {
 		return;
 	}
+	if (bundle->totalCount > 1
+		&& session().ephemeralMessages().isEphemeralBotReply(
+			replyTo().messageId)) {
+		controller()->showToast(
+			tr::lng_ephemeral_reply_single_message(tr::now));
+		return;
+	}
 
 	const auto withPaymentApproved = [=](int approved) {
 		auto copy = options;

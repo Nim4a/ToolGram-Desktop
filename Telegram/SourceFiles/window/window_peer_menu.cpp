@@ -2301,6 +2301,12 @@ void PeerMenuCreatePoll(
 		PollData::Flags disabled,
 		Api::SendType sendType,
 		SendMenu::Details sendMenuDetails) {
+	if (ShowEphemeralReplyTextOnlyError(
+			controller->uiShow(),
+			&peer->session(),
+			replyTo.messageId)) {
+		return;
+	}
 	if (peer->isChannel() && !peer->isMegagroup()) {
 		chosen &= ~PollData::Flag::PublicVotes;
 		disabled |= PollData::Flag::PublicVotes;
@@ -2437,6 +2443,12 @@ void PeerMenuCreateTodoList(
 		SuggestOptions suggest,
 		Api::SendType sendType,
 		SendMenu::Details sendMenuDetails) {
+	if (ShowEphemeralReplyTextOnlyError(
+			controller->uiShow(),
+			&peer->session(),
+			replyTo.messageId)) {
+		return;
+	}
 	if (!peer->session().premium()) {
 		PeerMenuTodoWantsPremium(TodoWantsPremium::Create);
 		return;

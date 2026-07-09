@@ -4948,7 +4948,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_ephemeral_visible_to" = "Only visible to {user}";
 "lng_ephemeral_about" = "Only you see this message. It will disappear after you restart the app.";
 "lng_ephemeral_command_tooltip" = "Other members won't see this message";
-"lng_ephemeral_reply_text_only" = "Only text messages can be sent in reply to this message.";
+"lng_ephemeral_reply_text_only" = "This type of message can't be sent in reply to this message.";
+"lng_ephemeral_reply_single_message" = "You can send only one message in reply to this message.";
 "lng_ephemeral_cant_schedule" = "Ephemeral messages can't be scheduled.";
 "lng_unblock_button" = "Unblock";
 "lng_restart_button" = "Restart";
