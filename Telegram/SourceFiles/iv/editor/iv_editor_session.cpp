@@ -891,6 +891,14 @@ private:
 		if (auto simple = SerializeAsSimple(_state->richPage(), _session)) {
 			return submitSimpleText(std::move(*simple));
 		}
+		if (_mode == Mode::Compose && _composeAction) {
+			const auto replyToId = _composeAction->replyTo.messageId;
+			const auto target = _session->data().message(replyToId);
+			if (target && target->isEphemeral()) {
+				showToast(tr::lng_ephemeral_reply_text_only(tr::now));
+				return false;
+			}
+		}
 		if (!CanUseRichMessages(_session)) {
 			const auto page = _state->richPage();
 			if (!RichPageIsFlattenSafe(page)) {

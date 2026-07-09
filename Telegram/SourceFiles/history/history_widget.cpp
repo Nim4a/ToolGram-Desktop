@@ -5487,6 +5487,12 @@ void HistoryWidget::sendRichDraft(
 	if (!page) {
 		return;
 	}
+	if (ShowEphemeralReplyTextOnlyError(
+			controller()->uiShow(),
+			&session(),
+			replyTo().messageId)) {
+		return;
+	}
 	if (!options.scheduled) {
 		_cornerButtons.clearReplyReturns();
 		if (showSlowmodeError()) {
