@@ -534,6 +534,7 @@ private:
 	//	const style::icon *icon,
 	//	const Ui::Text::String &text) const;
 	[[nodiscard]] bool archiveSearchActive() const;
+	[[nodiscard]] bool communitySearchActive() const;
 	void updateSearchIn();
 	void repaintSearchResult(int index);
 	void repaintPreviewResult(int index);

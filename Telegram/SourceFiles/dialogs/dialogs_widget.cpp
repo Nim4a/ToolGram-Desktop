@@ -2978,6 +2978,9 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 			_searchQueryFrom = fromPeer;
 			_searchQueryTags = inTags;
 			_searchQueryTab = tab;
+			_searchQueryCommunity = _openedCommunity
+				? _openedCommunity->channel().get()
+				: nullptr;
 			_searchQueryFilter = filter;
 			process->nextRate = 0;
 			process->full = false;
@@ -2996,6 +2999,9 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 		_searchQueryFrom = fromPeer;
 		_searchQueryTags = inTags;
 		_searchQueryTab = tab;
+		_searchQueryCommunity = _openedCommunity
+			? _openedCommunity->channel().get()
+			: nullptr;
 		_searchQueryFilter = filter;
 		process->nextRate = 0;
 		process->full = false;
@@ -3358,7 +3364,10 @@ void Widget::requestMessages(bool fromStart) {
 		.start = fromStart,
 	};
 	using Flag = MTPmessages_SearchGlobal::Flag;
-	const auto flags = Flag::f_folder_id
+	const auto community = (_searchQueryTab == ChatSearchTab::ThisCommunity)
+		? _searchQueryCommunity
+		: nullptr;
+	const auto flags = (community ? Flag::f_community : Flag::f_folder_id)
 		| (_searchQueryFilter == ChatTypeFilter::Private
 			? Flag::f_users_only
 			: _searchQueryFilter == ChatTypeFilter::Groups
@@ -3373,7 +3382,7 @@ void Widget::requestMessages(bool fromStart) {
 		MTPmessages_SearchGlobal(
 			MTP_flags(flags),
 			MTP_int(folderId),
-			MTPInputChannel(),
+			(community ? community->inputChannel() : MTPInputChannel()),
 			MTP_string(_searchQuery),
 			MTP_inputMessagesFilterEmpty(),
 			MTP_int(0), // min_date
@@ -3915,16 +3924,23 @@ bool Widget::applySearchState(SearchState state) {
 			? ChatSearchTab::ThisPeer
 			: _openedFolder
 			? ChatSearchTab::Archive
+			: _openedCommunity
+			? ChatSearchTab::ThisCommunity
 			: ChatSearchTab::MyMessages;
 	} else if (!state.inChat
 		&& _searchHashOrCashtag == HashOrCashtag::None) {
 		const auto archive = _openedFolder
 			&& ((folder == _openedFolder)
 				|| (state.tab == ChatSearchTab::Archive));
+		const auto communityScope = _openedCommunity
+			&& (community
+				|| (state.tab == ChatSearchTab::ThisCommunity));
 		state.tab = (forum || _openedForum)
 			? ChatSearchTab::ThisPeer
 			: archive
 			? ChatSearchTab::Archive
+			: communityScope
+			? ChatSearchTab::ThisCommunity
 			: ChatSearchTab::MyMessages;
 	}
 	if (!state.tags.empty()) {
@@ -3975,6 +3991,8 @@ bool Widget::applySearchState(SearchState state) {
 			&& !_openedForum)
 		|| (state.tab == ChatSearchTab::Archive
 			&& (!_openedFolder || state.inChat))
+		|| (state.tab == ChatSearchTab::ThisCommunity
+			&& (!_openedCommunity || state.inChat))
 		|| (state.tab == ChatSearchTab::PublicPosts
 			&& _searchHashOrCashtag == HashOrCashtag::None)) {
 		state.tab = state.inChat.topic()
@@ -4674,7 +4692,8 @@ void Widget::cancelSearchRequest() {
 PeerData *Widget::searchInPeer() const {
 	return (_searchState.tab == ChatSearchTab::MyMessages
 		|| _searchState.tab == ChatSearchTab::PublicPosts
-		|| _searchState.tab == ChatSearchTab::Archive)
+		|| _searchState.tab == ChatSearchTab::Archive
+		|| _searchState.tab == ChatSearchTab::ThisCommunity)
 		? nullptr
 		: _openedForum
 		? _openedForum->peer().get()
@@ -4787,6 +4806,7 @@ bool Widget::cancelSearch(CancelSearchOptions options) {
 		clearingInChat = true;
 	}
 	if ((updatedState.tab == ChatSearchTab::Archive
+		|| updatedState.tab == ChatSearchTab::ThisCommunity
 		|| updatedState.tab == ChatSearchTab::PublicPosts)
 		&& (forceFullCancel || !clearingQuery)) {
 		updatedState.tab = ChatSearchTab::MyMessages;
