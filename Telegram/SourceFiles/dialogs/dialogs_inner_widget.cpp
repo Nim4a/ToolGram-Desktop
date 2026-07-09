@@ -385,6 +385,9 @@ InnerWidget::InnerWidget(
 			&& !_openedForum
 			&& (folder == _openedFolder);
 	}) | rpl::on_next([=] {
+		if (_state == WidgetState::Filtered && !_filter.isEmpty()) {
+			refreshFilterResults();
+		}
 		refresh();
 	}, lifetime());
 
@@ -4202,36 +4205,8 @@ void InnerWidget::applySearchState(SearchState state) {
 			clearFilter();
 		} else {
 			setState(WidgetState::Filtered);
-			_filterResults.clear();
 			_filterResultsGlobal.clear();
-			const auto append = [&](not_null<IndexedList*> list) {
-				const auto results = list->filtered(words);
-				auto top = filteredHeight();
-				auto i = _filterResults.insert(
-					end(_filterResults),
-					begin(results),
-					end(results));
-				for (const auto e = end(_filterResults); i != e; ++i) {
-					i->top = top;
-					i->row->recountHeight(_narrowRatio, _filterId);
-					top += i->row->height();
-				}
-			};
-			if (_searchState.filterChatsList() && !words.isEmpty()) {
-				if (_savedSublists) {
-					append(_savedSublists->chatsList()->indexed());
-				} else if (_openedForum) {
-					append(_openedForum->topicsList()->indexed());
-				} else {
-					const auto owner = &session().data();
-					append(owner->chatsList()->indexed());
-					const auto id = Data::Folder::kId;
-					if (const auto add = owner->folderLoaded(id)) {
-						append(add->chatsList()->indexed());
-					}
-					append(owner->contactsNoChatsList());
-				}
-			}
+			refreshFilterResults();
 		}
 		clearMouseSelection(true);
 	}
@@ -4276,6 +4251,50 @@ void InnerWidget::onHashtagFilterUpdate(QStringView newFilter) {
 	}
 	refresh(true);
 	clearMouseSelection(true);
+}
+
+void InnerWidget::refreshFilterResults() {
+	const auto mentionsSearch = (_filter == u"@"_q);
+	const auto words = mentionsSearch
+		? QStringList(_filter)
+		: TextUtilities::PrepareSearchWords(_filter);
+	_filterResults.clear();
+	const auto append = [&](not_null<IndexedList*> list) {
+		const auto results = list->filtered(words);
+		auto top = filteredHeight();
+		auto i = _filterResults.insert(
+			end(_filterResults),
+			begin(results),
+			end(results));
+		for (const auto e = end(_filterResults); i != e; ++i) {
+			i->top = top;
+			i->row->recountHeight(_narrowRatio, _filterId);
+			top += i->row->height();
+		}
+	};
+	if (_searchState.filterChatsList() && !words.isEmpty()) {
+		if (_savedSublists) {
+			append(_savedSublists->chatsList()->indexed());
+		} else if (_openedForum) {
+			append(_openedForum->topicsList()->indexed());
+		} else {
+			const auto owner = &session().data();
+			append(owner->chatsList()->indexed());
+			const auto id = Data::Folder::kId;
+			if (const auto add = owner->folderLoaded(id)) {
+				append(add->chatsList()->indexed());
+			}
+			append(owner->contactsNoChatsList());
+		}
+	}
+	for (const auto &[key, row] : _filterResultsGlobal) {
+		if (!ranges::contains(_filterResults, key, &FilterResult::key)) {
+			const auto height = filteredHeight();
+			_filterResults.emplace_back(row.get());
+			_filterResults.back().top = height;
+			_filterResults.back().row->recountHeight(_narrowRatio, _filterId);
+		}
+	}
 }
 
 void InnerWidget::appendToFiltered(Key key) {

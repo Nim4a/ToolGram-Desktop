@@ -575,6 +575,7 @@ private:
 	[[nodiscard]] int defaultChildIndexOfSelected() const;
 
 	void announceSelectedFocus();
+	void refreshFilterResults();
 	void clearSearchResults(bool alsoPeerSearchResults = true);
 	void clearPeerSearchResults();
 	void clearPreviewResults();
