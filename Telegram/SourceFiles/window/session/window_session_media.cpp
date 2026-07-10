@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "apiwrap.h"
 #include "boxes/send_files_box.h"
+#include "data/components/ephemeral_messages.h"
 #include "data/data_forum_topic.h"
 #include "data/data_peer.h"
 #include "data/data_saved_sublist.h"
@@ -110,6 +111,11 @@ void SessionController::showDrawToReplyFilesBox(
 					options);
 			}
 		}),
+		.replyTo = FullReplyTo{
+			.messageId = replyTo,
+			.topicRootId = thread->topicRootId(),
+			.monoforumPeerId = thread->monoforumPeerId(),
+		},
 	}));
 }
 
@@ -119,6 +125,12 @@ void SessionController::sendDrawToReplyFiles(
 		std::shared_ptr<Ui::PreparedBundle> bundle,
 		Api::SendOptions options) {
 	if (!bundle) {
+		return;
+	}
+	const auto ephemeralReply = session().ephemeralMessages()
+		.isEphemeralBotReply(replyTo);
+	if (bundle->totalCount > 1 && ephemeralReply) {
+		showToast(tr::lng_ephemeral_reply_single_message(tr::now));
 		return;
 	}
 	const auto type = bundle->way.sendImagesAsPhotos()
