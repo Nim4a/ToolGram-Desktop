@@ -86,6 +86,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QTextCursor>
 #include <QtGui/QTextDocument>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QLineEdit>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QTextEdit>
 #include <QShortcut>
@@ -2728,12 +2729,15 @@ Widget::Widget(
 			return base::EventFilterResult::Continue;
 		}
 		const auto event = static_cast<QKeyEvent*>(e.get());
-		if (!event->isAccepted()
-			&& (event->modifiers() & Qt::ControlModifier)
-			&& event->key() == Qt::Key_F
+		if (event->isAccepted()) {
+			return base::EventFilterResult::Continue;
+		} else if ((event->modifiers() & Qt::ControlModifier)
+			&& (event->key() == Qt::Key_F)
 			&& !searchBlockedByLayer()) {
 			event->accept();
 			toggleSearch();
+			return base::EventFilterResult::Cancel;
+		} else if (handleUndoRedoShortcutOverride(event)) {
 			return base::EventFilterResult::Cancel;
 		}
 		return base::EventFilterResult::Continue;
@@ -4299,6 +4303,35 @@ bool Widget::handleUndoRedoShortcut(QKeyEvent *e) {
 		});
 	}
 	e->accept();
+	return true;
+}
+
+bool Widget::handleUndoRedoShortcutOverride(QKeyEvent *e) {
+	auto redo = std::optional<bool>();
+	if (e == QKeySequence::Undo) {
+		redo = false;
+	} else if (e == QKeySequence::Redo) {
+		redo = true;
+	}
+	if (!redo || searchBlockedByLayer()) {
+		return false;
+	}
+	const auto focused = QApplication::focusWidget();
+	if (qobject_cast<QTextEdit*>(focused)
+		|| qobject_cast<QLineEdit*>(focused)) {
+		return false;
+	} else if (hasFocus()) {
+		e->accept();
+		return false;
+	}
+	const auto redoValue = *redo;
+	if (!canPerformUndoRedo(redoValue)) {
+		return false;
+	}
+	e->accept();
+	crl::on_main(this, [=] {
+		performToolbarUndoRedo(redoValue);
+	});
 	return true;
 }
 
