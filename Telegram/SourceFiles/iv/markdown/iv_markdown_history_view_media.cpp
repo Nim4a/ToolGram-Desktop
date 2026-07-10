@@ -177,25 +177,36 @@ struct IvHistoryViewHit {
 			std::shared_ptr<DocumentRuntime>> &documents,
 		const base::flat_map<uint64, int> &indices) {
 	auto result = IvHistoryViewHit();
-	if (const auto photoOpen
-		= std::dynamic_pointer_cast<PhotoOpenClickHandler>(handler)) {
-		const auto i = photos.find(photoOpen->photo()->id);
+	const auto activatesPhoto
+		= std::dynamic_pointer_cast<PhotoOpenClickHandler>(handler)
+		|| std::dynamic_pointer_cast<PhotoSaveClickHandler>(handler);
+	const auto activatesDocument = !activatesPhoto
+		&& !std::dynamic_pointer_cast<VoiceSeekClickHandler>(handler)
+		&& (std::dynamic_pointer_cast<DocumentOpenClickHandler>(handler)
+			|| std::dynamic_pointer_cast<DocumentSaveClickHandler>(
+				handler));
+	if (activatesPhoto) {
+		const auto photo = std::dynamic_pointer_cast<PhotoClickHandler>(
+			handler)->photo();
+		const auto i = photos.find(photo->id);
 		if (i != end(photos)) {
 			result.activation.kind = MediaActivationKind::Photo;
 			result.activation.photo = i->second;
-			const auto j = indices.find(photoOpen->photo()->id);
+			const auto j = indices.find(photo->id);
 			if (j != end(indices)) {
 				result.activation.itemIndex = j->second;
 			}
 			return result;
 		}
-	} else if (const auto documentOpen
-		= std::dynamic_pointer_cast<DocumentOpenClickHandler>(handler)) {
-		const auto i = documents.find(documentOpen->document()->id);
+	} else if (activatesDocument) {
+		const auto document
+			= std::dynamic_pointer_cast<DocumentClickHandler>(
+				handler)->document();
+		const auto i = documents.find(document->id);
 		if (i != end(documents)) {
 			result.activation.kind = MediaActivationKind::Document;
 			result.activation.document = i->second;
-			const auto j = indices.find(documentOpen->document()->id);
+			const auto j = indices.find(document->id);
 			if (j != end(indices)) {
 				result.activation.itemIndex = j->second;
 			}
@@ -526,12 +537,12 @@ IvHistoryViewHit IvHistoryViewBlock::classifyHandler(
 			result.link = handler;
 			return result;
 		}
-		if (std::dynamic_pointer_cast<PhotoSaveClickHandler>(handler)
-			|| std::dynamic_pointer_cast<PhotoCancelClickHandler>(handler)) {
+		if (std::dynamic_pointer_cast<PhotoCancelClickHandler>(handler)) {
 			result.link = handler;
 			return result;
 		}
-		if (std::dynamic_pointer_cast<PhotoOpenClickHandler>(handler)
+		if ((std::dynamic_pointer_cast<PhotoOpenClickHandler>(handler)
+			|| std::dynamic_pointer_cast<PhotoSaveClickHandler>(handler))
 			&& _photoRuntime) {
 			result.activation.kind = MediaActivationKind::Photo;
 			result.activation.photo = _photoRuntime;
@@ -572,6 +583,26 @@ IvHistoryViewHit IvHistoryViewBlock::classifyHandler(
 			}
 		}
 	}
+	if (_kind == IvHistoryViewMediaKind::GroupedMedia) {
+		auto grouped = ClassifyGroupedHandler(
+			handler,
+			_groupedPhotoRuntimes,
+			_groupedDocumentRuntimes,
+			_groupedItemIndices);
+		if (grouped.activation.kind != MediaActivationKind::None
+			|| !IsSupportedInteractionHandler(handler)) {
+			return grouped;
+		}
+		result.link = handler;
+		return result;
+	}
+	if (_kind == IvHistoryViewMediaKind::Document
+		&& _documentRuntime
+		&& std::dynamic_pointer_cast<DocumentSaveClickHandler>(handler)) {
+		result.activation.kind = MediaActivationKind::Document;
+		result.activation.document = _documentRuntime;
+		return result;
+	}
 	if (IsSupportedInteractionHandler(handler)) {
 		result.link = handler;
 		return result;
@@ -580,13 +611,6 @@ IvHistoryViewHit IvHistoryViewBlock::classifyHandler(
 		&& std::dynamic_pointer_cast<DocumentOpenClickHandler>(handler)) {
 		result.link = handler;
 		return result;
-	}
-	if (_kind == IvHistoryViewMediaKind::GroupedMedia) {
-		return ClassifyGroupedHandler(
-			handler,
-			_groupedPhotoRuntimes,
-			_groupedDocumentRuntimes,
-			_groupedItemIndices);
 	}
 	if (std::dynamic_pointer_cast<PhotoOpenClickHandler>(handler)
 		&& _photoRuntime) {
@@ -1025,19 +1049,20 @@ IvHistoryViewHit IvHistoryViewSlideshowBlock::classifyState(
 			return result;
 		}
 	}
-	if (IsSupportedInteractionHandler(handler)) {
-		result.link = handler;
-		return result;
-	}
-	result = ClassifyGroupedHandler(
+	auto grouped = ClassifyGroupedHandler(
 		handler,
 		_groupedPhotoRuntimes,
 		_groupedDocumentRuntimes,
 		_groupedItemIndices);
-	if (result.activation.kind != MediaActivationKind::None) {
-		result.activation.itemIndex = index;
+	if (grouped.activation.kind != MediaActivationKind::None) {
+		grouped.activation.itemIndex = index;
+		return grouped;
 	}
-	return result;
+	if (IsSupportedInteractionHandler(handler)) {
+		result.link = handler;
+		return result;
+	}
+	return grouped;
 }
 
 IvHistoryViewHit IvHistoryViewSlideshowBlock::resolveHit(QPoint point) const {
