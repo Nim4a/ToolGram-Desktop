@@ -206,6 +206,39 @@ struct IvHistoryViewHit {
 	return result;
 }
 
+[[nodiscard]] MediaActivation SpoileredGroupedItemActivation(
+		int itemIndex,
+		const base::flat_map<
+			uint64,
+			std::shared_ptr<PhotoRuntime>> &photos,
+		const base::flat_map<
+			uint64,
+			std::shared_ptr<DocumentRuntime>> &documents,
+		const base::flat_map<uint64, int> &indices,
+		const base::flat_set<uint64> &spoilered) {
+	auto result = MediaActivation();
+	for (const auto &[id, index] : indices) {
+		if (index != itemIndex || !spoilered.contains(id)) {
+			continue;
+		}
+		const auto i = photos.find(id);
+		if (i != end(photos)) {
+			result.kind = MediaActivationKind::Photo;
+			result.photo = i->second;
+			result.itemIndex = itemIndex;
+		} else {
+			const auto j = documents.find(id);
+			if (j != end(documents)) {
+				result.kind = MediaActivationKind::Document;
+				result.document = j->second;
+				result.itemIndex = itemIndex;
+			}
+		}
+		break;
+	}
+	return result;
+}
+
 [[nodiscard]] not_null<HistoryItem*> CreateIvHostMessage(
 		not_null<History*> history,
 		QString pageUrl) {
@@ -512,6 +545,29 @@ IvHistoryViewHit IvHistoryViewBlock::classifyHandler(
 			result.activation.kind = MediaActivationKind::Document;
 			result.activation.document = _documentRuntime;
 			return result;
+		}
+		if (_kind == IvHistoryViewMediaKind::GroupedMedia) {
+			const auto grouped = dynamic_cast<HistoryView::GroupedMedia*>(
+				_media.get());
+			if (grouped) {
+				const auto count = int(_groupedItemIndices.size());
+				for (auto i = 0; i != count; ++i) {
+					if (!grouped->groupItemRect(i).contains(localPoint)) {
+						continue;
+					}
+					auto activation = SpoileredGroupedItemActivation(
+						i,
+						_groupedPhotoRuntimes,
+						_groupedDocumentRuntimes,
+						_groupedItemIndices,
+						_groupedSpoileredIds);
+					if (activation.kind != MediaActivationKind::None) {
+						result.activation = std::move(activation);
+						return result;
+					}
+					break;
+				}
+			}
 		}
 	}
 	if (IsSupportedInteractionHandler(handler)) {
@@ -929,6 +985,18 @@ IvHistoryViewHit IvHistoryViewSlideshowBlock::classifyState(
 	const auto &handler = state.link;
 	if (!handler) {
 		return result;
+	}
+	if (std::dynamic_pointer_cast<LambdaClickHandler>(handler)) {
+		auto activation = SpoileredGroupedItemActivation(
+			index,
+			_groupedPhotoRuntimes,
+			_groupedDocumentRuntimes,
+			_groupedItemIndices,
+			_groupedSpoileredIds);
+		if (activation.kind != MediaActivationKind::None) {
+			result.activation = std::move(activation);
+			return result;
+		}
 	}
 	if (IsSupportedInteractionHandler(handler)) {
 		result.link = handler;
