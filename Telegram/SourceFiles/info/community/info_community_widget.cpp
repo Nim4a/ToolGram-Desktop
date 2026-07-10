@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/rp_widget.h"
 #include "ui/ui_utility.h"
 #include "styles/style_info.h"
+#include "styles/style_layers.h"
 
 namespace Info::Community {
 
@@ -241,19 +242,22 @@ std::unique_ptr<Ui::RpWidget> Widget::setupAddChatButton() {
 		Dialogs::PaintBottomFade(p, wrap->width(), fadeHeight, st::boxBg);
 	});
 
-	scroll()->setVerticalBarBottomSkip(st::communityAddChatButtonMargin.top()
-		+ st::communityAddChatButton.height
-		+ st::communityAddChatButtonMargin.bottom());
-
 	widthValue() | rpl::on_next([=](int width) {
 		wrap->resizeToWidth(width);
 	}, wrap->lifetime());
 
 	rpl::combine(
 		wrap->heightValue(),
-		heightValue()
-	) | rpl::on_next([=](int height, int fullHeight) {
-		wrap->move(0, fullHeight - height);
+		heightValue(),
+		this->controller()->contentTillBottomValue()
+	) | rpl::on_next([=](int height, int fullHeight, bool tillBottom) {
+		const auto shift = tillBottom ? 0 : st::boxRadius;
+		wrap->move(0, fullHeight - height + shift);
+
+		const auto scrollSkip = st::communityAddChatButtonMargin.top()
+			+ st::communityAddChatButton.height
+			+ st::communityAddChatButtonMargin.bottom();
+		scroll()->setVerticalBarBottomSkip(scrollSkip - shift);
 	}, wrap->lifetime());
 
 	return result;
