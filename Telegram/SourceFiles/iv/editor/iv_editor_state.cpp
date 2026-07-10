@@ -659,6 +659,29 @@ void NormalizeInsertedOrderedListMetadata(std::vector<Block> *blocks) {
 		&& (*mediaId == target.mediaId);
 }
 
+[[nodiscard]] std::optional<uint64> ReplaceTargetMediaId(
+		const RichPage::GroupedMediaItem &item) {
+	switch (item.kind) {
+	case BlockKind::Photo:
+		return item.photoId ? std::make_optional(item.photoId) : std::nullopt;
+	case BlockKind::Video:
+		return item.documentId
+			? std::make_optional(item.documentId)
+			: std::nullopt;
+	default:
+		return std::nullopt;
+	}
+}
+
+[[nodiscard]] bool GroupedItemMatchesReplaceTarget(
+		const RichPage::GroupedMediaItem &item,
+		const ReplaceTarget &target) {
+	const auto mediaId = ReplaceTargetMediaId(item);
+	return (item.kind == target.kind)
+		&& mediaId
+		&& (*mediaId == target.mediaId);
+}
+
 [[nodiscard]] std::optional<RichPage::GroupedMediaItem>
 GroupedItemFromPhotoVideoBlock(const Block &block) {
 	if (!IsPhotoVideoBlockKind(block.kind)) {
@@ -2068,6 +2091,32 @@ std::optional<State::ReplaceTarget> State::replaceTargetForBlock(
 	};
 }
 
+std::optional<State::ReplaceTarget> State::replaceTargetForGroupedItem(
+		const BlockPath &path,
+		int itemIndex) const {
+	const auto current = block(path);
+	if (!current
+		|| current->kind != BlockKind::GroupedMedia
+		|| itemIndex < 0
+		|| itemIndex >= int(current->mediaItems.size())) {
+		return std::nullopt;
+	}
+	const auto &item = current->mediaItems[itemIndex];
+	if (!IsPhotoVideoBlockKind(item.kind)) {
+		return std::nullopt;
+	}
+	const auto mediaId = ReplaceTargetMediaId(item);
+	if (!mediaId) {
+		return std::nullopt;
+	}
+	return ReplaceTarget{
+		.path = path,
+		.kind = item.kind,
+		.mediaId = *mediaId,
+		.itemIndex = itemIndex,
+	};
+}
+
 bool State::replaceBlockWithPreparedBlock(
 		const ReplaceTarget &target,
 		Block block) {
@@ -2083,6 +2132,27 @@ bool State::replaceBlockWithPreparedBlock(
 			return CheckedMutationResult<bool>{ .result = false };
 		}
 		auto &current = (*blocks)[path.index];
+		if (target.itemIndex >= 0) {
+			if (current.kind != BlockKind::GroupedMedia
+				|| target.itemIndex >= int(current.mediaItems.size())) {
+				return CheckedMutationResult<bool>{ .result = false };
+			}
+			auto &item = current.mediaItems[target.itemIndex];
+			if (!GroupedItemMatchesReplaceTarget(item, target)) {
+				return CheckedMutationResult<bool>{ .result = false };
+			}
+			auto replacement = GroupedItemFromPhotoVideoBlock(block);
+			if (!replacement) {
+				return CheckedMutationResult<bool>{ .result = false };
+			}
+			replacement->spoiler = item.spoiler;
+			item = std::move(*replacement);
+			candidate.rebuild();
+			return CheckedMutationResult<bool>{
+				.apply = true,
+				.result = true,
+			};
+		}
 		if (!BlockMatchesReplaceTarget(current, target)
 			|| !IsReplaceableMediaBlockKind(block.kind)) {
 			return CheckedMutationResult<bool>{ .result = false };

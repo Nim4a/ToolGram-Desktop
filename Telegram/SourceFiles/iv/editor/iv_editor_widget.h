@@ -277,6 +277,10 @@ private:
 		UploadRadial,
 		LayoutSwitch,
 	};
+	enum class MediaClickKind : uchar {
+		Left,
+		ContextMenu,
+	};
 	struct PressedMediaControl {
 		MediaControl control = MediaControl::None;
 		State::BlockPath path;
@@ -806,7 +810,8 @@ private:
 	[[nodiscard]] bool showMediaMenuFromHit(
 		const Markdown::PreparedEditHit &hit,
 		const Markdown::MarkdownArticleHitTestResult &articleHit,
-		QPoint globalPos);
+		QPoint globalPos,
+		MediaClickKind clickKind);
 	[[nodiscard]] bool activateGroupedMediaLinkFromHit(
 		const Markdown::PreparedEditHit &hit,
 		const Markdown::MarkdownArticleHitTestResult &articleHit,
@@ -822,6 +827,11 @@ private:
 		Fn<bool()> change);
 	void requestReplaceMedia(State::BlockPath path);
 	void editPhotoBlock(State::BlockPath path);
+	void editGroupedItemPhoto(State::BlockPath path, int itemIndex);
+	void openPhotoEditor(
+		uint64 photoId,
+		bool spoiler,
+		State::ReplaceTarget target);
 	void paintMediaControls(Painter &p, QPoint topLeft);
 	struct MediaControlLayout {
 		QRect threeDots;
