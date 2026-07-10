@@ -3043,25 +3043,22 @@ void ListWidget::keyPressEvent(QKeyEvent *e) {
 			const auto elements = accessibleElements();
 			const auto barIndex
 				= accessibilityUnreadBarIndex();
-			const auto elementIndex = (barIndex >= 0
-				&& _accessibilityFocusedIndex > barIndex)
-				? (_accessibilityFocusedIndex - 1)
-				: _accessibilityFocusedIndex;
-			if (elementIndex < 0
-				|| elementIndex >= int(elements.size())
-				|| elements[elementIndex]->data().get()
-					!= _accessibilityFocusedItem) {
+			if (accessibilityItemAtIndex(
+					_accessibilityFocusedIndex,
+					elements,
+					barIndex) != _accessibilityFocusedItem) {
 				// The focused item is still the same message, but
 				// its index in accessibleElements() shifted (the list
-				// was mutated since the last navigation). Repair the
-				// cached index in-place without emitting a focus
-				// change — the framework still thinks the focused
-				// child is _accessibilityFocusedItem and we are only
-				// catching up our bookkeeping. If the item is not in
-				// the loaded slice anymore the index is invalidated
-				// instead: selection and media actions dispatch by
-				// index, and a stale one would silently operate on
-				// whatever unrelated row occupies it now.
+				// was mutated since the last navigation, possibly by
+				// an unread bar appearing right at the cached index).
+				// Repair the cached index in-place without emitting a
+				// focus change — the framework still thinks the
+				// focused child is _accessibilityFocusedItem and we
+				// are only catching up our bookkeeping. If the item
+				// is not in the loaded slice anymore the index is
+				// invalidated instead: selection and media actions
+				// dispatch by index, and a stale one would silently
+				// operate on whatever unrelated row occupies it now.
 				_accessibilityFocusedIndex = -1;
 				for (auto i = 0, n = int(elements.size());
 					i < n; ++i) {
@@ -3075,6 +3072,13 @@ void ListWidget::keyPressEvent(QKeyEvent *e) {
 					}
 				}
 			}
+		} else if (_accessibilityFocusedIndex >= 0) {
+			// A nonnegative index with no cached item means the unread
+			// bar was focused. Follow the bar to wherever it sits now
+			// (rows inserted or removed above shift its index), or
+			// invalidate the focus when the bar is gone: the row that
+			// occupies the old index was never announced to the user.
+			_accessibilityFocusedIndex = accessibilityUnreadBarIndex();
 		}
 		const auto plainKey = (modifiers == Qt::NoModifier);
 		const auto shiftRange = (modifiers == Qt::ShiftModifier)
@@ -3138,14 +3142,10 @@ void ListWidget::keyPressEvent(QKeyEvent *e) {
 			const auto elements = accessibleElements();
 			const auto barIndex
 				= accessibilityUnreadBarIndex();
-			const auto elementIndex = (barIndex >= 0
-				&& newIndex > barIndex)
-				? (newIndex - 1)
-				: newIndex;
-			const auto item = (elementIndex >= 0
-				&& elementIndex < int(elements.size()))
-				? elements[elementIndex]->data().get()
-				: nullptr;
+			const auto item = accessibilityItemAtIndex(
+				newIndex,
+				elements,
+				barIndex);
 			if (shiftRange) {
 				extendAccessibilitySelection(
 					_accessibilityFocusedIndex,
@@ -3166,12 +3166,8 @@ void ListWidget::keyPressEvent(QKeyEvent *e) {
 				}
 			}
 
-			if (markingMessagesRead()
-				&& (barIndex < 0 || newIndex != barIndex)
-				&& elementIndex >= 0
-				&& elementIndex < int(elements.size())) {
-				_delegate->listMarkReadTill(
-					elements[elementIndex]->data());
+			if (markingMessagesRead() && item) {
+				_delegate->listMarkReadTill(item);
 			}
 
 			e->accept();
@@ -5170,6 +5166,24 @@ int ListWidget::accessibilityUnreadBarIndex() const {
 	return -1;
 }
 
+HistoryItem *ListWidget::accessibilityItemAtIndex(
+		int index,
+		const std::vector<Element*> &elements,
+		int barIndex) const {
+	// The unread bar row maps to no item: a focused bar is cached as
+	// a null item with a nonnegative index, so it can never be
+	// mistaken for the message it is anchored to when rows shift.
+	if (index < 0 || (barIndex >= 0 && index == barIndex)) {
+		return nullptr;
+	}
+	const auto elementIndex = (barIndex >= 0 && index > barIndex)
+		? (index - 1)
+		: index;
+	return (elementIndex < int(elements.size()))
+		? elements[elementIndex]->data().get()
+		: nullptr;
+}
+
 auto ListWidget::computeActiveColumns(int row) const
 -> const std::vector<HistoryView::MessageSubItem> & {
 	const auto barIndex = accessibilityUnreadBarIndex();
@@ -5279,17 +5293,8 @@ void ListWidget::extendAccessibilitySelection(
 	// towards it deselects the row being left.
 	const auto elements = accessibleElements();
 	const auto barIndex = accessibilityUnreadBarIndex();
-	const auto itemAt = [&](int index) -> HistoryItem* {
-		if (barIndex >= 0 && index == barIndex) {
-			return nullptr;
-		}
-		const auto elementIndex = (barIndex >= 0 && index > barIndex)
-			? (index - 1)
-			: index;
-		return (elementIndex >= 0
-			&& elementIndex < int(elements.size()))
-			? elements[elementIndex]->data().get()
-			: nullptr;
+	const auto itemAt = [&](int index) {
+		return accessibilityItemAtIndex(index, elements, barIndex);
 	};
 	if (oldIndex < 0) {
 		_accessibilitySelectionAnchor = itemAt(newIndex);
@@ -5335,22 +5340,14 @@ void ListWidget::extendAccessibilitySelection(
 }
 
 void ListWidget::playPauseFocusedMedia() {
-	if (_accessibilityFocusedIndex < 0) {
-		return;
-	}
-	const auto barIndex = accessibilityUnreadBarIndex();
-	if (barIndex >= 0 && _accessibilityFocusedIndex == barIndex) {
-		return;
-	}
 	const auto elements = accessibleElements();
-	const auto elementIndex = (barIndex >= 0
-		&& _accessibilityFocusedIndex > barIndex)
-		? (_accessibilityFocusedIndex - 1)
-		: _accessibilityFocusedIndex;
-	if (elementIndex < 0 || elementIndex >= int(elements.size())) {
+	const auto item = accessibilityItemAtIndex(
+		_accessibilityFocusedIndex,
+		elements,
+		accessibilityUnreadBarIndex());
+	if (!item) {
 		return;
 	}
-	const auto item = elements[elementIndex]->data();
 	if (const auto media = item->media()) {
 		if (const auto document = media->document()) {
 			if (document->isVoiceMessage()
@@ -5546,6 +5543,13 @@ void ListWidget::focusInEvent(QFocusEvent *e) {
 			// branch below establishes a fresh focus instead.
 			_accessibilityFocusedItem = nullptr;
 			_accessibilityFocusedIndex = -1;
+		} else if (_accessibilityFocusedIndex >= 0) {
+			// A nonnegative index with no cached item means the unread
+			// bar was focused. Follow the bar to wherever it sits now,
+			// or fall through to pick a fresh focus target when it is
+			// gone: the row that occupies the old index was never
+			// announced to the user.
+			_accessibilityFocusedIndex = accessibilityUnreadBarIndex();
 		}
 		if (_accessibilityFocusedIndex >= 0
 			&& _accessibilityFocusedIndex < count) {
@@ -5557,14 +5561,10 @@ void ListWidget::focusInEvent(QFocusEvent *e) {
 			? (barIndex + 1)
 			: (count - 1);
 		const auto elements = accessibleElements();
-		const auto elementIndex = (barIndex >= 0
-			&& index > barIndex)
-			? (index - 1)
-			: index;
-		const auto item = (elementIndex >= 0
-			&& elementIndex < int(elements.size()))
-			? elements[elementIndex]->data().get()
-			: nullptr;
+		const auto item = accessibilityItemAtIndex(
+			index,
+			elements,
+			barIndex);
 		setAccessibilityFocusedItem(index, item);
 	});
 }
@@ -5659,13 +5659,7 @@ void ListWidget::applyAccessibilityFocus(
 		bool announceAlways) {
 	const auto elements = accessibleElements();
 	const auto barIndex = accessibilityUnreadBarIndex();
-	const auto elementIndex = (barIndex >= 0 && index > barIndex)
-		? (index - 1)
-		: index;
-	const auto item = (elementIndex >= 0
-		&& elementIndex < int(elements.size()))
-		? elements[elementIndex]->data().get()
-		: nullptr;
+	const auto item = accessibilityItemAtIndex(index, elements, barIndex);
 	const auto changed = (_accessibilityFocusedIndex != index)
 		|| (_accessibilityFocusedItem != item);
 	_accessibilitySelectionAnchor = nullptr;
@@ -5689,11 +5683,8 @@ void ListWidget::applyAccessibilityFocus(
 				- (_visibleBottom - _visibleTop));
 		}
 	}
-	if (markingMessagesRead()
-		&& (barIndex < 0 || index != barIndex)
-		&& elementIndex >= 0
-		&& elementIndex < int(elements.size())) {
-		_delegate->listMarkReadTill(elements[elementIndex]->data());
+	if (markingMessagesRead() && item) {
+		_delegate->listMarkReadTill(item);
 	}
 }
 
