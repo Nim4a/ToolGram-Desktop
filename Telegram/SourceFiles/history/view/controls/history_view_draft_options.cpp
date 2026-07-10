@@ -731,6 +731,7 @@ void DraftOptionsBox(
 		rpl::lifetime resolveLifetime;
 
 		Fn<void()> rebuild;
+		bool rebuildScheduled = false;
 	};
 	const auto state = box->lifetime().make_state<State>();
 	state->link = args.usedLink;
@@ -1141,7 +1142,7 @@ void DraftOptionsBox(
 	}, state->wrap->lifetime());
 
 	const auto &linkRanges = args.links;
-	state->shown.value() | rpl::on_next([=](Section shown) {
+	const auto rebuildBottom = [=](Section shown) {
 		bottom->clear();
 		state->shownLifetime.destroy();
 		switch (shown) {
@@ -1165,6 +1166,17 @@ void DraftOptionsBox(
 				state->wrap->showForwardSelector(state->forward);
 				setupForwardActions();
 			} break;
+		}
+	};
+	state->shown.value() | rpl::on_next([=](Section shown) {
+		if (!bottom->count()) {
+			rebuildBottom(shown);
+		} else if (!state->rebuildScheduled) {
+			state->rebuildScheduled = true;
+			crl::on_main(bottom, [=] {
+				state->rebuildScheduled = false;
+				rebuildBottom(state->shown.current());
+			});
 		}
 	}, box->lifetime());
 
