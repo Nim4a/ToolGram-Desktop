@@ -25,10 +25,11 @@ adapter point; every other rule here still applies.
 - `TASK_ID` — stable artifact/log identifier (e.g. the project + letter); never a commit trailer.
 - `EVIDENCE_DIR` — per-run logs and screenshots; defaults to `TASK_DIR` unless the wrapper passes a
   run-specific directory.
-- **TASK SPEC** — the task's full description block (from `implementing.md`) and its referenced
-  images (`images/<file>` design mockups / screenshots / graphic resources for this isolated task).
-  This is half of what the tests are designed against (the diff is the other half); the design READS
-  the images — they show what the result should look like.
+- **TASK SPEC** — the task's full description block (from `implementing.md`), including its design
+  basis when the wrapper records one, plus any referenced images (`images/<file>` mockups /
+  screenshots / graphic resources). Images are optional evidence: read them when present, but their
+  absence is never by itself a planning, implementation, or test blocker. The spec and its cited
+  repository/baseline sources are one side of test design; the implementation diff is the other.
 - Config: `BUILD` (build command), `EXE` (built binary path), `MAX_ATTEMPTS` (default 4). The test
   account lives in `out/Debug/` as the portable-data folders described under "Test account" below;
   the wrapper has already confirmed the golden one exists (launch gate). All paths are relative to
@@ -147,24 +148,26 @@ project navigation, and not reused from a previous task.** Different change → 
 two tasks produce the same screenshots and the same assertions, the second test is a no-op. Before
 writing any overlay:
 
-1. **Read both sides of the task.** (a) The TASK SPEC — the task's full description block from
-   `implementing.md` and its referenced design-mockup images (`images/<file>`); READ the images,
-   they are the source of truth for what the result should look like. (b) The change under test —
+1. **Read both sides of the task.** (a) The TASK SPEC — its full description, `Design-Basis:` or
+   equivalent cited sources, and every referenced image when present. (b) The change under test —
    `git show <IMPL_SHA>` (the actual diff) and `<TASK_DIR>/plan.md`. List every concrete thing the
    diff changed and every surface the task (description + "Observable result") says it affects.
+   The diff proves what shipped; it is not independent authority for what the design should be.
 2. **Turn each into a falsifiable check with an ORACLE** — something that can come out FAIL. A check
-   with no way to fail is not a test. By change type:
+   with no way to fail is not a test. Change types can overlap, so apply every pertinent branch: a
+   visible wording change still needs the exact string oracle even when marked `Visual: appearance`;
+   add screenshot comparison only when its presentation is separately in scope. By change type:
    - **String / text** → assert the EXACT expected text is present at runtime (dump the label/widget
      text to the log and compare) AND the old text is gone. Not "the screen opened".
-   - **Visual / asset (icon, image, color, layout)** → the rendered target must MATCH the intended
-     new artwork and DIFFER from the old. Both are available as files (intended art under
-     `.ai/<project>/...`; the committed new file is `git show <IMPL_SHA>:<path>`; the old is
-     `git show <IMPL_SHA>^:<path>`). Render those references to PNG and compare the tight crop
-     against both. **If the rendered target matches the OLD art — or you cannot tell them apart —
-     that is a FAIL, not a pass.** (This is the check that catches a change that never took effect,
-     e.g. an asset that wasn't rebuilt into the binary.) For a task the wrapper marked
-     `Visual: layout`, matching-the-art is necessary but NOT sufficient — also verify the numeric
-     design contract in `<TASK_DIR>/visual.md` (sizes, spacings, alignment); see "Visual contract".
+   - **Visual / asset (icon, image, color, layout)** → declare the independent target oracle before
+     judging the render. For an exact asset replacement, verify any expressly required source-file
+     identity/equality, then render the intended and old files and compare both with the tight crop.
+     Without target artwork, use the exact task criteria,
+     `<TASK_DIR>/visual.md`, cited current/legacy analogues, style-token or resource identity, and
+     the pre-task baseline. Confirm a baseline delta whenever the task requires one. **If the target
+     still matches the old state when a change is expected, that is a FAIL, not a pass.** A
+     `Visual: layout` task must also satisfy every numeric design-contract line (sizes, spacings,
+     alignment); supplied artwork is optional and never a prerequisite for that contract.
    - **Behavior** → drive the specific action and observe the concrete state/log/screenshot the
      change should produce, and confirm the pre-change behavior no longer happens.
 3. **Cover every surface the task names.** If the Observable result lists a settings row, a balance
@@ -178,13 +181,17 @@ writing any overlay:
 When the wrapper marks a task `Visual: layout`, "looks right" is not a vibe — it is a small
 computation, and the test MEASURES it. The wrapper's design-spec phase writes the contract to
 `<TASK_DIR>/visual.md`; impl builds to it; this loop verifies it. (Tasks marked `Visual: appearance`
-or unmarked use the ordinary visual/asset check above — this section does not apply.)
+use the ordinary visual/asset check above. Unmarked non-visual tasks use their applicable text or
+behavior checks; only legacy unclassified visual changes use the visual/asset branch.)
 
-A mockup (usually mobile) gives RELATIONSHIPS, never pixels. The contract re-expresses those
-relationships in desktop units by anchoring every quantity to a font metric or an existing tdesktop
-`.style` token — so it auto-adjusts to desktop and reuses real components. The strongest anchor is an
-existing widget: "the count badge IS the dialogs-list unread badge" pins font + height + padding to
-`st::dialogsUnread*` and is self-correcting — far better than "a blue circle ~24px".
+Build the contract from the strongest available design evidence: explicit request relationships;
+supplied references when present; current or legacy task-adjacent UI; then the closest established
+desktop component/style token while preserving unspecified behavior. A mockup gives relationships,
+never desktop pixels. With no mockup, repository anchors and the written requirement provide those
+relationships. The strongest anchor is an existing widget: "the count badge IS the dialogs-list
+unread badge" pins font + height + padding to `st::dialogsUnread*` and is self-correcting — far
+better than "a blue circle ~24px". Cite each source and record every inference; never invent a
+reference or arbitrary geometry merely to fill the contract.
 
 Write it as an ORDERED DERIVATION: each step resolves one quantity the next consumes, so impl and
 test are both mechanical. Example — a glyph-on-rounded-square icon + title + count, in a bubble:
@@ -199,8 +206,8 @@ test are both mechanical. Example — a glyph-on-rounded-square icon + title + c
 
 Then the RELATIONSHIP checks that catch what existence-checks miss — each falsifiable: `square ≤
 bubbleH` (no overflow/overlap), the square's three margins equal, the two corner radii in sync, the
-badge identical to a real chat-row unread badge. Note every mobile→desktop adjustment and which token
-replaced each mobile measurement.
+badge identical to a real chat-row unread badge. Note each source-to-desktop adjustment and which
+token or metric grounds it; describe mobile→desktop conversion only when a mobile reference exists.
 
 How TEST verifies it (numbers over eyes):
 - **Measure, don't admire.** Have the overlay LOG the computed geometry — `font->height` and the
@@ -209,13 +216,13 @@ How TEST verifies it (numbers over eyes):
   catches "icon taller than the bubble", "square overflows", "badge oversized / cramped". Where a
   rect can't be logged, measure it from a tight crop by colour (accent square, badge, bubble outline
   are separable).
-- **Same-scale side-by-side.** Build one composite — the mockup's bubble crop and the rendered crop
-  scaled to EQUAL element height, side by side — and judge composition on THAT, never on a
-  full-window screenshot (a 30px bubble in a 600px window is what rubber-stamps bad proportions).
+- **Same-scale comparison.** When a mockup/reference image exists, put its tight crop and the render
+  at equal element height. Otherwise compare the before/after crops or the cited desktop analogue at
+  equal scale and annotate the contract measurements. Never judge a small target only in a
+  full-window screenshot (a 30px bubble in a 600px window rubber-stamps bad proportions).
 - **Adversarial designer pass.** One final judgement framed to REJECT: "You are a product designer
-  rejecting this PR — list every way these two differ in proportion, spacing, or alignment." Approve
-  only if it finds nothing disqualifying. (The approval-framed "does it look OK?" is what passed the
-  broken build.)
+  rejecting this PR — list every way the render violates the cited contract, reference, desktop
+  analogue, or preserved invariant." Approve only if it finds nothing disqualifying.
 - **Existence ≠ sufficiency.** "Icon + title + count are all present" is a precondition, not a pass.
   A `Visual: layout` check APPROVES only when the measured geometry satisfies the contract; any line
   out of tolerance is an IMPL_BUG (report measured-vs-target) and loops like any other.
@@ -241,9 +248,10 @@ highest level that still exercises the change (often a direct data-layer call li
   it) so the target is unambiguously in frame at usable resolution. A full-window grab that leaves
   the target clipped, off-screen, or thumbnail-sized is NOT acceptable evidence — if the target
   isn't clearly captured, that is a TEST_FLAW (re-frame), never a pass.
-- **Lay down the oracle's reference.** For an asset/visual check, also save the OLD and intended-NEW
-  art beside the crop (`<EVIDENCE_DIR>/screenshots/<name>_{old,new}.png`) so the assessment is
-  a direct three-way comparison, not a memory test.
+- **Lay down the oracle's references.** Save every applicable independent reference beside the
+  crop. Exact asset work saves OLD and intended-NEW art as `<name>_{old,new}.png`. Without target
+  artwork, save the baseline/reference-component crop when available and log the contract anchors,
+  style/resource identities, and measurements. Never fabricate an `_new` image.
 - Emit these markers, one per line:
   `TEST_STEP: <desc>` · `TEST_RESULT: PASS: <what>` / `TEST_RESULT: FAIL: <what> - <details>` ·
   `SCREENSHOT: <full path>` · `TEST_COMPLETE` (immediately before quit).
@@ -413,22 +421,19 @@ correct.
   Missing, clipped, or ambiguous evidence for a check → **TEST_FLAW**: re-frame/re-capture and run
   again. Never turn missing evidence into a PASS.
 - **Judge the actual artifact.** State what is literally visible in the crop / present in the log,
-  then compare to the oracle reference (`_old.png` vs `_new.png`). Do not narrate expectations.
-- **Judge visually, never by hash.** Do NOT pixel-diff or hash images. Desktop renders differ from
-  the mobile (iOS/Android) design mockups by platform, DPI, theme and antialiasing — the mockups
-  convey the intended look, they are NOT pixel targets, so never fail a check merely for not matching
-  a mockup pixel-for-pixel. The falsifiable signal is the on-screen crop against the OLD vs
-  intended-NEW render (does it match the new and differ from the old?); the mockup informs what
-  "correct" means. Read the images and decide like a designer reviewing the build. This bans
-  pixel-diffing against the MOCKUP — not measuring your OWN render: for a `Visual: layout` task you DO
-  assert the rendered widget's measured geometry against the desktop-unit contract in `visual.md`
-  ("Visual contract"). That is numeric and falsifiable, and it is exactly the check that catches the
-  wrong proportions/spacings an eye waves through.
+  then compare it with the declared oracle sources. Do not narrate expectations.
+- **Judge rendered appearance visually, never by hash.** Do not pixel-diff or hash screenshots;
+  desktop renders vary by platform, DPI, theme and antialiasing. References convey intent and are
+  not pixel targets unless the task expressly says otherwise. A literal exact-file/resource
+  requirement may separately assert source bytes, hash, or decoded raster equality, but must still
+  verify that the asset renders. Otherwise judge the crop against supplied art or the task's exact
+  criteria, cited analogue, token/resource identity, preserved invariants, and numeric contract.
 - **No-difference = IMPL_BUG.** If a check detects no difference from the pre-change state (the glyph
   matches the OLD art; the string still shows the old word), the change did not take effect — return
   IMPL_BUG; do not approve.
-- **A visual check with no baseline/target comparison cannot APPROVE** — with no oracle you have
-  tested nothing.
+- **A visual check with no independent target oracle cannot APPROVE.** A supplied image is only one
+  possible oracle; exact task facts, `visual.md` geometry, named style/resource identities, or a
+  cited current/legacy analogue also qualify. Missing mockups alone never means the oracle is missing.
 - APPROVED requires every derived check to PASS with evidence; else IMPL_BUG (real defect) or
   TEST_FLAW (the test was wrong, not the code).
 
@@ -450,9 +455,10 @@ starts the next Attempt. Never overwrite history.
 #### Test 1 — <aspect of THIS change>
 - Expected: <observable effect the change should produce>
 - Oracle: <what would make this check FAIL>
-- Observed via: <surface + how captured: tight crop of widget X; refs _old/_new>
+- Oracle source: <task fact / visual.md line / repo analogue / supplied image / baseline>
+- Observed via: <surface + how captured: tight crop, geometry log, runtime state>
 - Actual: <what is literally visible / logged>
-- Screenshots: <EVIDENCE_DIR>/screenshots/<after>.png (refs: _old.png, _new.png)
+- Screenshots: <after.png and any real reference crops; none only for a non-visual check>
 - Result: PASS | FAIL
 
 #### Test 2 — ...

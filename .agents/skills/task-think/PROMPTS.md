@@ -71,7 +71,10 @@ Do not restate the full context, plan, diff, or long reasoning in the chat reply
 - Phase 5 is complete only when the build outcome is known and the build checkbox is updated on success.
 - Phase 6a is complete only when `review<R>.md` exists and contains a verdict line.
 - Phase 6b is complete only when the requested fixes were applied and the post-fix build outcome is known.
-- An implement-specific visual design phase is complete only when `visual.md` contains source-image references, desktop anchors, an ordered derivation, tolerances, and falsifiable geometry checks.
+- An implement-specific visual design phase is complete only when `visual.md` cites its available
+  design sources (images when supplied; otherwise request facts and repository/baseline anchors),
+  records assumptions, and contains desktop anchors, an ordered derivation, tolerances, and
+  falsifiable geometry checks. Missing mockups alone never make the phase incomplete.
 
 ## Phase 0: Setup
 

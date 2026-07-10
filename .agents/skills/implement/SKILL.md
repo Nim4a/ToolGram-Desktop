@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Autonomously implement and verify Telegram Desktop changes from an inline request, task-list path, or a prepared project task source under .ai. Use when Codex should split work into independently testable tasks and drive each through context, planning, implementation, a Debug build, one review pass, and artifact-grounded in-app testing with optional Computer Use, resumable artifacts, a lean parent task, and native-Windows CRLF normalization.
+description: Autonomously implement and verify Telegram Desktop changes from an inline request, task-list path, or a prepared project task source under .ai, with or without mockups. Use when Codex should split work into independently testable tasks and drive each through context, planning, implementation, a Debug build, one review pass, artifact-grounded in-app testing with optional Computer Use, resumable artifacts, a lean parent task, and native-Windows CRLF normalization.
 ---
 
 # Implement Pipeline
@@ -16,6 +16,14 @@ loop. Read and reuse:
   / wait-ladder / progress-heartbeat / compact-reply rules.
 - `.agents/shared/test-loop.md` — the harness-neutral impl⇄test loop (state machine, handoff,
   overlay, account swap, watchdog); `references/computer-use-testing.md` adds a Codex-only UI driver.
+
+### Input sufficiency and visual evidence
+
+Treat the task description and repository as sufficient. Visual references are optional unless expressly required; absence alone never causes a stop, question, malformed task, or block.
+Use, in order: request facts; supplied references; adjacent UI/code/styles and baseline; repository
+history/legacy; then the closest desktop convention and smallest common-sense change. Record
+assumptions; never invent a reference. Block only for expressly required exact content or bytes that
+cannot be recovered, and continue every independent task.
 
 ## Inputs
 
@@ -79,10 +87,9 @@ clients on one auth key can trigger a session reset, so give parallel slots sepa
 
 ## Artifacts (per project)
 
-- `.ai/<project>/tasks/about.md` — the **default task source**: a human-prepared description (or
-  rough list) of the batch to implement, with any mockups dropped beside it in `.ai/<project>/tasks/`.
-  This is the file the user prepares; the planner reads it as SOURCE when `implement <project>` is
-  invoked with no other input. It is **distinct** from the project blueprint `.ai/<project>/about.md`
+- `.ai/<project>/tasks/about.md` — the **default task source**: a human-prepared description or rough
+  list, with optional mockups beside it. The planner reads it for `implement <project>`. It is distinct
+  from the project blueprint `.ai/<project>/about.md`
   (the `tasks/` subdir is what disambiguates them).
 - `.ai/<project>/implementing.md` — the canonical, final, testability-split task list. The planner
   creates or rewrites it in Phase B; after the main thread adopts it, only the main thread edits it.
@@ -146,12 +153,10 @@ approved; use blocked-state rules only when their threshold is satisfied. Reinvo
    Set `FIRST_TASK_ID` after a narrow heading scan to the next id after the union of task headings
    in `implementing.md` and artifact directories (`a`...`z`, `aa`...); never reuse an id.
 6. Create `.ai/<project>/` and `.ai/<project>/images/` if new.
-7. **Persist visual inputs.** Every later phase needs a stable file path or an artifact description.
-   Prefer images already referenced by SOURCE or under `.ai/<project>/images/`. If an attachment is
-   visible only in recent chat turns, either fork the smallest necessary turn window to the planner
-   and require a detailed visual description in the task artifacts, or ask the user to save it under
-   the project images folder. Do not claim a chat-only image was saved. The planner copies any
-   filesystem-visible referenced image into `.ai/<project>/images/`.
+7. **Persist supplied visual inputs when present.** Prefer SOURCE or project images. For a chat-only
+   attachment, fork the smallest necessary turn window and persist its description; ask for an
+   on-disk copy only when exact unavailable bytes are required. With no image, continue normally.
+   Never claim a chat-only image was saved; the planner copies filesystem-visible references.
 8. If mode = **resume**, skip Phase B and go to Phase C.
 
 ## Phase B: Planning & testability split (delegate)
@@ -170,15 +175,13 @@ the request:
 <the inline description, or the file path>
 PROJECT: <project>     MODE: <new | extend>     FIRST_TASK_ID: <next unused id>
 
-IMAGES — the SOURCE and/or its task file may reference images by path (resolve them relative to the
-SOURCE file's directory, or use absolute paths; when SOURCE is `.ai/<project>/tasks/about.md`, its
-sibling files in `.ai/<project>/tasks/` — e.g. the mockup PNGs there — are those images). READ every
-referenced image yourself, then COPY
-each into `.ai/<project>/images/` with a descriptive kebab-case name, and reference it from the
-specific task(s) it pertains to (see "Images per task" below). The main thread did NOT read or move
-these — that is your job. If an image exists only as a textual description because the user pasted it
-into chat and it could not be saved to a file, it is provided here; treat that description as the
-visual spec: <description(s) or none>
+IMAGES (optional) — resolve SOURCE-referenced paths relative to its directory; siblings of
+`.ai/<project>/tasks/about.md` are candidates. READ each referenced image, COPY it into
+`.ai/<project>/images/` with a descriptive name, and attach it to every pertinent task. The main
+thread did not read or move it. Treat a chat-only textual description as visual evidence:
+<description(s) or none>. With none, continue from the request and repository; never ask for a
+mockup or weaken, omit, or block a visual task solely for lacking optional references. The express
+exact-content exception in "Input sufficiency and visual evidence" still applies.
 
 Read AGENTS.md. Briefly scan the codebase to gauge scope. Produce the FINAL ordered task list that
 satisfies BOTH constraints for every task:
@@ -210,36 +213,34 @@ Status: todo
 that a fresh agent can act on it.>
 Depends-On: none | <comma-separated earlier task ids>
 Observable: <specific runtime evidence that proves this task works>
-Visual: layout | appearance       (UI tasks only — see "Visual classification" below; omit otherwise)
+Visual: layout | appearance       (user-visible visual/asset changes only; omit otherwise)
+Design-Basis: <ordered request/image/current/legacy/repository evidence and assumptions; visual tasks only>
 Images: images/<file> — <caption>      (this line only if the task uses an image)
 
 ### <next id>: <imperative title>
 Status: todo
 <...>
 
-**Images per task (required).** Every provided image is a design/resource the work must satisfy.
-Attach each to the task(s) it pertains to via the `Images:` line, with a caption stating what that
-task must match in it (the exact wording on a mockup, the glyph/shape of a resource, etc.). A task
-that changes UI / visual / asset behavior MUST cite the specific mockups/resources it has to match;
-do not leave such a task without its images, and do not leave a provided image referenced by no task
-(if one genuinely applies to none, note why). These per-task references are the oracle the test
-phase verifies against — be specific and per-task, not one shared dump on the first task.
+**Images per task (required when supplied).** Attach every pertinent supplied image via `Images:`,
+with a precise caption, and account for unused ones. With none on a visual task, omit `Images:`, cite
+non-image evidence in `Design-Basis:`, and never create a placeholder. Non-visual tasks omit both.
 
-**Visual classification (required for UI tasks).** For every task that changes how something looks,
-add a `Visual:` line; it routes the task-runner:
+**Visual classification (required for visual/asset changes).** For every task that changes how
+user-visible UI, rendered output, or an asset looks, add `Visual:`; it routes the task-runner:
 - `Visual: layout` — reproduce composition: element sizes, proportions, spacing, margins,
   alignment, or component geometry. This triggers a dedicated design-spec phase and a
-  geometry-measuring oracle. Such a task must cite its mockup(s) with `Images:`.
+  geometry-measuring oracle whether or not a mockup exists.
 - `Visual: appearance` — match color, wording, style choice, or glyph identity without changing
   proportions or geometry. This uses the lighter visual comparison without a numeric contract.
 - Omit `Visual:` only when the task changes no appearance.
-When uncertain, use `layout` for anything composed from multiple sized or positioned pieces. The
-user may override the classification by editing `implementing.md`.
+Classify from the requested change, never from reference availability. When uncertain, use `layout`
+for anything composed from multiple sized or positioned pieces. The user may override the line.
 
 Every task must include `Depends-On:` and `Observable:`. Dependencies may name only earlier tasks.
 Use `Depends-On: none` when the task can still run after any earlier task is blocked. The observable
 must name the exact log value, action/state transition, or tightly framed visual evidence the test
-will verify; "screen opens" is not sufficient.
+will verify; "screen opens" is not sufficient. Every task with `Visual:` must also include a
+`Design-Basis:`; supplied images are one possible basis, not a prerequisite.
 
 Use spreadsheet-style ids a...z, aa... without reusing an existing task artifact id. Do not plan internals or implement. When done, reply with ONLY a
 compact confirmation — `ready — <N> tasks` (extend: `ready — appended <letters>`); do NOT echo the
@@ -338,6 +339,7 @@ execution rules); `.agents/shared/test-loop.md` (testing). Read any IMAGES liste
 follow-up letter, also read `.ai/<project>/about.md` and the nearest earlier task `context.md` that
 exists; prerequisite-blocked tasks may have none. Within
 task-think instructions, "main/current session" means this runner, not the orchestrator.
+Treat `IMAGES: none` as normal; missing mockups alone never justify pausing, blocking, or asking.
 Create `<TASK_DIR>/` and `<TASK_DIR>/logs/`. Maintain
 `<TASK_DIR>/logs/task-runner.progress.md` at phase boundaries so the orchestrator can distinguish a
 long phase from a stalled runner.
@@ -353,12 +355,12 @@ Pipeline for THIS task only, writing prompt/progress/result logs per task-think:
    new project). Current downstream phases use context.md, not the proposed blueprint. Promote
    about.proposed.md to the project `about.md` only after this task is approved; a blocked task must
    not make future follow-ups believe missing behavior exists.
-1b. DESIGN-SPEC — only for `Visual: layout`. Read the task mockups closely and inspect the existing
-   desktop widgets/style tokens it should reuse. Write `<TASK_DIR>/visual.md` as the ordered,
-   desktop-anchored derivation required by test-loop.md "Visual contract": every dimension derives
-   from a font metric or existing `.style` token, never a mobile pixel, and has a tolerance. This is
-   the contract used by plan, implementation, review, and test. Skip it for appearance-only or
-   non-visual tasks.
+1b. DESIGN-SPEC — only for `Visual: layout`. Inventory `Design-Basis:`: read supplied images, if any,
+   then inspect current/legacy implementations and closest desktop widgets/style tokens. Write
+   `<TASK_DIR>/visual.md` with cited evidence, assumptions, and test-loop.md's ordered derivation. Ground
+   every dimension in a font metric, style token, sibling geometry, or explicit request
+   relationship, with a tolerance. With no mockup, use repository anchors and proceed. Skip for
+   appearance-only and non-visual tasks.
 2. PLAN     — Phase 2 -> plan.md. For layout work, derive all style metrics from visual.md.
 3. ASSESS   — Phase 3.
 4. IMPLEMENT— Phase 4, sequentially, one leaf worker per plan phase in NESTED mode. Give layout
@@ -384,16 +386,16 @@ Pipeline for THIS task only, writing prompt/progress/result logs per task-think:
 8. TEST     — run `.agents/shared/test-loop.md` to APPROVED / BLOCKED / attempt cap and read its
    Codex-only `references/computer-use-testing.md` adapter. Spawn a leaf test-author and feed it BOTH
    sides per test-loop.md "Design the tests from THIS task":
-   (1) the TASK SPEC — this task's full description block above PLUS its referenced IMAGES (have it
-   READ the mockups; they show the intended result), and (2) the implementation — `git show
+   (1) the TASK SPEC — this task's full description block including `Design-Basis:` PLUS referenced
+   IMAGES when present (read them), and (2) the implementation — `git show
    <IMPL_SHA>` + touched files. It designs a falsifiable oracle per change and writes the plan into
    `<TASK_DIR>/test.md` BEFORE running. Give it `COMPUTER_USE_POLICY` and the adapter path; it selects
    `Driver: overlay` or `Driver: hybrid` per check and predeclares its action, fallback, target, ready
-   marker, and safety envelope. Only the task-runner operates Computer Use. Visual/asset checks compare
-   the tight crop with old and intended-new art, judged visually rather than by hash; mobile mockups are not pixel targets. For
-   `Visual: layout`, give it visual.md and require arithmetic geometry checks, a same-scale
-   side-by-side, and an adversarial designer pass. It must cover every `Observable:` and named
-   surface; never reuse another task's generic navigate-and-screenshot.
+   marker, and safety envelope. Only the task-runner operates Computer Use. Visual checks compare
+   old/new art when it exists; otherwise use exact task criteria, visual.md, current/legacy analogues,
+   style-token identity, and TASK_BASE_SHA behavior. Never synthesize target art. For layout, require
+   arithmetic geometry checks, a same-scale best-reference/baseline comparison, and an adversarial
+   contract pass. Cover every `Observable:` and named surface; never reuse a generic test.
    Treat TASK_BASE_SHA, not `IMPL_SHA^`, as the pre-task OLD baseline across every fix attempt. Drive
    RUN/ASSESS adversarially: missing evidence = TEST_FLAW; no difference from TASK_BASE_SHA =
    IMPL_BUG. If attempt equals MAX_ATTEMPTS, block before creating another impl-fix commit. Otherwise
@@ -490,10 +492,8 @@ When the loop ends (every task is `approved` or `blocked`):
 - The launch gate (Phase A) guarantees the test account exists before any work begins.
 - Never stash, stage, commit, restore, or reset unrelated user changes. Unexpected dirty paths are a
   hard stop, not permission to clean the checkout.
-- Keep `.ai/` artifacts and edited project text LF/no-BOM on WSL. Run CRLF/no-BOM normalization
-  only in a native, non-WSL Windows checkout, before each retained implementation commit.
+- Keep `.ai/` artifacts and project text LF/no-BOM on WSL; normalize CRLF/no-BOM only on native Windows.
 
 ## User invocation
 
-`Use local implement skill: <request or path>` — ideally under Goal mode; resume/extend with `Use local implement skill: <project> [additional change]`.
-With a prepared `.ai/<project>/tasks/about.md`, the project-only form uses it automatically.
+`Use local implement skill: <request or path>`; resume/extend with `<project> [additional change]`. A prepared `.ai/<project>/tasks/about.md` is the automatic project-only source.
