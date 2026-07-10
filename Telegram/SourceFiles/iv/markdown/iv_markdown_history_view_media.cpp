@@ -289,7 +289,7 @@ public:
 	[[nodiscard]] std::vector<QRect> itemRects() const override;
 
 private:
-	[[nodiscard]] bool alive() const;
+	[[nodiscard]] bool alive() const override;
 
 	[[nodiscard]] IvHistoryViewHit resolveHit(QPoint point) const;
 
@@ -711,7 +711,7 @@ public:
 	void setActiveItemIndex(int index) override;
 
 private:
-	[[nodiscard]] bool alive() const;
+	[[nodiscard]] bool alive() const override;
 
 	[[nodiscard]] HistoryView::Media *activeMedia() const;
 
@@ -828,6 +828,9 @@ int IvHistoryViewSlideshowBlock::frameHeight(int width) const {
 }
 
 int IvHistoryViewSlideshowBlock::resizeGetHeight(int width) {
+	if (!alive()) {
+		return 0;
+	}
 	_requestedWidth = std::max(width, 1);
 	return frameHeight(_requestedWidth);
 }
@@ -843,6 +846,9 @@ void IvHistoryViewSlideshowBlock::applyForcedSize() {
 	}
 	if (const auto media = activeMedia()) {
 		media->resizeGetHeight(_geometry.width());
+	}
+	if (runtime) {
+		runtime->forcedSize = QSize();
 	}
 }
 

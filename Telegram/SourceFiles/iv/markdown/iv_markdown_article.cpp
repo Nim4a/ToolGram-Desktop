@@ -3265,6 +3265,25 @@ void CollectCodeBlockHighlightKeys(
 	}
 }
 
+[[nodiscard]] bool ExpectsMediaBlock(const PreparedBlock &prepared) {
+	switch (prepared.kind) {
+	case PreparedBlockKind::Photo:
+		return prepared.photo.id
+			&& prepared.photo.viewerOpen
+			&& prepared.photo.urlOverride.isEmpty();
+	case PreparedBlockKind::Video:
+		return bool(prepared.video.id);
+	case PreparedBlockKind::Map:
+		return bool(prepared.map.id);
+	case PreparedBlockKind::Audio:
+		return bool(prepared.audio.id);
+	case PreparedBlockKind::GroupedMedia:
+		return bool(prepared.groupedMedia.id);
+	default:
+		return false;
+	}
+}
+
 } // namespace
 
 PlaceholderBlockRuntime::PlaceholderBlockRuntime(Fn<void()> repaint)
@@ -3333,6 +3352,7 @@ public:
 
 	[[nodiscard]] int maxWidth();
 	[[nodiscard]] int lastLayoutWidth() const;
+	[[nodiscard]] bool hasMissingMediaBlocks() const;
 
 	[[nodiscard]] int resizeGetHeight(int width);
 
@@ -3630,6 +3650,7 @@ private:
 	std::vector<LaidOutBlock> _blocks;
 	std::vector<LaidOutBlock> _retainedBlocks;
 	MediaBlockStorage _mediaBlocks;
+	int _missingMediaBlocks = 0;
 	std::unordered_map<uint64, std::shared_ptr<PlaceholderBlockRuntime>>
 		_placeholderRuntimes;
 	TaskMarkerRippleRuntimeMap _taskMarkerRippleRuntimes;
@@ -3994,6 +4015,10 @@ int MarkdownArticle::Impl::maxWidth() {
 
 int MarkdownArticle::Impl::lastLayoutWidth() const {
 	return _laidOutWidth;
+}
+
+bool MarkdownArticle::Impl::hasMissingMediaBlocks() const {
+	return _missingMediaBlocks > 0;
 }
 
 int MarkdownArticle::Impl::resizeGetHeight(int width) {
@@ -5056,11 +5081,16 @@ std::shared_ptr<MediaBlock> MarkdownArticle::Impl::getOrCreateMediaBlock(
 	}
 	if (const auto i = _mediaBlocks.find(id.value);
 		i != end(_mediaBlocks)) {
-		if (i->second) {
-			i->second->setLayoutStyle(layoutStyle());
-			i->second->setHost(_mediaBlockHost);
+		if (i->second && !i->second->alive()) {
+			i->second->setHost(nullptr);
+			_mediaBlocks.erase(i);
+		} else {
+			if (i->second) {
+				i->second->setLayoutStyle(layoutStyle());
+				i->second->setHost(_mediaBlockHost);
+			}
+			return i->second;
 		}
-		return i->second;
 	}
 	auto block = factory();
 	if (block) {
@@ -5732,6 +5762,7 @@ void MarkdownArticle::Impl::relayout(int width) {
 		layoutStyle(),
 		&_cachedTextLeafs);
 	retainBlocks();
+	_missingMediaBlocks = 0;
 
 	const auto &st = layoutStyle();
 	const auto &page = st.pagePadding;
@@ -5774,7 +5805,13 @@ void MarkdownArticle::Impl::relayout(int width) {
 				});
 	}
 	context.mediaBlockFactory = [=](const PreparedBlock &prepared) {
-		return getOrCreateMediaBlock(prepared);
+		auto block = getOrCreateMediaBlock(prepared);
+		if (!block
+			&& _content.mediaRuntime
+			&& ExpectsMediaBlock(prepared)) {
+			++_missingMediaBlocks;
+		}
+		return block;
 	};
 	context.placeholderRuntimeFactory = [=](PreparedPlaceholderBlockId id) {
 		return getOrCreatePlaceholderRuntime(id);
@@ -5993,6 +6030,10 @@ int MarkdownArticle::maxWidth() const {
 
 int MarkdownArticle::lastLayoutWidth() const {
 	return _impl->lastLayoutWidth();
+}
+
+bool MarkdownArticle::hasMissingMediaBlocks() const {
+	return _impl->hasMissingMediaBlocks();
 }
 
 int MarkdownArticle::resizeGetHeight(int width) {

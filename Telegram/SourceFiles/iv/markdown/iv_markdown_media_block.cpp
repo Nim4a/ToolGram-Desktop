@@ -466,6 +466,10 @@ void ChannelMediaBlock::handleJoinedChange() {
 
 MediaBlock::~MediaBlock() = default;
 
+bool MediaBlock::alive() const {
+	return true;
+}
+
 void MediaBlock::setHost(MediaBlockHost *host) {
 	if (_host == host) {
 		return;

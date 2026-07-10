@@ -255,6 +255,7 @@ void MarkdownDocumentWidget::setArticle(
 		_article->setMediaBlockHost(this);
 	}
 	_lastRelayoutMs = 0;
+	_mediaCreationRetried = false;
 	resetTextPaintCaches();
 	resetSelection();
 	forceRelayoutCurrentWidth();
@@ -267,6 +268,7 @@ void MarkdownDocumentWidget::articleContentChanged() {
 	clearSelection();
 	_articlePainted = false;
 	resetTextPaintCaches();
+	_mediaCreationRetried = false;
 	forceRelayoutCurrentWidth();
 }
 
@@ -409,6 +411,7 @@ int MarkdownDocumentWidget::resizeGetHeight(int newWidth) {
 	const auto layoutHeight = _article->resizeGetHeight(layoutWidth);
 	syncArticleVisibleTopBottom();
 	_lastRelayoutMs = int(timer.elapsed());
+	retryMissingMediaBlocks();
 	return std::max(int(std::ceil(layoutHeight * scale)), 1);
 }
 
@@ -450,7 +453,18 @@ void MarkdownDocumentWidget::requestRelayout(QRect articleRect) {
 			update(articleRectToWidget(articleRect));
 		}
 		updateHoverAtCursor();
+		retryMissingMediaBlocks();
 	});
+}
+
+void MarkdownDocumentWidget::retryMissingMediaBlocks() {
+	if (_mediaCreationRetried
+		|| !_article
+		|| !_article->hasMissingMediaBlocks()) {
+		return;
+	}
+	_mediaCreationRetried = true;
+	requestRelayout(QRect());
 }
 
 void MarkdownDocumentWidget::setPlaceholderLoading(
