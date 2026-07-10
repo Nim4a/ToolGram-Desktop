@@ -232,6 +232,953 @@ QByteArray FormatFilePath(const Data::File &file) {
 	return file.relativePath.toUtf8();
 }
 
+QByteArray SerializeRichBool(bool value) {
+	return value ? "true" : "false";
+}
+
+template <typename Value>
+QByteArray SerializeRichNumberString(Value value) {
+	return SerializeString(Data::NumberToString(value));
+}
+
+template <typename Value, typename Serializer>
+QByteArray SerializeRichArray(
+		Context &context,
+		const std::vector<Value> &data,
+		Serializer &&serializer) {
+	if (data.empty()) {
+		return "[]";
+	}
+	auto values = std::vector<QByteArray>();
+	values.reserve(data.size());
+	{
+		context.nesting.push_back(Context::kArray);
+		const auto guard = gsl::finally([&] {
+			context.nesting.pop_back();
+		});
+		for (const auto &value : data) {
+			values.push_back(serializer(value));
+		}
+	}
+	return SerializeArray(context, values);
+}
+
+QByteArray RichTextTypeToString(Data::RichText::Type type) {
+	using Type = Data::RichText::Type;
+	switch (type) {
+	case Type::Empty: return "empty";
+	case Type::Plain: return "plain";
+	case Type::Concat: return "concat";
+	case Type::Bold: return "bold";
+	case Type::Italic: return "italic";
+	case Type::Underline: return "underline";
+	case Type::Strike: return "strikethrough";
+	case Type::Fixed: return "code";
+	case Type::Url: return "text_link";
+	case Type::Email: return "email";
+	case Type::Phone: return "phone";
+	case Type::Subscript: return "subscript";
+	case Type::Superscript: return "superscript";
+	case Type::Marked: return "marked";
+	case Type::Anchor: return "anchor";
+	case Type::Math: return "math";
+	case Type::CustomEmoji: return "custom_emoji";
+	case Type::Spoiler: return "spoiler";
+	case Type::Mention: return "mention";
+	case Type::Hashtag: return "hashtag";
+	case Type::BotCommand: return "bot_command";
+	case Type::Cashtag: return "cashtag";
+	case Type::AutoUrl: return "link";
+	case Type::AutoEmail: return "email";
+	case Type::AutoPhone: return "phone";
+	case Type::BankCard: return "bank_card";
+	case Type::MentionName: return "mention_name";
+	case Type::FormattedDate: return "formatted_date";
+	case Type::InlineImage: return "inline_image";
+	case Type::Diff: return "diff";
+	}
+	Unexpected("Type in RichText::Type.");
+}
+
+QByteArray SerializeRichText(
+		Context &context,
+		const Data::RichText &data);
+
+QByteArray SerializeRichTexts(
+		Context &context,
+		const std::vector<Data::RichText> &data);
+
+QByteArray SerializeRichTextChild(
+		Context &context,
+		const std::vector<Data::RichText> &children) {
+	Expects(children.size() == 1);
+	return SerializeRichText(context, children.front());
+}
+
+QByteArray SerializeRichText(
+		Context &context,
+		const Data::RichText &data) {
+	using Type = Data::RichText::Type;
+	auto values = std::vector<std::pair<QByteArray, QByteArray>>{
+		{ "type", SerializeString(RichTextTypeToString(data.type)) },
+	};
+	{
+		context.nesting.push_back(Context::kObject);
+		const auto guard = gsl::finally([&] {
+			context.nesting.pop_back();
+		});
+		switch (data.type) {
+		case Type::Empty:
+			break;
+		case Type::Plain:
+			values.emplace_back("text", SerializeString(data.text));
+			break;
+		case Type::Concat:
+			values.emplace_back(
+				"text",
+				SerializeRichTexts(context, data.children));
+			break;
+		case Type::Bold:
+		case Type::Italic:
+		case Type::Underline:
+		case Type::Strike:
+		case Type::Fixed:
+		case Type::Subscript:
+		case Type::Superscript:
+		case Type::Marked:
+		case Type::Spoiler:
+		case Type::Mention:
+		case Type::Hashtag:
+		case Type::BotCommand:
+		case Type::Cashtag:
+		case Type::AutoUrl:
+		case Type::AutoEmail:
+		case Type::AutoPhone:
+		case Type::BankCard:
+			values.emplace_back(
+				"text",
+				SerializeRichTextChild(context, data.children));
+			break;
+		case Type::Url:
+			values.emplace_back("href", SerializeString(data.data));
+			if (data.id) {
+				values.emplace_back(
+					"webpage_id",
+					SerializeRichNumberString(data.id));
+			}
+			values.emplace_back(
+				"text",
+				SerializeRichTextChild(context, data.children));
+			break;
+		case Type::Email:
+			values.emplace_back("email", SerializeString(data.data));
+			values.emplace_back(
+				"text",
+				SerializeRichTextChild(context, data.children));
+			break;
+		case Type::Phone:
+			values.emplace_back("phone", SerializeString(data.data));
+			values.emplace_back(
+				"text",
+				SerializeRichTextChild(context, data.children));
+			break;
+		case Type::Anchor:
+			values.emplace_back("name", SerializeString(data.data));
+			values.emplace_back(
+				"text",
+				SerializeRichTextChild(context, data.children));
+			break;
+		case Type::Math:
+			values.emplace_back("source", SerializeString(data.data));
+			break;
+		case Type::CustomEmoji:
+			values.emplace_back("text", SerializeString(data.text));
+			values.emplace_back(
+				"document_id",
+				SerializeRichNumberString(data.id));
+			break;
+		case Type::MentionName:
+			values.emplace_back(
+				"user_id",
+				SerializeRichNumberString(data.id));
+			values.emplace_back(
+				"text",
+				SerializeRichTextChild(context, data.children));
+			break;
+		case Type::FormattedDate:
+			values.emplace_back(
+				"text",
+				SerializeRichTextChild(context, data.children));
+			values.emplace_back("date", SerializeDate(data.date));
+			values.emplace_back(
+				"date_unixtime",
+				SerializeDateRaw(data.date));
+			values.emplace_back(
+				"relative",
+				SerializeRichBool(data.relative));
+			values.emplace_back(
+				"short_time",
+				SerializeRichBool(data.shortTime));
+			values.emplace_back(
+				"long_time",
+				SerializeRichBool(data.longTime));
+			values.emplace_back(
+				"short_date",
+				SerializeRichBool(data.shortDate));
+			values.emplace_back(
+				"long_date",
+				SerializeRichBool(data.longDate));
+			values.emplace_back(
+				"day_of_week",
+				SerializeRichBool(data.dayOfWeek));
+			break;
+		case Type::InlineImage:
+			values.emplace_back("unsupported", "true");
+			values.emplace_back(
+				"document_id",
+				SerializeRichNumberString(data.id));
+			values.emplace_back(
+				"width",
+				Data::NumberToString(data.width));
+			values.emplace_back(
+				"height",
+				Data::NumberToString(data.height));
+			break;
+		case Type::Diff:
+			values.emplace_back("unsupported", "true");
+			values.emplace_back(
+				"text",
+				SerializeRichTextChild(context, data.children));
+			values.emplace_back(
+				"old_text",
+				SerializeRichTextChild(context, data.oldChildren));
+			break;
+		}
+	}
+	return SerializeObject(context, values);
+}
+
+QByteArray SerializeRichTexts(
+		Context &context,
+		const std::vector<Data::RichText> &data) {
+	return SerializeRichArray(
+		context,
+		data,
+		[&](const Data::RichText &text) {
+			return SerializeRichText(context, text);
+		});
+}
+
+QByteArray SerializeRichCaption(
+		Context &context,
+		const Data::RichCaption &data) {
+	auto values = std::vector<std::pair<QByteArray, QByteArray>>();
+	{
+		context.nesting.push_back(Context::kObject);
+		const auto guard = gsl::finally([&] {
+			context.nesting.pop_back();
+		});
+		values.emplace_back("text", SerializeRichText(context, data.text));
+		values.emplace_back(
+			"credit",
+			SerializeRichText(context, data.credit));
+	}
+	return SerializeObject(context, values);
+}
+
+QByteArray RichTaskStateToString(Data::RichTaskState state) {
+	using State = Data::RichTaskState;
+	switch (state) {
+	case State::None: return "none";
+	case State::Unchecked: return "unchecked";
+	case State::Checked: return "checked";
+	}
+	Unexpected("State in RichTaskState.");
+}
+
+QByteArray RichListKindToString(Data::RichListKind kind) {
+	using Kind = Data::RichListKind;
+	switch (kind) {
+	case Kind::Bullet: return "bullet";
+	case Kind::Ordered: return "ordered";
+	}
+	Unexpected("Kind in RichListKind.");
+}
+
+QByteArray RichListItemContentToString(Data::RichListItemContent content) {
+	using Content = Data::RichListItemContent;
+	switch (content) {
+	case Content::Text: return "text";
+	case Content::Blocks: return "blocks";
+	}
+	Unexpected("Content in RichListItemContent.");
+}
+
+QByteArray RichQuoteContentToString(Data::RichQuoteContent content) {
+	using Content = Data::RichQuoteContent;
+	switch (content) {
+	case Content::Text: return "text";
+	case Content::Blocks: return "blocks";
+	}
+	Unexpected("Content in RichQuoteContent.");
+}
+
+QByteArray RichTableAlignmentToString(Data::RichTableAlignment alignment) {
+	using Alignment = Data::RichTableAlignment;
+	switch (alignment) {
+	case Alignment::Left: return "left";
+	case Alignment::Center: return "center";
+	case Alignment::Right: return "right";
+	}
+	Unexpected("Alignment in RichTableAlignment.");
+}
+
+QByteArray RichTableVerticalAlignmentToString(
+		Data::RichTableVerticalAlignment alignment) {
+	using Alignment = Data::RichTableVerticalAlignment;
+	switch (alignment) {
+	case Alignment::Top: return "top";
+	case Alignment::Middle: return "middle";
+	case Alignment::Bottom: return "bottom";
+	}
+	Unexpected("Alignment in RichTableVerticalAlignment.");
+}
+
+QByteArray RichChannelSourceToString(Data::RichChannel::Source source) {
+	using Source = Data::RichChannel::Source;
+	switch (source) {
+	case Source::ChatEmpty: return "chat_empty";
+	case Source::Chat: return "chat";
+	case Source::ChatForbidden: return "chat_forbidden";
+	case Source::Channel: return "channel";
+	case Source::ChannelForbidden: return "channel_forbidden";
+	case Source::Community: return "community";
+	case Source::CommunityForbidden: return "community_forbidden";
+	}
+	Unexpected("Source in RichChannel::Source.");
+}
+
+QByteArray RichMapPointSourceToString(Data::RichMapPoint::Source source) {
+	using Source = Data::RichMapPoint::Source;
+	switch (source) {
+	case Source::GeoPointEmpty: return "geo_point_empty";
+	case Source::GeoPoint: return "geo_point";
+	case Source::InputGeoPointEmpty: return "input_geo_point_empty";
+	case Source::InputGeoPoint: return "input_geo_point";
+	}
+	Unexpected("Source in RichMapPoint::Source.");
+}
+
+QByteArray SerializeRichBlock(
+		Context &context,
+		const Data::RichBlock &data);
+
+QByteArray SerializeRichBlocks(
+		Context &context,
+		const std::vector<Data::RichBlock> &data);
+
+QByteArray SerializeRichListItem(
+		Context &context,
+		const Data::RichListItem &data) {
+	using Content = Data::RichListItemContent;
+	auto values = std::vector<std::pair<QByteArray, QByteArray>>{
+		{
+			"task_state",
+			SerializeString(RichTaskStateToString(data.taskState)),
+		},
+		{
+			"content",
+			SerializeString(RichListItemContentToString(data.content)),
+		},
+	};
+	{
+		context.nesting.push_back(Context::kObject);
+		const auto guard = gsl::finally([&] {
+			context.nesting.pop_back();
+		});
+		switch (data.content) {
+		case Content::Text:
+			if (data.text) {
+				values.emplace_back(
+					"text",
+					SerializeRichText(context, *data.text));
+			} else {
+				values.emplace_back(
+					"text",
+					SerializeRichText(context, Data::RichText()));
+			}
+			break;
+		case Content::Blocks:
+			values.emplace_back(
+				"blocks",
+				SerializeRichBlocks(context, data.blocks));
+			break;
+		}
+	}
+	if (data.num) {
+		values.emplace_back("num", SerializeString(*data.num));
+	}
+	if (data.value) {
+		values.emplace_back("value", Data::NumberToString(*data.value));
+	}
+	if (data.type) {
+		values.emplace_back("item_type", SerializeString(*data.type));
+	}
+	return SerializeObject(context, values);
+}
+
+QByteArray SerializeRichListItems(
+		Context &context,
+		const std::vector<Data::RichListItem> &data) {
+	return SerializeRichArray(
+		context,
+		data,
+		[&](const Data::RichListItem &item) {
+			return SerializeRichListItem(context, item);
+		});
+}
+
+QByteArray SerializeRichTableCell(
+		Context &context,
+		const Data::RichTableCell &data) {
+	auto values = std::vector<std::pair<QByteArray, QByteArray>>();
+	if (data.text) {
+		context.nesting.push_back(Context::kObject);
+		const auto guard = gsl::finally([&] {
+			context.nesting.pop_back();
+		});
+		values.emplace_back(
+			"text",
+			SerializeRichText(context, *data.text));
+	}
+	if (data.colspan) {
+		values.emplace_back("colspan", Data::NumberToString(*data.colspan));
+	}
+	if (data.rowspan) {
+		values.emplace_back("rowspan", Data::NumberToString(*data.rowspan));
+	}
+	values.emplace_back("header", SerializeRichBool(data.header));
+	values.emplace_back(
+		"align",
+		SerializeString(RichTableAlignmentToString(data.alignment)));
+	values.emplace_back(
+		"vertical_align",
+		SerializeString(RichTableVerticalAlignmentToString(
+			data.verticalAlignment)));
+	return SerializeObject(context, values);
+}
+
+QByteArray SerializeRichTableCells(
+		Context &context,
+		const std::vector<Data::RichTableCell> &data) {
+	return SerializeRichArray(
+		context,
+		data,
+		[&](const Data::RichTableCell &cell) {
+			return SerializeRichTableCell(context, cell);
+		});
+}
+
+QByteArray SerializeRichTableRow(
+		Context &context,
+		const Data::RichTableRow &data) {
+	auto cells = QByteArray();
+	{
+		context.nesting.push_back(Context::kObject);
+		const auto guard = gsl::finally([&] {
+			context.nesting.pop_back();
+		});
+		cells = SerializeRichTableCells(context, data.cells);
+	}
+	return SerializeObject(context, {
+		{ "cells", cells },
+	});
+}
+
+QByteArray SerializeRichTableRows(
+		Context &context,
+		const std::vector<Data::RichTableRow> &data) {
+	return SerializeRichArray(
+		context,
+		data,
+		[&](const Data::RichTableRow &row) {
+			return SerializeRichTableRow(context, row);
+		});
+}
+
+QByteArray SerializeRichRelatedArticle(
+		Context &context,
+		const Data::RichRelatedArticle &data) {
+	auto values = std::vector<std::pair<QByteArray, QByteArray>>{
+		{ "url", SerializeString(data.url) },
+		{ "webpage_id", SerializeRichNumberString(data.webpageId) },
+	};
+	if (data.title) {
+		values.emplace_back("title", SerializeString(*data.title));
+	}
+	if (data.description) {
+		values.emplace_back(
+			"description",
+			SerializeString(*data.description));
+	}
+	if (data.photoId) {
+		values.emplace_back(
+			"photo_id",
+			SerializeRichNumberString(*data.photoId));
+	}
+	if (data.author) {
+		values.emplace_back("author", SerializeString(*data.author));
+	}
+	if (data.publishedDate) {
+		values.emplace_back(
+			"published_date",
+			SerializeDate(*data.publishedDate));
+		values.emplace_back(
+			"published_date_unixtime",
+			SerializeDateRaw(*data.publishedDate));
+	}
+	return SerializeObject(context, values);
+}
+
+QByteArray SerializeRichRelatedArticles(
+		Context &context,
+		const std::vector<Data::RichRelatedArticle> &data) {
+	return SerializeRichArray(
+		context,
+		data,
+		[&](const Data::RichRelatedArticle &article) {
+			return SerializeRichRelatedArticle(context, article);
+		});
+}
+
+QByteArray SerializeRichChannel(
+		Context &context,
+		const Data::RichChannel &data) {
+	using Source = Data::RichChannel::Source;
+	auto values = std::vector<std::pair<QByteArray, QByteArray>>{
+		{
+			"source_type",
+			SerializeString(RichChannelSourceToString(data.source)),
+		},
+		{ "id", SerializeRichNumberString(data.id) },
+	};
+	if (data.accessHash) {
+		values.emplace_back(
+			"access_hash",
+			SerializeRichNumberString(*data.accessHash));
+	}
+	if (data.title) {
+		values.emplace_back("title", SerializeString(*data.title));
+	}
+	if (data.username) {
+		values.emplace_back("username", SerializeString(*data.username));
+	}
+	if (data.source == Source::Channel
+		|| data.source == Source::ChannelForbidden) {
+		values.emplace_back("broadcast", SerializeRichBool(data.broadcast));
+		values.emplace_back("megagroup", SerializeRichBool(data.megagroup));
+		values.emplace_back("monoforum", SerializeRichBool(data.monoforum));
+	}
+	return SerializeObject(context, values);
+}
+
+QByteArray SerializeRichMapPoint(
+		Context &context,
+		const Data::RichMapPoint &data) {
+	using Source = Data::RichMapPoint::Source;
+	auto values = std::vector<std::pair<QByteArray, QByteArray>>{
+		{
+			"source_type",
+			SerializeString(RichMapPointSourceToString(data.source)),
+		},
+	};
+	switch (data.source) {
+	case Source::GeoPointEmpty:
+	case Source::InputGeoPointEmpty:
+		break;
+	case Source::GeoPoint:
+	case Source::InputGeoPoint:
+		values.emplace_back(
+			"latitude",
+			Data::NumberToString(data.latitude));
+		values.emplace_back(
+			"longitude",
+			Data::NumberToString(data.longitude));
+		break;
+	}
+	if (data.accessHash) {
+		values.emplace_back(
+			"access_hash",
+			SerializeRichNumberString(*data.accessHash));
+	}
+	if (data.accuracyRadius) {
+		values.emplace_back(
+			"accuracy_radius",
+			Data::NumberToString(*data.accuracyRadius));
+	}
+	return SerializeObject(context, values);
+}
+
+QByteArray RichBlockKindToString(Data::RichBlock::Kind kind) {
+	using Kind = Data::RichBlock::Kind;
+	switch (kind) {
+	case Kind::Unsupported: return "unsupported";
+	case Kind::Heading: return "heading";
+	case Kind::Paragraph: return "paragraph";
+	case Kind::Footer: return "footer";
+	case Kind::Thinking: return "thinking";
+	case Kind::AuthorDate: return "author_date";
+	case Kind::Code: return "code";
+	case Kind::Divider: return "divider";
+	case Kind::Anchor: return "anchor";
+	case Kind::List: return "list";
+	case Kind::Quote: return "quote";
+	case Kind::Photo: return "photo";
+	case Kind::Video: return "video";
+	case Kind::Cover: return "cover";
+	case Kind::Embed: return "embed";
+	case Kind::EmbedPost: return "embed_post";
+	case Kind::Collage: return "collage";
+	case Kind::Slideshow: return "slideshow";
+	case Kind::Channel: return "channel";
+	case Kind::Audio: return "audio";
+	case Kind::Math: return "math";
+	case Kind::Table: return "table";
+	case Kind::Details: return "details";
+	case Kind::RelatedArticles: return "related_articles";
+	case Kind::Map: return "map";
+	case Kind::InputMap: return "input_map";
+	case Kind::Unknown: return "unsupported";
+	}
+	Unexpected("Kind in RichBlock::Kind.");
+}
+
+QByteArray SerializeRichBlock(
+		Context &context,
+		const Data::RichBlock &data) {
+	using Kind = Data::RichBlock::Kind;
+	using ListKind = Data::RichListKind;
+	using QuoteContent = Data::RichQuoteContent;
+	auto values = std::vector<std::pair<QByteArray, QByteArray>>{
+		{ "type", SerializeString(RichBlockKindToString(data.kind)) },
+	};
+	{
+		context.nesting.push_back(Context::kObject);
+		const auto guard = gsl::finally([&] {
+			context.nesting.pop_back();
+		});
+		switch (data.kind) {
+		case Kind::Unsupported:
+			values.emplace_back(
+				"source_type",
+				SerializeString("page_block_unsupported"));
+			values.emplace_back("unsupported", "true");
+			break;
+		case Kind::Heading:
+			values.emplace_back(
+				"level",
+				Data::NumberToString(data.headingLevel));
+			values.emplace_back(
+				"text",
+				SerializeRichText(context, data.text));
+			break;
+		case Kind::Paragraph:
+		case Kind::Footer:
+		case Kind::Thinking:
+			values.emplace_back(
+				"text",
+				SerializeRichText(context, data.text));
+			break;
+		case Kind::AuthorDate:
+			values.emplace_back(
+				"author",
+				SerializeRichText(context, data.text));
+			values.emplace_back("date", SerializeDate(data.date));
+			values.emplace_back(
+				"date_unixtime",
+				SerializeDateRaw(data.date));
+			break;
+		case Kind::Code:
+			values.emplace_back(
+				"text",
+				SerializeRichText(context, data.text));
+			values.emplace_back(
+				"language",
+				SerializeString(data.language));
+			break;
+		case Kind::Divider:
+			break;
+		case Kind::Anchor:
+			values.emplace_back("name", SerializeString(data.name));
+			break;
+		case Kind::List:
+			values.emplace_back(
+				"kind",
+				SerializeString(RichListKindToString(data.listKind)));
+			if (data.listKind == ListKind::Ordered) {
+				values.emplace_back(
+					"reversed",
+					SerializeRichBool(data.orderedList.reversed));
+				if (data.orderedList.start) {
+					values.emplace_back(
+						"start",
+						Data::NumberToString(*data.orderedList.start));
+				}
+				if (data.orderedList.type) {
+					values.emplace_back(
+						"list_type",
+						SerializeString(*data.orderedList.type));
+				}
+			}
+			values.emplace_back(
+				"items",
+				SerializeRichListItems(context, data.listItems));
+			break;
+		case Kind::Quote:
+			values.emplace_back(
+				"content",
+				SerializeString(RichQuoteContentToString(
+					data.quoteContent)));
+			values.emplace_back(
+				"pullquote",
+				SerializeRichBool(data.pullquote));
+			switch (data.quoteContent) {
+			case QuoteContent::Text:
+				values.emplace_back(
+					"text",
+					SerializeRichText(context, data.text));
+				break;
+			case QuoteContent::Blocks:
+				values.emplace_back(
+					"blocks",
+					SerializeRichBlocks(context, data.blocks));
+				break;
+			}
+			values.emplace_back(
+				"caption",
+				SerializeRichText(context, data.quoteCaption));
+			break;
+		case Kind::Photo:
+			values.emplace_back("unsupported", "true");
+			values.emplace_back(
+				"photo_id",
+				SerializeRichNumberString(data.photoId));
+			values.emplace_back(
+				"spoiler",
+				SerializeRichBool(data.spoiler));
+			if (data.optionalUrl) {
+				values.emplace_back(
+					"url",
+					SerializeString(*data.optionalUrl));
+			}
+			if (data.optionalWebpageId) {
+				values.emplace_back(
+					"webpage_id",
+					SerializeRichNumberString(*data.optionalWebpageId));
+			}
+			values.emplace_back(
+				"caption",
+				SerializeRichCaption(context, data.caption));
+			break;
+		case Kind::Video:
+			values.emplace_back("unsupported", "true");
+			values.emplace_back(
+				"document_id",
+				SerializeRichNumberString(data.documentId));
+			values.emplace_back(
+				"autoplay",
+				SerializeRichBool(data.autoplay));
+			values.emplace_back("loop", SerializeRichBool(data.loop));
+			values.emplace_back(
+				"spoiler",
+				SerializeRichBool(data.spoiler));
+			values.emplace_back(
+				"caption",
+				SerializeRichCaption(context, data.caption));
+			break;
+		case Kind::Cover:
+			values.emplace_back("unsupported", "true");
+			Expects(data.blocks.size() == 1);
+			values.emplace_back(
+				"block",
+				SerializeRichBlock(context, data.blocks.front()));
+			break;
+		case Kind::Embed:
+			values.emplace_back("unsupported", "true");
+			if (data.optionalUrl) {
+				values.emplace_back(
+					"url",
+					SerializeString(*data.optionalUrl));
+			}
+			if (data.html) {
+				values.emplace_back("html", SerializeString(*data.html));
+			}
+			if (data.posterPhotoId) {
+				values.emplace_back(
+					"poster_photo_id",
+					SerializeRichNumberString(*data.posterPhotoId));
+			}
+			if (data.width) {
+				values.emplace_back(
+					"width",
+					Data::NumberToString(*data.width));
+			}
+			if (data.height) {
+				values.emplace_back(
+					"height",
+					Data::NumberToString(*data.height));
+			}
+			values.emplace_back(
+				"full_width",
+				SerializeRichBool(data.fullWidth));
+			values.emplace_back(
+				"allow_scrolling",
+				SerializeRichBool(data.allowScrolling));
+			values.emplace_back(
+				"caption",
+				SerializeRichCaption(context, data.caption));
+			break;
+		case Kind::EmbedPost:
+			values.emplace_back("unsupported", "true");
+			values.emplace_back("url", SerializeString(data.url));
+			values.emplace_back(
+				"webpage_id",
+				SerializeRichNumberString(data.webpageId));
+			values.emplace_back(
+				"author_photo_id",
+				SerializeRichNumberString(data.authorPhotoId));
+			values.emplace_back("author", SerializeString(data.author));
+			values.emplace_back("date", SerializeDate(data.date));
+			values.emplace_back(
+				"date_unixtime",
+				SerializeDateRaw(data.date));
+			values.emplace_back(
+				"blocks",
+				SerializeRichBlocks(context, data.blocks));
+			values.emplace_back(
+				"caption",
+				SerializeRichCaption(context, data.caption));
+			break;
+		case Kind::Collage:
+		case Kind::Slideshow:
+			values.emplace_back("unsupported", "true");
+			values.emplace_back(
+				"items",
+				SerializeRichBlocks(context, data.blocks));
+			values.emplace_back(
+				"caption",
+				SerializeRichCaption(context, data.caption));
+			break;
+		case Kind::Channel:
+			values.emplace_back("unsupported", "true");
+			values.emplace_back(
+				"channel",
+				SerializeRichChannel(context, data.channel));
+			break;
+		case Kind::Audio:
+			values.emplace_back("unsupported", "true");
+			values.emplace_back(
+				"document_id",
+				SerializeRichNumberString(data.documentId));
+			values.emplace_back(
+				"caption",
+				SerializeRichCaption(context, data.caption));
+			break;
+		case Kind::Math:
+			values.emplace_back("formula", SerializeString(data.formula));
+			break;
+		case Kind::Table:
+			values.emplace_back(
+				"title",
+				SerializeRichText(context, data.text));
+			values.emplace_back(
+				"bordered",
+				SerializeRichBool(data.bordered));
+			values.emplace_back(
+				"striped",
+				SerializeRichBool(data.striped));
+			values.emplace_back(
+				"rows",
+				SerializeRichTableRows(context, data.tableRows));
+			break;
+		case Kind::Details:
+			values.emplace_back(
+				"title",
+				SerializeRichText(context, data.text));
+			values.emplace_back("open", SerializeRichBool(data.open));
+			values.emplace_back(
+				"blocks",
+				SerializeRichBlocks(context, data.blocks));
+			break;
+		case Kind::RelatedArticles:
+			values.emplace_back("unsupported", "true");
+			values.emplace_back(
+				"title",
+				SerializeRichText(context, data.text));
+			values.emplace_back(
+				"articles",
+				SerializeRichRelatedArticles(
+					context,
+					data.relatedArticles));
+			break;
+		case Kind::Map:
+		case Kind::InputMap:
+			values.emplace_back("unsupported", "true");
+			values.emplace_back(
+				"geo",
+				SerializeRichMapPoint(context, data.mapPoint));
+			values.emplace_back("zoom", Data::NumberToString(data.zoom));
+			values.emplace_back(
+				"width",
+				Data::NumberToString(data.mapWidth));
+			values.emplace_back(
+				"height",
+				Data::NumberToString(data.mapHeight));
+			values.emplace_back(
+				"caption",
+				SerializeRichCaption(context, data.caption));
+			break;
+		case Kind::Unknown:
+			values.emplace_back(
+				"source_type",
+				SerializeString("unknown"));
+			values.emplace_back("unsupported", "true");
+			break;
+		}
+	}
+	return SerializeObject(context, values);
+}
+
+QByteArray SerializeRichBlocks(
+		Context &context,
+		const std::vector<Data::RichBlock> &data) {
+	return SerializeRichArray(
+		context,
+		data,
+		[&](const Data::RichBlock &block) {
+			return SerializeRichBlock(context, block);
+		});
+}
+
+QByteArray SerializeRichMessage(
+		Context &context,
+		const Data::RichMessage &data) {
+	auto values = std::vector<std::pair<QByteArray, QByteArray>>{
+		{ "rtl", SerializeRichBool(data.rtl) },
+		{ "part", SerializeRichBool(data.part) },
+	};
+	{
+		context.nesting.push_back(Context::kObject);
+		const auto guard = gsl::finally([&] {
+			context.nesting.pop_back();
+		});
+		values.emplace_back(
+			"blocks",
+			SerializeRichBlocks(context, data.blocks));
+	}
+	return SerializeObject(context, values);
+}
+
 QByteArray SerializeMessage(
 		Context &context,
 		const Data::Message &message,
@@ -239,7 +1186,8 @@ QByteArray SerializeMessage(
 		const QString &internalLinksDomain) {
 	using namespace Data;
 
-	if (v::is<UnsupportedMedia>(message.media.content)) {
+	if (v::is<UnsupportedMedia>(message.media.content)
+		&& !message.richMessage) {
 		return SerializeObject(context, {
 			{ "id", Data::NumberToString(message.id) },
 			{ "type", SerializeString("unsupported") }
@@ -1001,12 +1949,18 @@ QByteArray SerializeMessage(
 		}));
 	}, [&](const PaidMedia &data) {
 		push("paid_stars_amount", data.stars);
-	}, [](const UnsupportedMedia &data) {
-		Unexpected("Unsupported message.");
+	}, [&](const UnsupportedMedia &) {
+		Expects(message.richMessage.has_value());
 	}, [](v::null_t) {});
 
-	pushBare("text", SerializeText(context, message.text));
-	pushBare("text_entities", SerializeText(context, message.text, true));
+	if (message.richMessage) {
+		pushBare(
+			"rich_message",
+			SerializeRichMessage(context, *message.richMessage));
+	} else {
+		pushBare("text", SerializeText(context, message.text));
+		pushBare("text_entities", SerializeText(context, message.text, true));
+	}
 
 	if (!message.inlineButtonRows.empty()) {
 		const auto serializeRow = [&](
