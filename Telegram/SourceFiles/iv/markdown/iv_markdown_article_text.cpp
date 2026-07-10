@@ -155,7 +155,20 @@ PreparedLinkClickHandler::PreparedLinkClickHandler(PreparedLink link)
 : _link(std::move(link)) {
 }
 
-void PreparedLinkClickHandler::onClick(ClickContext) const {
+void PreparedLinkClickHandler::onClick(ClickContext context) const {
+	if (context.button != Qt::LeftButton
+		&& context.button != Qt::MiddleButton) {
+		return;
+	}
+	const auto data = ExternalEntityLinkData(_link);
+	if (!data) {
+		return;
+	}
+	if (const auto handler = Ui::Integration::Instance().createLinkHandler(
+			*data,
+			Ui::Text::MarkedContext())) {
+		handler->onClick(std::move(context));
+	}
 }
 
 const PreparedLink &PreparedLinkClickHandler::link() const {
@@ -181,14 +194,7 @@ ClickHandler::TextEntity PreparedLinkClickHandler::getTextEntity() const {
 }
 
 QString PreparedLinkClickHandler::tooltip() const {
-	if (_link.kind != PreparedLinkKind::External
-		&& _link.kind != PreparedLinkKind::InstantViewPage) {
-		return QString();
-	} else if (_link.entityType == EntityType::CustomUrl
-		|| _link.shown == EntityLinkShown::Partial) {
-		return ExternalLinkDisplayText(_link);
-	}
-	return QString();
+	return TooltipForPreparedLink(_link);
 }
 
 [[nodiscard]] int FormulaTextSize(const style::TextStyle &textStyle) {

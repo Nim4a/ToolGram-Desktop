@@ -155,6 +155,37 @@ QString ExternalLinkDisplayText(const PreparedLink &link) {
 	return good.isValid() ? good.toDisplayString() : link.target;
 }
 
+std::optional<EntityLinkData> ExternalEntityLinkData(
+		const PreparedLink &link) {
+	if (link.kind != PreparedLinkKind::External || link.target.isEmpty()) {
+		return std::nullopt;
+	}
+	switch (link.entityType) {
+	case EntityType::Url:
+	case EntityType::CustomUrl:
+	case EntityType::Email:
+		return EntityLinkData{
+			.text = !link.copyText.isEmpty() ? link.copyText : link.target,
+			.data = link.target,
+			.type = link.entityType,
+			.shown = link.shown,
+		};
+	default:
+		return std::nullopt;
+	}
+}
+
+QString TooltipForPreparedLink(const PreparedLink &link) {
+	if (link.kind != PreparedLinkKind::External
+		&& link.kind != PreparedLinkKind::InstantViewPage) {
+		return QString();
+	} else if (link.entityType == EntityType::CustomUrl
+		|| link.shown == EntityLinkShown::Partial) {
+		return ExternalLinkDisplayText(link);
+	}
+	return QString();
+}
+
 void NormalizePreparedUrlLink(PreparedLink *result, const QString &target) {
 	if (!result) {
 		return;

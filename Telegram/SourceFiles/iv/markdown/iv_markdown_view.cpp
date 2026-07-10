@@ -125,26 +125,6 @@ constexpr auto kZoomStep = 10;
 	return large;
 }
 
-[[nodiscard]] std::optional<EntityLinkData> ExternalEntityLinkData(
-		const PreparedLink &link) {
-	if (link.kind != PreparedLinkKind::External || link.target.isEmpty()) {
-		return std::nullopt;
-	}
-	switch (link.entityType) {
-	case EntityType::Url:
-	case EntityType::CustomUrl:
-	case EntityType::Email:
-		return EntityLinkData{
-			.text = !link.copyText.isEmpty() ? link.copyText : link.target,
-			.data = link.target,
-			.type = link.entityType,
-			.shown = link.shown,
-		};
-	default:
-		return std::nullopt;
-	}
-}
-
 [[nodiscard]] bool ActivateExternalLink(
 		const PreparedLink &link,
 		Qt::MouseButton button,

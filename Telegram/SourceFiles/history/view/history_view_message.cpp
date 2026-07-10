@@ -30,6 +30,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/history_view_summary_header.h"
 #include "history/view/history_view_view_button.h" // ViewButton.
 #include "history/history.h"
+#include "iv/markdown/iv_markdown_article_text.h"
+#include "iv/markdown/iv_markdown_prepare_links.h"
 #include "iv/iv_instance.h"
 #include "iv/iv_rich_page.h"
 #include "boxes/premium_preview_box.h"
@@ -176,26 +178,6 @@ void SetRichPageSelectionCursor(
 		: (link.target + u"#"_q + link.fragment);
 }
 
-[[nodiscard]] std::optional<EntityLinkData> ExternalEntityLinkData(
-		const PreparedLink &link) {
-	if (link.kind != PreparedLinkKind::External || link.target.isEmpty()) {
-		return std::nullopt;
-	}
-	switch (link.entityType) {
-	case EntityType::Url:
-	case EntityType::CustomUrl:
-	case EntityType::Email:
-		return EntityLinkData{
-			.text = !link.copyText.isEmpty() ? link.copyText : link.target,
-			.data = link.target,
-			.type = link.entityType,
-			.shown = link.shown,
-		};
-	default:
-		return std::nullopt;
-	}
-}
-
 [[nodiscard]] ClickHandler::TextEntity TextEntityForPreparedLink(
 		const PreparedLink &link) {
 	if (const auto external = ExternalEntityLinkData(link)) {
@@ -333,6 +315,12 @@ public:
 
 	TextEntity getTextEntity() const override {
 		return _link ? TextEntityForPreparedLink(*_link) : TextEntity();
+	}
+
+	QString tooltip() const override {
+		return _link
+			? Iv::Markdown::TooltipForPreparedLink(*_link)
+			: QString();
 	}
 
 private:
@@ -4567,6 +4555,17 @@ bool Message::getStateText(
 					});
 			}
 			outResult->link = rich->handler;
+		} else if (hit.preparedLink
+			&& (hit.preparedLink->kind == PreparedLinkKind::External)
+			&& (hit.mediaActivation.kind == MediaActivationKind::None)
+			&& Iv::Markdown::ExtractPreparedLink(hit.state.link)) {
+			rich->handlerCodeHeaderSegmentIndex = -1;
+			clearHorizontalScrollHandler();
+			rich->handlerPreparedLink = std::nullopt;
+			rich->handlerMediaActivation = {};
+			rich->handlerPlaceholderId = {};
+			rich->handlerPlaceholderPoint = {};
+			outResult->link = hit.state.link;
 		} else if (hit.preparedLink
 			|| hit.mediaActivation.kind != MediaActivationKind::None) {
 			const auto prepared = hit.preparedLink;
