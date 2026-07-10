@@ -1655,6 +1655,17 @@ private:
 		_editorShow = nullptr;
 		if (!_submittedPage && !_submitApiRequested) {
 			_backgroundHold = nullptr;
+			if (_composeAction && _composeThreadKey) {
+				// Sync the local draft and the chat input field with the
+				// cloud draft saved on close, like an incoming server draft
+				// update: simple-text drafts go back into the message field,
+				// rich drafts show the draft preview. Must happen after the
+				// compose entry is released above, otherwise the field code
+				// still bypasses normal draft handling and skips the update.
+				_composeAction->history->applyCloudDraft(
+					_composeThreadKey->draftKey.topicRootId(),
+					_composeThreadKey->draftKey.monoforumPeerId());
+			}
 		}
 		if (const auto continuation = base::take(_onWindowClosedContinuation)) {
 			continuation();
@@ -3721,6 +3732,10 @@ std::optional<::Data::Draft> ArticleSession::prepareRichDraftForAutosave() const
 			simple->text,
 			TextUtilities::ConvertEntitiesToTextTags(simple->entities),
 		};
+		draft.cursor = MessageCursor(
+			int(simple->text.size()),
+			int(simple->text.size()),
+			Ui::kQFixedMax);
 		draft.richMessage = nullptr;
 		draft.richMessageSummary = {};
 		return draft;

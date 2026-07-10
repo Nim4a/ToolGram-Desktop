@@ -1879,7 +1879,8 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
 		const auto premium = lock->lifetime().make_state<bool>(true);
 		const auto refresh = [=] {
 			const auto locked = !*premium
-				&& Iv::RichPageUsesPremiumFormatting(state->richPage());
+				&& !state->articleEmpty()
+				&& !Iv::CanSerializeAsSimple(state->richPage(), session);
 			lock->setVisible(locked);
 			if (locked) {
 				lock->raise();
