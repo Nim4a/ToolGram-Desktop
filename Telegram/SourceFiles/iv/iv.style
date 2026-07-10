@@ -23,6 +23,7 @@ ivMenuToggle: IconButton(defaultIconButton) {
 	ripple: defaultRippleAnimationBgOver;
 }
 ivMenuPosition: point(-2px, 40px);
+ivZoomDropdownPosition: point(-2px, 0px);
 ivBackIcon: icon {{ "box_button_back", menuIconColor }};
 ivBack: IconButton(ivMenuToggle) {
 	width: 60px;
