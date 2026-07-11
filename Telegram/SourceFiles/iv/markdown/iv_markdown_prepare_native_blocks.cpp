@@ -650,7 +650,7 @@ void ApplyBlockCaptionEditSource(
 		int headingLevel) {
 	switch (leafKind) {
 	case PreparedEditLeafKind::BlockCaption:
-		return tr::lng_article_placeholder_caption(tr::now);
+		return tr::lng_photo_caption(tr::now);
 	case PreparedEditLeafKind::TableCellText:
 		return tr::lng_article_placeholder_cell(tr::now);
 	case PreparedEditLeafKind::MathFormula:
@@ -661,7 +661,7 @@ void ApplyBlockCaptionEditSource(
 		} else if (kind == PreparedBlockKind::Heading) {
 			return HeadingLevelLabel(headingLevel);
 		} else if (kind == PreparedBlockKind::Details) {
-			return tr::lng_article_placeholder_header(tr::now);
+			return tr::lng_article_table_header(tr::now);
 		}
 		return QString();
 	}
@@ -703,10 +703,12 @@ void ApplyNativeIvEditPlaceholderText(PreparedTableCell *cell) {
 	if (!cell->editLeaf) {
 		return;
 	}
-	cell->editPlaceholderText = NativeIvEditPlaceholderText(
-		PreparedBlockKind::Table,
-		cell->editLeaf->kind,
-		0);
+	cell->editPlaceholderText = cell->header
+		? tr::lng_article_table_header(tr::now)
+		: NativeIvEditPlaceholderText(
+			PreparedBlockKind::Table,
+			cell->editLeaf->kind,
+			0);
 }
 
 [[nodiscard]] const std::vector<RichPageBlock> *ResolveCanonicalNativeIvContainer(

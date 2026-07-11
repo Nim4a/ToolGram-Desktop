@@ -1798,7 +1798,7 @@ QString State::activePlaceholderText() const {
 		case BlockKind::Heading:
 			return Markdown::HeadingLevelLabel(owner->headingLevel);
 		case BlockKind::Details:
-			return tr::lng_article_placeholder_header(tr::now);
+			return tr::lng_article_table_header(tr::now);
 		default:
 			return QString();
 		}
@@ -1811,12 +1811,19 @@ QString State::activePlaceholderText() const {
 		case BlockKind::Audio:
 		case BlockKind::Map:
 		case BlockKind::GroupedMedia:
-			return tr::lng_article_placeholder_caption(tr::now);
+			return tr::lng_photo_caption(tr::now);
 		default:
 			return QString();
 		}
-	case LeafKind::TableCellText:
-		return tr::lng_article_placeholder_cell(tr::now);
+	case LeafKind::TableCellText: {
+		const auto cell = tableCell(
+			descriptor->leaf.block,
+			descriptor->leaf.tableRowIndex,
+			descriptor->leaf.tableCellIndex);
+		return (cell && cell->header)
+			? tr::lng_article_table_header(tr::now)
+			: tr::lng_article_placeholder_cell(tr::now);
+	}
 	case LeafKind::MathFormula:
 		return u"x^2 + y^2"_q;
 	}
