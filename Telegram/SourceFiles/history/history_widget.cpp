@@ -2189,6 +2189,9 @@ void HistoryWidget::saveFieldToHistoryLocalDraft() {
 			suggestOptions(true),
 			_preview->draft(),
 			_saveEditMsgRequestId));
+	} else if (shouldShowRichDraftPreview()) {
+		_history->clearLocalDraft(topicRootId, monoforumPeerId);
+		_history->clearLocalEditDraft(topicRootId, monoforumPeerId);
 	} else {
 		const auto suggest = suggestOptions();
 		if (_replyTo || suggest.exists || !_field->empty()) {
@@ -2700,6 +2703,7 @@ bool HistoryWidget::applyDraft(FieldHistoryAction fieldHistoryAction) {
 
 	if (richDraft) {
 		_textUpdateEvents = 0;
+		clearFieldText(0, fieldHistoryAction);
 		if ((_replyTo != richDraft->reply)
 			|| (_replyTo && !_replyEditMsg)) {
 			_replyTo = richDraft->reply;
