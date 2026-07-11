@@ -74,9 +74,6 @@ private:
 	object_ptr<RpWidget> setupContent(
 		not_null<RpWidget*> parent,
 		Origin origin);
-	object_ptr<Ui::SlideWrap<Ui::RpWidget>> setupSharedMedia(
-		not_null<RpWidget*> parent,
-		Ui::MultiSlideTracker &sharedTracker);
 	[[nodiscard]] Section makeMembersSection(not_null<QWidget*> parent);
 
 	int countDesiredHeight() const;

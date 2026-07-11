@@ -15,7 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/profile/info_profile_music_button.h"
 #include "info/profile/info_profile_top_bar.h"
 #include "info/profile/info_profile_actions.h"
-#include "info/media/info_media_buttons.h"
+#include "info/profile/info_profile_shared_media_classic.h"
 #include "info/saved/info_saved_music_widget.h"
 #include "data/data_changes.h"
 #include "data/data_channel.h"
@@ -216,8 +216,13 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
 
 	auto sharedTracker = Ui::MultiSlideTracker();
 	{
-		auto sharedMediaWidget = setupSharedMedia(
+		auto sharedMediaWidget = SetupSharedMediaClassic(
 			result.data(),
+			_controller,
+			_peer,
+			_topic,
+			_sublist,
+			_migrated,
 			sharedTracker);
 		const auto raw = sharedMediaWidget.data();
 		_sharedMediaWrap = raw;
@@ -291,141 +296,6 @@ Section InnerWidget::makeMembersSection(not_null<QWidget*> parent) {
 		.widget = std::move(wrap),
 		.shown = raw->toggledValue(),
 	};
-}
-
-object_ptr<Ui::SlideWrap<Ui::RpWidget>> InnerWidget::setupSharedMedia(
-		not_null<RpWidget*> parent,
-		Ui::MultiSlideTracker &sharedTracker) {
-	using namespace rpl::mappers;
-	using MediaType = Media::Type;
-
-	const auto peer = _sublist ? _sublist->sublistPeer() : _peer;
-	auto content = object_ptr<Ui::VerticalLayout>(parent);
-	auto &tracker = sharedTracker;
-	auto addMediaButton = [&](
-			MediaType type,
-			const style::icon &icon) {
-		auto result = Media::AddButton(
-			content,
-			_controller,
-			peer,
-			_topic ? _topic->rootId() : MsgId(),
-			_sublist ? _sublist->sublistPeer()->id : PeerId(),
-			_migrated,
-			type,
-			tracker);
-		object_ptr<Profile::FloatingIcon>(
-			result,
-			icon,
-			st::infoSharedMediaButtonIconPosition);
-	};
-	auto addCommonGroupsButton = [&](
-			not_null<UserData*> user,
-			const style::icon &icon) {
-		auto result = Media::AddCommonGroupsButton(
-			content,
-			_controller,
-			user,
-			tracker);
-		object_ptr<Profile::FloatingIcon>(
-			result,
-			icon,
-			st::infoSharedMediaButtonIconPosition);
-	};
-	const auto addSimilarPeersButton = [&](
-			not_null<PeerData*> peer,
-			const style::icon &icon) {
-		auto result = Media::AddSimilarPeersButton(
-			content,
-			_controller,
-			peer,
-			tracker);
-		object_ptr<Profile::FloatingIcon>(
-			result,
-			icon,
-			st::infoSharedMediaButtonIconPosition);
-	};
-	auto addStoriesButton = [&](
-			not_null<PeerData*> peer,
-			const style::icon &icon) {
-		if (peer->isChat()) {
-			return;
-		}
-		auto result = Media::AddStoriesButton(
-			content,
-			_controller,
-			peer,
-			tracker);
-		object_ptr<Profile::FloatingIcon>(
-			result,
-			icon,
-			st::infoSharedMediaButtonIconPosition);
-	};
-	auto addSavedSublistButton = [&](
-			not_null<PeerData*> peer,
-			const style::icon &icon) {
-		auto result = Media::AddSavedSublistButton(
-			content,
-			_controller,
-			peer,
-			tracker);
-		object_ptr<Profile::FloatingIcon>(
-			result,
-			icon,
-			st::infoSharedMediaButtonIconPosition);
-	};
-	auto addPeerGiftsButton = [&](
-			not_null<PeerData*> peer,
-			const style::icon &icon) {
-		auto result = Media::AddPeerGiftsButton(
-			content,
-			_controller,
-			peer,
-			tracker);
-		object_ptr<Profile::FloatingIcon>(
-			result,
-			icon,
-			st::infoSharedMediaButtonIconPosition);
-	};
-
-	if (!_topic) {
-		addStoriesButton(peer, st::infoIconMediaStories);
-		addPeerGiftsButton(peer, st::infoIconMediaGifts);
-		addSavedSublistButton(peer, st::infoIconMediaSaved);
-	}
-	addMediaButton(MediaType::Photo, st::infoIconMediaPhoto);
-	addMediaButton(MediaType::Video, st::infoIconMediaVideo);
-	addMediaButton(MediaType::File, st::infoIconMediaFile);
-	addMediaButton(MediaType::MusicFile, st::infoIconMediaAudio);
-	addMediaButton(MediaType::Link, st::infoIconMediaLink);
-	addMediaButton(MediaType::Poll, st::infoIconMediaPoll);
-	addMediaButton(MediaType::RoundVoiceFile, st::infoIconMediaVoice);
-	addMediaButton(MediaType::GIF, st::infoIconMediaGif);
-	if (const auto bot = peer->asBot()) {
-		addCommonGroupsButton(bot, st::infoIconMediaGroup);
-		addSimilarPeersButton(bot, st::infoIconMediaBot);
-	} else if (const auto channel = peer->asBroadcast()) {
-		addSimilarPeersButton(channel, st::infoIconMediaChannel);
-	} else if (const auto user = peer->asUser()) {
-		addCommonGroupsButton(user, st::infoIconMediaGroup);
-	}
-
-	auto result = object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
-		parent,
-		object_ptr<Ui::VerticalLayout>(parent)
-	);
-
-	result->setDuration(
-		st::infoSlideDuration
-	)->toggleOn(
-		tracker.atLeastOneShownValue()
-	);
-
-	auto layout = result->entity();
-
-	layout->add(std::move(content));
-
-	return result;
 }
 
 int InnerWidget::countDesiredHeight() const {

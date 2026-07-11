@@ -1226,6 +1226,8 @@ PRIVATE
     info/profile/info_profile_phone_menu.h
     info/profile/info_profile_section_stack.cpp
     info/profile/info_profile_section_stack.h
+    info/profile/info_profile_shared_media_classic.cpp
+    info/profile/info_profile_shared_media_classic.h
     info/profile/info_profile_status_label.cpp
     info/profile/info_profile_status_label.h
     info/profile/info_profile_top_bar.cpp
