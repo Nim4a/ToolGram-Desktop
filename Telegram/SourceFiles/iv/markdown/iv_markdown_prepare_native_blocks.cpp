@@ -339,6 +339,18 @@ bool AppendPreparedQuoteParagraph(
 	return FormatPreparedOrderedMarkerBody(value, type) + suffix;
 }
 
+[[nodiscard]] QString FormatPreparedOrderedRawMarkerText(
+		const QString &raw,
+		ListDelimiter delimiter) {
+	if (raw.isEmpty() || raw.endsWith('.') || raw.endsWith(')')) {
+		return raw;
+	}
+	const auto suffix = (delimiter == ListDelimiter::Parenthesis)
+		? u")"_q
+		: u"."_q;
+	return raw + suffix;
+}
+
 class NativeIvOrderedMarkerFormatter {
 public:
 	NativeIvOrderedMarkerFormatter(
@@ -362,7 +374,9 @@ public:
 		block->orderedType = type;
 		block->orderedReversed = _reversed;
 		block->orderedNumber = value;
-		block->articleOrderedMarkerText = raw;
+		block->articleOrderedMarkerText = FormatPreparedOrderedRawMarkerText(
+			raw,
+			_delimiter);
 		block->orderedMarkerText = _editMode
 			? FormatPreparedOrderedMarkerText(value, type, _delimiter)
 			: raw.isEmpty()
