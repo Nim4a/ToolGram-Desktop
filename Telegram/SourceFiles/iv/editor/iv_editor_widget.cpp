@@ -6480,10 +6480,21 @@ void Widget::openPhotoEditor(
 	if (!_requestPhotoEditSource) {
 		return;
 	}
-	auto source = _requestPhotoEditSource(photoId);
-	if (source.isNull()) {
-		return;
-	}
+	const auto weak = base::make_weak(this);
+	_requestPhotoEditSource(photoId, [=, target = std::move(target)](
+			QImage source) {
+		const auto strong = weak.get();
+		if (!strong || source.isNull()) {
+			return;
+		}
+		strong->showPhotoEditor(std::move(source), spoiler, target);
+	});
+}
+
+void Widget::showPhotoEditor(
+		QImage source,
+		bool spoiler,
+		State::ReplaceTarget target) {
 	const auto previewWidth = st::sendMediaPreviewSize;
 	const auto sourceShared = std::make_shared<QImage>(std::move(source));
 	const auto replaceTarget = std::make_shared<State::ReplaceTarget>(

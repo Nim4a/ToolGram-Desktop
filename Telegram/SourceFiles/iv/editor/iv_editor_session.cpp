@@ -767,6 +767,11 @@ private:
 		std::shared_ptr<const RichPage> fullPage;
 	};
 
+	struct PendingPhotoEditSource {
+		std::shared_ptr<::Data::PhotoMedia> media;
+		Fn<void(QImage)> done;
+	};
+
 	ArticleSession(
 		not_null<Main::Session*> session,
 		not_null<PeerData*> peer,
@@ -870,6 +875,12 @@ private:
 		return _composeThreadKey
 			? ComposeDraftOrigin(*_composeThreadKey)
 			: ::Data::FileOrigin();
+	}
+
+	[[nodiscard]] ::Data::FileOrigin photoEditOrigin() const {
+		return (_mode == Mode::Edit)
+			? ::Data::FileOrigin(_articleId)
+			: composeDraftOrigin();
 	}
 
 	[[nodiscard]] bool submitWouldBeEphemeral(
@@ -1620,8 +1631,9 @@ private:
 					std::move(target));
 			},
 			.requestPhotoEditSource = [session = shared_from_this()](
-					uint64 photoId) {
-				return session->photoEditSource(photoId);
+					uint64 photoId,
+					Fn<void(QImage)> done) {
+				session->photoEditSource(photoId, std::move(done));
 			},
 			.replacePhotoWithList = [session = shared_from_this()](
 					not_null<Widget*> editor,
@@ -1679,6 +1691,8 @@ private:
 		_submitButton = nullptr;
 		_windowHost = nullptr;
 		_editorShow = nullptr;
+		_pendingPhotoEditSources.clear();
+		_photoEditSourceLifetime.destroy();
 		if (!_submittedPage && !_submitApiRequested) {
 			_backgroundHold = nullptr;
 			// Sync the local draft and the chat input field with the
@@ -1877,10 +1891,11 @@ private:
 			std::move(replaceTarget));
 	}
 
-	[[nodiscard]] QImage photoEditSource(uint64 photoId) {
+	void photoEditSource(uint64 photoId, Fn<void(QImage)> done) {
 		if (const auto i = _originalMediaImages.find(photoId);
 			i != end(_originalMediaImages)) {
-			return i->second;
+			done(i->second);
+			return;
 		}
 		for (const auto &attachment : _attachments) {
 			if ((attachment.blockKind == RichPage::BlockKind::Photo)
@@ -1888,19 +1903,60 @@ private:
 				const auto i = _originalMediaImages.find(
 					attachment.localMediaId);
 				if (i != end(_originalMediaImages)) {
-					return i->second;
+					done(i->second);
+					return;
 				}
 				break;
 			}
 		}
 		const auto photo = _session->data().photo(PhotoId(photoId));
 		const auto media = photo->createMediaView();
-		const auto origin = composeDraftOrigin();
-		media->wanted(::Data::PhotoSize::Large, origin);
+		photo->clearFailed(::Data::PhotoSize::Large);
+		media->wanted(::Data::PhotoSize::Large, photoEditOrigin());
 		if (const auto large = media->image(::Data::PhotoSize::Large)) {
-			return large->original();
+			_pendingPhotoEditSources.remove(photoId);
+			done(large->original());
+			return;
 		}
-		return QImage();
+		const auto i = _pendingPhotoEditSources.find(photoId);
+		if (i != end(_pendingPhotoEditSources)) {
+			i->second.done = std::move(done);
+			return;
+		}
+		_pendingPhotoEditSources.emplace(photoId, PendingPhotoEditSource{
+			.media = media,
+			.done = std::move(done),
+		});
+		if (!_photoEditSourceLifetime) {
+			_session->downloaderTaskFinished(
+			) | rpl::on_next([=] {
+				checkPendingPhotoEditSources();
+			}, _photoEditSourceLifetime);
+		}
+	}
+
+	void checkPendingPhotoEditSources() {
+		auto completed = std::vector<std::pair<Fn<void(QImage)>, QImage>>();
+		for (auto i = begin(_pendingPhotoEditSources)
+			; i != end(_pendingPhotoEditSources);) {
+			const auto &media = i->second.media;
+			if (const auto large = media->image(::Data::PhotoSize::Large)) {
+				completed.emplace_back(
+					std::move(i->second.done),
+					large->original());
+				i = _pendingPhotoEditSources.erase(i);
+			} else if (media->owner()->failed(::Data::PhotoSize::Large)) {
+				i = _pendingPhotoEditSources.erase(i);
+			} else {
+				++i;
+			}
+		}
+		for (auto &[done, image] : completed) {
+			done(std::move(image));
+		}
+		if (_pendingPhotoEditSources.empty()) {
+			_photoEditSourceLifetime.destroy();
+		}
 	}
 
 	[[nodiscard]] MediaUploadState mediaUploadStateForMedia(uint64 mediaId) {
@@ -3702,12 +3758,14 @@ private:
 	std::shared_ptr<const RichPage> _submittedPage;
 	std::vector<AttachmentRecord> _attachments;
 	base::flat_map<uint64, QImage> _originalMediaImages;
+	base::flat_map<uint64, PendingPhotoEditSource> _pendingPhotoEditSources;
 	std::deque<QueuedPrepare> _prepareQueue;
 	std::vector<MediaBatch> _mediaBatches;
 	TaskQueue _attachmentPrepareQueue;
 	base::Timer _richDraftAutosaveTimer;
 	base::weak_qptr<Ui::GenericBox> _closeDraftSaveBox;
 	rpl::lifetime _editorAutosaveLifetime;
+	rpl::lifetime _photoEditSourceLifetime;
 	rpl::lifetime _lifetime;
 	uint64 _prepareBatchId = 0;
 	uint64 _rejectedToastBatchId = 0;
