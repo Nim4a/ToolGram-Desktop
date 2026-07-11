@@ -655,17 +655,15 @@ void ApplyBlockCaptionEditSource(
 		return tr::lng_article_placeholder_cell(tr::now);
 	case PreparedEditLeafKind::MathFormula:
 		return u"x^2 + y^2"_q;
-	case PreparedEditLeafKind::ListItemText:
-		return tr::lng_article_placeholder_text(tr::now);
 	case PreparedEditLeafKind::BlockText:
 		if (kind == PreparedBlockKind::Table) {
 			return tr::lng_article_placeholder_title(tr::now);
 		} else if (kind == PreparedBlockKind::Heading) {
 			return HeadingLevelLabel(headingLevel);
+		} else if (kind == PreparedBlockKind::Details) {
+			return tr::lng_article_placeholder_header(tr::now);
 		}
-		return (kind == PreparedBlockKind::Details)
-			? tr::lng_article_placeholder_header(tr::now)
-			: tr::lng_article_placeholder_text(tr::now);
+		return QString();
 	}
 	return QString();
 }

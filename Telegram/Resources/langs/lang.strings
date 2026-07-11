@@ -7406,7 +7406,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_article_media_slideshow" = "Slideshow";
 "lng_article_insert_details" = "Details";
 "lng_article_insert_table" = "Table";
-"lng_article_placeholder_text" = "Text";
 "lng_article_placeholder_header" = "Header";
 "lng_article_placeholder_caption" = "Caption";
 "lng_article_placeholder_cell" = "Cell";

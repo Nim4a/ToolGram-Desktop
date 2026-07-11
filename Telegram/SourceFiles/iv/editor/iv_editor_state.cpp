@@ -1793,10 +1793,6 @@ QString State::activePlaceholderText() const {
 	switch (descriptor->leaf.kind) {
 	case LeafKind::BlockText:
 		switch (owner->kind) {
-		case BlockKind::Paragraph:
-		case BlockKind::Footer:
-		case BlockKind::Code:
-			return tr::lng_article_placeholder_text(tr::now);
 		case BlockKind::Quote:
 			return tr::lng_article_placeholder_quote(tr::now);
 		case BlockKind::Heading:
@@ -1819,8 +1815,6 @@ QString State::activePlaceholderText() const {
 		default:
 			return QString();
 		}
-	case LeafKind::ListItemText:
-		return tr::lng_article_placeholder_text(tr::now);
 	case LeafKind::TableCellText:
 		return tr::lng_article_placeholder_cell(tr::now);
 	case LeafKind::MathFormula:
