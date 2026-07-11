@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/profile/tabs/info_profile_tabs_host.h"
 
 #include "info/profile/tabs/info_profile_tabs_strip.h"
+#include "base/options.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/effects/slide_animation.h"
 #include "ui/painter.h"
@@ -16,6 +17,22 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_info.h"
 
 namespace Info::Profile {
+namespace {
+
+base::options::toggle ProfileMediaTabs({
+	.id = kOptionProfileMediaTabs,
+	.name = "Show shared media as tabs in the profile.",
+	.description = "Replace the shared media buttons in profiles with "
+		"a strip of tabs holding the media lists inline. Work in progress.",
+});
+
+} // namespace
+
+const char kOptionProfileMediaTabs[] = "profile-media-tabs";
+
+bool UseProfileMediaTabs() {
+	return ProfileMediaTabs.value();
+}
 
 TabsHost::TabsHost(not_null<QWidget*> parent, Descriptor descriptor)
 : RpWidget(parent)

@@ -20,6 +20,10 @@ struct ScrollToRequest;
 
 namespace Info::Profile {
 
+extern const char kOptionProfileMediaTabs[];
+
+[[nodiscard]] bool UseProfileMediaTabs();
+
 class TabsStrip;
 
 class TabsHost final : public Ui::RpWidget {

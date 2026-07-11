@@ -210,6 +210,9 @@ protected:
 	void scrollTopRestore(int scrollTop);
 	void scrollTo(const Ui::ScrollToRequest &request);
 	[[nodiscard]] rpl::producer<int> scrollTopValue() const;
+	[[nodiscard]] int innerTopReserve() const {
+		return _innerTopReserve;
+	}
 
 	void setPaintPadding(const style::margins &padding);
 
