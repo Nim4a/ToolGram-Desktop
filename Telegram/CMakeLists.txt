@@ -1234,6 +1234,14 @@ PRIVATE
     info/profile/info_profile_values.h
     info/profile/info_profile_widget.cpp
     info/profile/info_profile_widget.h
+    info/profile/tabs/info_profile_tab_skeleton.cpp
+    info/profile/tabs/info_profile_tab_skeleton.h
+    info/profile/tabs/info_profile_tab_content.h
+    info/profile/tabs/info_profile_tab_top_bar_bindings.h
+    info/profile/tabs/info_profile_tabs_host.cpp
+    info/profile/tabs/info_profile_tabs_host.h
+    info/profile/tabs/info_profile_tabs_strip.cpp
+    info/profile/tabs/info_profile_tabs_strip.h
     info/reactions_list/info_reactions_list_widget.cpp
     info/reactions_list/info_reactions_list_widget.h
     info/requests_list/info_requests_list_widget.cpp
