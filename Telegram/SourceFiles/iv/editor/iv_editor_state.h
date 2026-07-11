@@ -287,6 +287,7 @@ public:
 	[[nodiscard]] BoundaryTarget removeTemporaryDownParagraphAndMove();
 	[[nodiscard]] std::optional<int> handleActiveHeadingEnter();
 	[[nodiscard]] std::optional<int> handleActiveListEnter();
+	[[nodiscard]] std::optional<int> handleActiveParagraphEnter();
 	[[nodiscard]] std::optional<int> removeActiveOwnerAndSelectAdjacent(
 		bool forward);
 	[[nodiscard]] std::optional<int> removeStructuralSelection(
@@ -777,6 +778,9 @@ private:
 	[[nodiscard]] BoundaryTarget removeTemporaryDownParagraphAndMoveUnchecked();
 	[[nodiscard]] std::optional<int> handleActiveHeadingEnterUnchecked();
 	[[nodiscard]] std::optional<int> handleActiveListEnterUnchecked();
+	[[nodiscard]] std::optional<int> handleActiveParagraphEnterUnchecked();
+	[[nodiscard]] std::optional<int> handleActiveBlockEnterUnchecked(
+		RichPage::BlockKind kind);
 	[[nodiscard]] bool insertBlocksAfterActiveUnchecked(
 		std::vector<RichPage::Block> blocks,
 		std::optional<ActiveTextInsertContext> context = std::nullopt);

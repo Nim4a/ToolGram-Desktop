@@ -6226,6 +6226,24 @@ std::optional<int> State::handleActiveHeadingEnter() {
 }
 
 std::optional<int> State::handleActiveHeadingEnterUnchecked() {
+	return handleActiveBlockEnterUnchecked(BlockKind::Heading);
+}
+
+std::optional<int> State::handleActiveParagraphEnter() {
+	return applyCheckedMutation(std::optional<int>(), [](State &candidate) {
+		const auto result = candidate.handleActiveParagraphEnterUnchecked();
+		return CheckedMutationResult<std::optional<int>>{
+			.apply = result.has_value(),
+			.result = result,
+		};
+	});
+}
+
+std::optional<int> State::handleActiveParagraphEnterUnchecked() {
+	return handleActiveBlockEnterUnchecked(BlockKind::Paragraph);
+}
+
+std::optional<int> State::handleActiveBlockEnterUnchecked(BlockKind kind) {
 	const auto descriptor = textNode(_activeTextOrdinal);
 	if (!descriptor || descriptor->leaf.kind != LeafKind::BlockText) {
 		return std::nullopt;
@@ -6235,7 +6253,7 @@ std::optional<int> State::handleActiveHeadingEnterUnchecked() {
 	if (!blocks
 		|| path.index < 0
 		|| path.index >= int(blocks->size())
-		|| (*blocks)[path.index].kind != BlockKind::Heading) {
+		|| (*blocks)[path.index].kind != kind) {
 		return std::nullopt;
 	}
 	const auto insertAt = path.index + 1;
