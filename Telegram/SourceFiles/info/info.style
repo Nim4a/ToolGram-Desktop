@@ -402,6 +402,26 @@ infoTopBarBlackClose: IconButton(infoTopBarClose) {
 	iconOver: icon {{ "info/info_close", windowBoldFg }};
 	ripple: universalRippleAnimation;
 }
+infoTopBarColoredMenu: IconButton(infoTopBarMenu) {
+	icon: icon {{ "title_menu_dots", groupCallMembersFg }};
+	iconOver: icon {{ "title_menu_dots", groupCallMembersFg }};
+	ripple: universalRippleAnimation;
+}
+infoTopBarBlackMenu: IconButton(infoTopBarMenu) {
+	icon: icon {{ "title_menu_dots", windowBoldFg }};
+	iconOver: icon {{ "title_menu_dots", windowBoldFg }};
+	ripple: universalRippleAnimation;
+}
+infoTopBarColoredSearch: IconButton(infoTopBarSearch) {
+	icon: icon {{ "top_bar_search", groupCallMembersFg }};
+	iconOver: icon {{ "top_bar_search", groupCallMembersFg }};
+	ripple: universalRippleAnimation;
+}
+infoTopBarBlackSearch: IconButton(infoTopBarSearch) {
+	icon: icon {{ "top_bar_search", windowBoldFg }};
+	iconOver: icon {{ "top_bar_search", windowBoldFg }};
+	ripple: universalRippleAnimation;
+}
 infoTopBarBlackEdit: IconButton(infoTopBarEdit) {
 	icon: icon {{ "menu/edit", windowBoldFg }};
 	iconOver: icon {{ "menu/edit", windowBoldFg }};
