@@ -889,6 +889,24 @@ private:
 		return _session->ephemeralMessages().wouldSend(message);
 	}
 
+	[[nodiscard]] bool submitPaymentChecked(
+			const std::optional<TextWithEntities> &simple,
+			Fn<void(int)> resend) {
+		if (_mode != Mode::Compose
+			|| !_composeAction
+			|| _submitOptions.scheduled
+			|| submitWouldBeEphemeral(simple)) {
+			return true;
+		}
+		const auto show = resolveShow();
+		return !show || _sendPayment.check(
+			show,
+			_peer,
+			_submitOptions,
+			1,
+			std::move(resend));
+	}
+
 	[[nodiscard]] bool submitRequested() {
 		if (_submittedPage || _submitApiRequested) {
 			return false;
@@ -906,30 +924,18 @@ private:
 			return false;
 		}
 		auto simple = SerializeAsSimple(_state->richPage(), _session);
-		if (_mode == Mode::Compose
-			&& _composeAction
-			&& !_submitOptions.scheduled
-			&& !submitWouldBeEphemeral(simple)) {
-			const auto weak = base::make_weak(this);
-			const auto withPaymentApproved = [weak](int approved) {
-				if (const auto strong = weak.get()) {
-					auto options = strong->_submitOptions;
-					options.starsApproved = approved;
-					strong->requestSubmit(std::move(options));
-				}
-			};
-			const auto show = resolveShow();
-			if (show
-				&& !_sendPayment.check(
-					show,
-					_peer,
-					_submitOptions,
-					1,
-					withPaymentApproved)) {
+		const auto weak = base::make_weak(this);
+		const auto withPaymentApproved = [weak](int approved) {
+			if (const auto strong = weak.get()) {
+				auto options = strong->_submitOptions;
+				options.starsApproved = approved;
+				strong->requestSubmit(std::move(options));
+			}
+		};
+		if (simple) {
+			if (!submitPaymentChecked(simple, withPaymentApproved)) {
 				return false;
 			}
-		}
-		if (simple) {
 			return submitSimpleText(std::move(*simple));
 		}
 		if (_mode == Mode::Compose && _composeAction) {
@@ -946,18 +952,13 @@ private:
 				ShowRichMessagesPremiumToast(resolveShow());
 				return false;
 			}
-			const auto weak = base::make_weak(this);
 			OfferRichMessagePremiumChoice(
 				resolveShow(),
 				_session,
 				page,
 				[=] {
 					if (const auto strong = weak.get()) {
-						auto plain = FlattenRichPageToSimpleText(page);
-						if (strong->submitSimpleText(std::move(plain))
-							&& strong->_windowHost) {
-							strong->_windowHost->close();
-						}
+						strong->submitWithoutFormatting(page);
 					}
 				});
 			return false;
@@ -974,6 +975,10 @@ private:
 				== SerializeInputRichMessageStatus::EmptyContent) {
 			_submittedPage = nullptr;
 			showEmptySubmittedPageToast();
+			return false;
+		}
+		if (!submitPaymentChecked(simple, withPaymentApproved)) {
+			_submittedPage = nullptr;
 			return false;
 		}
 		if (!applySubmittedLocalState(page)) {
@@ -1032,6 +1037,27 @@ private:
 			},
 			false);
 		return true;
+	}
+
+	void submitWithoutFormatting(RichPage page) {
+		auto plain = FlattenRichPageToSimpleText(page);
+		const auto weak = base::make_weak(this);
+		const auto withPaymentApproved = [weak, page](int approved) {
+			if (const auto strong = weak.get()) {
+				strong->_submitOptions.starsApproved = approved;
+				if (strong->_composeAction) {
+					strong->_composeAction->options
+						= strong->_submitOptions;
+				}
+				strong->submitWithoutFormatting(page);
+			}
+		};
+		if (!submitPaymentChecked(plain, withPaymentApproved)) {
+			return;
+		}
+		if (submitSimpleText(std::move(plain)) && _windowHost) {
+			_windowHost->close();
+		}
 	}
 
 	[[nodiscard]] bool cancelRequested() {
