@@ -6016,7 +6016,7 @@ void Widget::fillTableChangeMenu(
 				return _state->setTableStriped(range, !info.striped);
 			});
 		},
-		nullptr,
+		&st::ivEditorTableStripedIcon,
 		info.striped);
 }
 
