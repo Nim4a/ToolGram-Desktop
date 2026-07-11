@@ -170,6 +170,7 @@ NativeInstantViewPrepareResult TryPrepareNativeInstantView(
 	timer.start();
 	state.result.mediaRuntime = std::move(request.mediaRuntime);
 	state.result.editMode = request.editMode;
+	state.result.richPage = request.richPage;
 	state.dimensions = request.dimensionsOverride.value_or(
 		CaptureMarkdownPrepareDimensions());
 	state.tableRenderLimits = request.tableRenderLimits.value_or(

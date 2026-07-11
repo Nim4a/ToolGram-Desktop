@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "iv/markdown/iv_markdown_common.h"
 #include "iv/markdown/iv_markdown_media_block.h"
 #include "iv/markdown/iv_markdown_prepare.h"
+#include "iv/iv_rich_page.h"
 
 #include "base/flat_map.h"
 #include "spellcheck/spellcheck_highlight_syntax.h"
@@ -469,6 +470,8 @@ public:
 		MarkdownArticleSelection selection,
 		const MarkdownArticleSelectionEndpoints *endpoints,
 		const PreparedEditSelection *structuralSelection = nullptr) const;
+	[[nodiscard]] std::vector<RichPage::Block> richPageSliceForSelection(
+		MarkdownArticleSelection selection) const;
 	[[nodiscard]] bool highlightProcessDone(
 		Spellchecker::HighlightProcessId processId);
 	void invalidatePaletteCache();

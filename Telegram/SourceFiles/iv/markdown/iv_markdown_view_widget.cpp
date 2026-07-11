@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/click_handler_types.h"
 #include "core/credits_amount.h"
 #include "core/file_utilities.h"
+#include "iv/editor/iv_editor_clipboard.h"
 #include "iv/markdown/iv_markdown_article_text.h"
 #include "iv/markdown/iv_markdown_prepare_native_richtext.h"
 #include "lang/lang_keys.h"
@@ -35,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_menu_icons.h"
 
 #include <QtCore/QElapsedTimer>
+#include <QtCore/QMimeData>
 #include <QtCore/QPointer>
 #include <QtGui/QClipboard>
 #include <QtGui/QContextMenuEvent>
@@ -1036,10 +1038,28 @@ void MarkdownDocumentWidget::showToast(const QString &text) const {
 }
 
 void MarkdownDocumentWidget::copySelectedText() {
-	if (const auto text = getSelectedText(); !text.empty()) {
-		TextUtilities::SetClipboardText(text);
-		showToast(tr::lng_text_copied(tr::now));
+	const auto text = getSelectedText();
+	if (text.empty()) {
+		return;
 	}
+	auto blocks = _article
+		? _article->richPageSliceForSelection(selectionForCopy())
+		: std::vector<RichPage::Block>();
+	if (blocks.empty()) {
+		TextUtilities::SetClipboardText(text);
+	} else {
+		auto data = Editor::ClipboardBlockData();
+		data.blocks = std::move(blocks);
+		auto mimeData = Editor::MimeDataFromClipboardData(
+			Editor::ClipboardData(std::move(data)));
+		if (const auto textMimeData = TextUtilities::MimeDataFromText(text)) {
+			for (const auto &format : textMimeData->formats()) {
+				mimeData->setData(format, textMimeData->data(format));
+			}
+		}
+		QGuiApplication::clipboard()->setMimeData(mimeData.release());
+	}
+	showToast(tr::lng_text_copied(tr::now));
 }
 
 void MarkdownDocumentWidget::copyCodeBlock(

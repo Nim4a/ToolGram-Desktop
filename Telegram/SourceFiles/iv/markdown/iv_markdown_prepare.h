@@ -809,6 +809,7 @@ struct MarkdownArticleContent {
 	std::vector<PreparedFootnote> footnotes;
 	std::vector<PreparedFormulaSlot> formulas;
 	std::shared_ptr<MediaRuntime> mediaRuntime;
+	std::shared_ptr<const Iv::RichPage> richPage;
 	bool editMode = false;
 	PrepareFailureStatus failure;
 	PrepareDebugStats debug;

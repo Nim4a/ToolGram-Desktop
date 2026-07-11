@@ -3473,6 +3473,9 @@ public:
 		const MarkdownArticleSelectionEndpoints *endpoints,
 		const PreparedEditSelection *structuralSelection) const;
 
+	[[nodiscard]] std::vector<RichPage::Block> richPageSliceForSelection(
+		MarkdownArticleSelection selection) const;
+
 	[[nodiscard]] bool highlightProcessDone(
 		Spellchecker::HighlightProcessId processId);
 
@@ -4654,6 +4657,17 @@ TextForMimeData MarkdownArticle::Impl::textForSelection(
 		selection,
 		endpoints,
 		structuralSelection);
+}
+
+std::vector<RichPage::Block> MarkdownArticle::Impl::richPageSliceForSelection(
+		MarkdownArticleSelection selection) const {
+	if (!_content.richPage) {
+		return {};
+	}
+	return RichPageBlocksForSelectedSegments(
+		*_content.richPage,
+		_segments,
+		selection);
 }
 
 bool MarkdownArticle::Impl::highlightProcessDone(
@@ -6279,6 +6293,11 @@ TextForMimeData MarkdownArticle::textForSelection(
 		selection,
 		endpoints,
 		structuralSelection);
+}
+
+std::vector<RichPage::Block> MarkdownArticle::richPageSliceForSelection(
+		MarkdownArticleSelection selection) const {
+	return _impl->richPageSliceForSelection(selection);
 }
 
 bool MarkdownArticle::highlightProcessDone(
