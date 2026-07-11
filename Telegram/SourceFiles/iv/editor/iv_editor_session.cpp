@@ -934,6 +934,10 @@ private:
 			showAttachmentFailedToast();
 			return false;
 		}
+		if (_state->articleEmpty()) {
+			showEmptySubmittedPageToast();
+			return false;
+		}
 		auto simple = SerializeAsSimple(_state->richPage(), _session);
 		const auto weak = base::make_weak(this);
 		const auto withPaymentApproved = [weak](int approved) {
