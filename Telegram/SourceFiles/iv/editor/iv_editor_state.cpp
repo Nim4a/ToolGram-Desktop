@@ -1947,7 +1947,11 @@ State::ApplyResult State::applyFormattingToTextSpans(
 					&before,
 					&selected,
 					&after)) {
-				continue;
+				if (action != TextFormattingAction::PlainText
+					|| span.leaf.kind != LeafKind::BlockText
+					|| !current->text.text.isEmpty()) {
+					continue;
+				}
 			}
 			auto converted = ConvertRichTextToEditorTags(std::move(selected));
 			if (action == TextFormattingAction::PlainText) {

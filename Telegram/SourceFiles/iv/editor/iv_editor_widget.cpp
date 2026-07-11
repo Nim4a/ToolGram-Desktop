@@ -8517,6 +8517,13 @@ Widget::visibleFullHeadingFieldTextSpan() const {
 	}
 	const auto full = ConvertEditorTagsToRichText(
 		_field->getTextWithAppliedMarkdown());
+	if (full.text.isEmpty()) {
+		return TextNodeSpan{
+			.leaf = *leaf,
+			.from = 0,
+			.till = 0,
+		};
+	}
 	const auto cursor = _field->textCursor();
 	if (!cursor.hasSelection()) {
 		return std::nullopt;
