@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "info/info_controller.h"
 #include "info/info_memento.h"
+#include "info/info_wrap_widget.h"
 #include "info/profile/info_profile_widget.h"
 #include "info/profile/tabs/adapters/info_profile_tab_media.h"
 #include "info/profile/tabs/adapters/info_profile_tab_members.h"
@@ -235,7 +236,8 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
 		_sublist,
 		origin);
 
-	const auto tabs = UseProfileMediaTabs();
+	const auto thirdColumn = (_controller->wrap() == Wrap::Side);
+	const auto tabs = UseProfileMediaTabs() && !thirdColumn;
 	auto sharedTracker = Ui::MultiSlideTracker();
 	if (!tabs) {
 		auto sharedMediaWidget = SetupSharedMediaClassic(
