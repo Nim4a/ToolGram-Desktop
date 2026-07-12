@@ -1795,6 +1795,32 @@ void TopBar::updateLabelsPosition() {
 	}();
 	const auto progressCurrent = _progress.current();
 
+	updateTitlePosition(progressCurrent);
+	updateStatusPosition(progressCurrent);
+
+	if (_badgeTooltip) {
+		_badgeTooltip->setOpacity(progressCurrent);
+	}
+
+	{
+		const auto userpicRect = userpicGeometry();
+		if (_userpicButton) {
+			_userpicButton->setGeometry(userpicGeometry());
+		}
+
+		updateGiftButtonsGeometry(progressCurrent, userpicRect);
+	}
+
+	updateRightButtonsPosition();
+	updateTabSwapVisibility();
+	updateTabSelectionGeometry();
+	updateTabSearchGeometry();
+}
+
+void TopBar::updateTitlePosition(float64 progressCurrent) {
+	if (width() <= 0) {
+		return;
+	}
 	const auto rightButtonsWidth = calculateRightButtonsWidth();
 
 	const auto reservedRight = anim::interpolate(
@@ -1827,8 +1853,8 @@ void TopBar::updateLabelsPosition() {
 		- reservedRight
 		- badgesWidth;
 
-	if (titleWidth > 0 && _title->textMaxWidth() > titleWidth) {
-		_title->resizeToWidth(titleWidth);
+	if (titleWidth > 0) {
+		_title->resizeToNaturalWidth(titleWidth);
 	}
 
 	const auto titleTop = anim::interpolate(
@@ -1879,26 +1905,6 @@ void TopBar::updateLabelsPosition() {
 			badgeTop,
 			badgeBottom);
 	}
-
-	updateStatusPosition(progressCurrent);
-
-	if (_badgeTooltip) {
-		_badgeTooltip->setOpacity(progressCurrent);
-	}
-
-	{
-		const auto userpicRect = userpicGeometry();
-		if (_userpicButton) {
-			_userpicButton->setGeometry(userpicGeometry());
-		}
-
-		updateGiftButtonsGeometry(progressCurrent, userpicRect);
-	}
-
-	updateRightButtonsPosition();
-	updateTabSwapVisibility();
-	updateTabSelectionGeometry();
-	updateTabSearchGeometry();
 }
 
 void TopBar::updateStatusPosition(float64 progressCurrent) {
@@ -2391,6 +2397,8 @@ void TopBar::updateTabSwapVisibility() {
 	}
 	if (togglesChanged) {
 		updateRightButtonsPosition();
+		updateTitlePosition(_progress.current());
+		updateStatusPosition(_progress.current());
 	}
 	if (!_tabSubtitle && !swap) {
 		return;
