@@ -33,6 +33,7 @@ public:
 
 	void setTabs(std::vector<StripTab> tabs);
 	void setActiveTab(const QString &id);
+	void trackVerticalScroll(rpl::producer<> scrolls);
 
 	[[nodiscard]] rpl::producer<QString> activated() const;
 	[[nodiscard]] rpl::producer<QString> contextMenuRequests() const;
@@ -57,8 +58,11 @@ private:
 	void setSelected(int index);
 	void setActive(int index);
 	void scrollToTab(int index);
+	void scrollTo(float64 value);
 	void addRipple(int index, QPoint position);
 	void stopPressedRipple();
+	void wheelScrollBy(float64 delta);
+	[[nodiscard]] bool wheelScrollsTabs(Qt::ScrollPhase phase) const;
 	[[nodiscard]] int indexAt(QPoint position) const;
 	[[nodiscard]] QPoint contentOrigin() const;
 	[[nodiscard]] QRect islandRect() const;
@@ -78,6 +82,7 @@ private:
 	float64 _dragscroll = 0.;
 	float64 _scroll = 0.;
 	float64 _scrollTo = 0.;
+	crl::time _verticalScrollTill = 0;
 	Ui::Animations::Simple _scrollAnimation;
 	Ui::Animations::Simple _activeAnimation;
 	QRect _activeFrom;
@@ -88,6 +93,7 @@ private:
 	int _pressed = -1;
 	int _active = -1;
 	int _wasActive = -1;
+	bool _pointerAimed = false;
 
 };
 

@@ -585,6 +585,10 @@ not_null<Ui::RpWidget*> TabsHost::stripWidget() const {
 	return _strip;
 }
 
+void TabsHost::trackVerticalScroll(rpl::producer<> scrolls) {
+	_strip->trackVerticalScroll(std::move(scrolls));
+}
+
 void TabsHost::returnStrip() {
 	const auto strip = _stripWeak.get();
 	if (!strip) {

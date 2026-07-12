@@ -22,6 +22,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Info::Profile {
 namespace {
 
+constexpr auto kScrollDuration = crl::time(150);
+constexpr auto kVerticalScrollGrace = crl::time(250);
+
 void PaintIslandOutline(
 		QPainter &p,
 		const QRectF &island,
@@ -116,6 +119,12 @@ void TabsStrip::setActiveTab(const QString &id) {
 	setActive(i - begin(_buttons));
 }
 
+void TabsStrip::trackVerticalScroll(rpl::producer<> scrolls) {
+	std::move(scrolls) | rpl::on_next([=] {
+		_verticalScrollTill = crl::now() + kVerticalScrollGrace;
+	}, lifetime());
+}
+
 rpl::producer<QString> TabsStrip::activated() const {
 	return _activated.events();
 }
@@ -208,15 +217,16 @@ void TabsStrip::scrollToTab(int index) {
 	const auto visibleTill = visibleFrom + interior;
 	if ((visibleTill < geometry.x() + geometry.width() + added)
 		|| (visibleFrom + added > geometry.x())) {
-		_scrollTo = std::clamp(
-			geometry.x() + (geometry.width() / 2) - (interior / 2),
-			0,
-			_scrollMax);
-		_scrollAnimation.start([=] {
-			_scroll = _scrollAnimation.value(_scrollTo);
-			update();
-		}, _scroll, _scrollTo, crl::time(150), anim::easeOutCirc);
+		scrollTo(geometry.x() + (geometry.width() / 2) - (interior / 2));
 	}
+}
+
+void TabsStrip::scrollTo(float64 value) {
+	_scrollTo = std::clamp(value, 0., _scrollMax * 1.);
+	_scrollAnimation.start([=] {
+		_scroll = _scrollAnimation.value(_scrollTo);
+		update();
+	}, _scroll, _scrollTo, kScrollDuration, anim::easeOutCirc);
 }
 
 int TabsStrip::resizeGetHeight(int newWidth) {
@@ -225,6 +235,7 @@ int TabsStrip::resizeGetHeight(int newWidth) {
 		- _st.margin.right()
 		- 2 * _st.skip;
 	_scrollMax = std::max(_fullWidth - interior, 0);
+	_scrollTo = std::clamp(_scrollTo, 0., _scrollMax * 1.);
 	if (_scroll > _scrollMax) {
 		_scroll = _scrollMax;
 		_scrollAnimation.stop();
@@ -235,11 +246,15 @@ int TabsStrip::resizeGetHeight(int newWidth) {
 bool TabsStrip::eventHook(QEvent *e) {
 	if (e->type() == QEvent::Leave) {
 		setSelected(-1);
+		_pointerAimed = false;
 	}
 	return RpWidget::eventHook(e);
 }
 
 void TabsStrip::mouseMoveEvent(QMouseEvent *e) {
+	if (e->source() == Qt::MouseEventNotSynthesized) {
+		_pointerAimed = true;
+	}
 	const auto mousex = e->pos().x();
 	const auto drag = QApplication::startDragDistance();
 	if (_dragx > 0) {
@@ -295,34 +310,50 @@ void TabsStrip::stopPressedRipple() {
 	}
 }
 
+bool TabsStrip::wheelScrollsTabs(Qt::ScrollPhase phase) const {
+	return (phase == Qt::NoScrollPhase)
+		&& _pointerAimed
+		&& (crl::now() >= _verticalScrollTill);
+}
+
+void TabsStrip::wheelScrollBy(float64 delta) {
+	const auto from = _scrollAnimation.animating() ? _scrollTo : _scroll;
+	const auto to = std::clamp(from + delta, 0., _scrollMax * 1.);
+	if (to != from) {
+		scrollTo(to);
+	}
+}
+
 void TabsStrip::wheelEvent(QWheelEvent *e) {
 	const auto delta = Ui::ScrollDeltaF(e);
 
 	const auto phase = e->phase();
 	const auto horizontal = (std::abs(delta.x()) > std::abs(delta.y()));
-	if (phase == Qt::NoScrollPhase) {
-		_locked = std::nullopt;
-	} else if (phase == Qt::ScrollBegin) {
+	if (phase == Qt::NoScrollPhase || phase == Qt::ScrollBegin) {
 		_locked = std::nullopt;
 	} else if (!_locked) {
 		_locked = horizontal ? Qt::Horizontal : Qt::Vertical;
 	}
-	if (horizontal) {
+	if (_scrollMax <= 0) {
+		_verticalScrollTill = crl::now() + kVerticalScrollGrace;
+		e->ignore();
+	} else if (horizontal) {
 		if (_locked == Qt::Vertical) {
 			return;
 		}
 		e->accept();
+		_scrollAnimation.stop();
+		_scroll = std::clamp(_scroll - delta.x(), 0., _scrollMax * 1.);
+		update();
+	} else if (_locked == Qt::Horizontal) {
+		e->accept();
+	} else if (wheelScrollsTabs(phase)) {
+		e->accept();
+		wheelScrollBy(-delta.y());
 	} else {
-		if (_locked == Qt::Horizontal) {
-			e->accept();
-		} else {
-			e->ignore();
-		}
-		return;
+		_verticalScrollTill = crl::now() + kVerticalScrollGrace;
+		e->ignore();
 	}
-	_scrollAnimation.stop();
-	_scroll = std::clamp(_scroll - delta.x(), 0., _scrollMax * 1.);
-	update();
 }
 
 void TabsStrip::mousePressEvent(QMouseEvent *e) {

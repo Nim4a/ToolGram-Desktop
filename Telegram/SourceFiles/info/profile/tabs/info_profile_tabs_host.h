@@ -44,6 +44,7 @@ public:
 
 	[[nodiscard]] not_null<Ui::RpWidget*> stripWidget() const;
 	void returnStrip();
+	void trackVerticalScroll(rpl::producer<> scrolls);
 	void setVisibleRegion(int top, int bottom);
 
 	[[nodiscard]] QString activeId() const {
