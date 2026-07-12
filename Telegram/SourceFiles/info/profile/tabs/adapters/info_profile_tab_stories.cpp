@@ -154,6 +154,7 @@ MediaTabDescriptor MakeStoriesTabDescriptor(not_null<PeerData*> peer) {
 		.factory = [](MediaTabContext context) {
 			return std::make_unique<StoriesTabAdapter>(std::move(context));
 		},
+		.profileTab = Data::ProfileTab::Posts,
 	};
 }
 

@@ -190,6 +190,7 @@ MediaTabDescriptor MakeGiftsTabDescriptor(not_null<PeerData*> peer) {
 				std::move(context),
 				peer);
 		},
+		.profileTab = Data::ProfileTab::Gifts,
 	};
 }
 

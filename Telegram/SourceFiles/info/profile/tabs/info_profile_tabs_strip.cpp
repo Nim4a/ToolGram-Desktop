@@ -120,6 +120,10 @@ rpl::producer<QString> TabsStrip::activated() const {
 	return _activated.events();
 }
 
+rpl::producer<QString> TabsStrip::contextMenuRequests() const {
+	return _contextMenuRequests.events();
+}
+
 QRect TabsStrip::islandRect() const {
 	return rect() - _st.margin;
 }
@@ -330,6 +334,13 @@ void TabsStrip::mousePressEvent(QMouseEvent *e) {
 	_pressx = e->pos().x();
 	if (_pressed >= 0) {
 		addRipple(_pressed, e->pos());
+	}
+}
+
+void TabsStrip::contextMenuEvent(QContextMenuEvent *e) {
+	const auto index = indexAt(e->pos());
+	if (index >= 0) {
+		_contextMenuRequests.fire_copy(_buttons[index].tab.id);
 	}
 }
 

@@ -1869,6 +1869,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_media_type_similar" = "Similar";
 "lng_media_type_gifts" = "Gifts";
 "lng_media_type_saved" = "Saved";
+"lng_profile_tab_set_as_main" = "Set as Main Tab";
 "lng_polls_search_none" = "No polls found";
 "lng_media_type_rounds" = "Video messages";
 "lng_media_zoom_in" = "Zoom In";

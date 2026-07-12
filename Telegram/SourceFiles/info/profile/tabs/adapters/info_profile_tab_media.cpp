@@ -59,6 +59,18 @@ using SharedMediaType = Storage::SharedMediaType;
 	return u"media:"_q + QString::number(int(type));
 }
 
+[[nodiscard]] Data::ProfileTab MediaProfileTab(SharedMediaType type) {
+	switch (type) {
+	case SharedMediaType::Photo: return Data::ProfileTab::Media;
+	case SharedMediaType::File: return Data::ProfileTab::Files;
+	case SharedMediaType::MusicFile: return Data::ProfileTab::Music;
+	case SharedMediaType::RoundVoiceFile: return Data::ProfileTab::Voice;
+	case SharedMediaType::Link: return Data::ProfileTab::Links;
+	case SharedMediaType::GIF: return Data::ProfileTab::Gifs;
+	default: return Data::ProfileTab::None;
+	}
+}
+
 class MediaTabAdapter final : public MediaTabContent {
 public:
 	MediaTabAdapter(MediaTabContext context, SharedMediaType type)
@@ -253,6 +265,7 @@ MediaTabDescriptor MakeMediaTabDescriptor(
 				std::move(context),
 				type);
 		},
+		.profileTab = MediaProfileTab(type),
 	};
 }
 

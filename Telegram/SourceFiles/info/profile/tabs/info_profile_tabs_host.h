@@ -9,10 +9,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "base/object_ptr.h"
 #include "base/flat_map.h"
+#include "base/unique_qptr.h"
 #include "info/profile/tabs/info_profile_tab_content.h"
 #include "ui/rp_widget.h"
 
 namespace Ui {
+class PopupMenu;
 class RpWidget;
 class SlideAnimation;
 struct ScrollToRequest;
@@ -60,6 +62,13 @@ protected:
 private:
 	void wireStripTitles();
 	void wireTabsVisibility();
+	void wireMainTab();
+	bool refreshOrder();
+	[[nodiscard]] int displayPosition(int index) const;
+	[[nodiscard]] int firstVisibleIndex() const;
+	[[nodiscard]] bool canSetMainTab(Data::ProfileTab tab) const;
+	void showTabMenu(const QString &id);
+	void setMainTab(Data::ProfileTab tab);
 	void syncStripTitles();
 	void ensureActiveVisible();
 	void pushViewportToActive();
@@ -77,9 +86,12 @@ private:
 	std::vector<MediaTabDescriptor> _tabs;
 	std::vector<QString> _stripTitles;
 	std::vector<bool> _tabsShown;
+	std::vector<int> _order;
+	int _mainTabIndex = -1;
 
 	TabsStrip *_strip = nullptr;
 	base::weak_qptr<TabsStrip> _stripWeak;
+	base::unique_qptr<Ui::PopupMenu> _menu;
 	Ui::RpWidget *_body = nullptr;
 	int _stripHeight = 0;
 	int _visibleTop = 0;

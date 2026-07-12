@@ -8,13 +8,23 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/profile/tabs/info_profile_tabs_host.h"
 
 #include "info/profile/tabs/info_profile_tabs_strip.h"
+#include "apiwrap.h"
 #include "base/options.h"
+#include "data/data_changes.h"
+#include "data/data_channel.h"
+#include "data/data_peer.h"
+#include "lang/lang_keys.h"
+#include "main/main_session.h"
+#include "ui/widgets/menu/menu_add_action_callback.h"
+#include "ui/widgets/menu/menu_add_action_callback_factory.h"
+#include "ui/widgets/popup_menu.h"
 #include "ui/widgets/scroll_area.h"
 #include "ui/effects/slide_animation.h"
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
 #include "styles/style_basic.h"
 #include "styles/style_info.h"
+#include "styles/style_menu_icons.h"
 
 namespace Info::Profile {
 namespace {
@@ -48,8 +58,14 @@ TabsHost::TabsHost(not_null<QWidget*> parent, Descriptor descriptor)
 	}
 	_stripTitles.assign(_tabs.size(), QString());
 	_tabsShown.assign(_tabs.size(), false);
+	refreshOrder();
 	wireStripTitles();
 	wireTabsVisibility();
+	wireMainTab();
+	_strip->contextMenuRequests(
+	) | rpl::on_next([this](const QString &id) {
+		showTabMenu(id);
+	}, lifetime());
 	_strip->activated(
 	) | rpl::on_next([this](const QString &id) {
 		_userChosenTab = true;
@@ -159,10 +175,109 @@ void TabsHost::wireTabsVisibility() {
 	}
 }
 
+void TabsHost::wireMainTab() {
+	const auto peer = _context.peer;
+	peer->session().changes().peerFlagsValue(
+		peer,
+		Data::PeerUpdate::Flag::MainProfileTab
+	) | rpl::on_next([this] {
+		if (refreshOrder()) {
+			syncStripTitles();
+			ensureActiveVisible();
+		}
+	}, lifetime());
+}
+
+bool TabsHost::refreshOrder() {
+	const auto main = _context.peer->mainProfileTab();
+	const auto i = (main == Data::ProfileTab::None)
+		? end(_tabs)
+		: ranges::find(_tabs, main, &MediaTabDescriptor::profileTab);
+	const auto mainTabIndex = (i != end(_tabs))
+		? int(i - begin(_tabs))
+		: -1;
+	if (!_order.empty() && _mainTabIndex == mainTabIndex) {
+		return false;
+	}
+	_mainTabIndex = mainTabIndex;
+	_order.resize(_tabs.size());
+	for (auto index = 0; index != int(_order.size()); ++index) {
+		_order[index] = index;
+	}
+	if (mainTabIndex > 0) {
+		std::rotate(
+			begin(_order),
+			begin(_order) + mainTabIndex,
+			begin(_order) + mainTabIndex + 1);
+	}
+	return true;
+}
+
+int TabsHost::displayPosition(int index) const {
+	return int(ranges::find(_order, index) - begin(_order));
+}
+
+int TabsHost::firstVisibleIndex() const {
+	for (const auto i : _order) {
+		if (_tabsShown[i]) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+bool TabsHost::canSetMainTab(Data::ProfileTab tab) const {
+	if (tab == Data::ProfileTab::None || _context.topic || _context.sublist) {
+		return false;
+	} else if (const auto channel = _context.peer->asBroadcast()) {
+		return channel->canEditInformation();
+	}
+	return _context.peer->isSelf()
+		&& ((tab == Data::ProfileTab::Posts)
+			|| (tab == Data::ProfileTab::Gifts));
+}
+
+void TabsHost::showTabMenu(const QString &id) {
+	const auto strip = _stripWeak.get();
+	const auto i = ranges::find(_tabs, id, &MediaTabDescriptor::id);
+	if (!strip || i == end(_tabs)) {
+		return;
+	}
+	const auto tab = i->profileTab;
+	const auto index = int(i - begin(_tabs));
+	if (!canSetMainTab(tab) || index == firstVisibleIndex()) {
+		return;
+	}
+	_menu = base::make_unique_q<Ui::PopupMenu>(
+		strip,
+		st::popupMenuWithIcons);
+	Ui::Menu::CreateAddActionCallback(_menu)(
+		tr::lng_profile_tab_set_as_main(tr::now),
+		crl::guard(this, [=] { setMainTab(tab); }),
+		&st::menuIconReorder);
+	_menu->popup(QCursor::pos());
+}
+
+void TabsHost::setMainTab(Data::ProfileTab tab) {
+	const auto peer = _context.peer;
+	const auto sending = Data::ProfileTabToMTP(tab);
+	if (const auto channel = peer->asChannel()) {
+		peer->session().api().request(MTPchannels_SetMainProfileTab(
+			channel->inputChannel(),
+			sending
+		)).send();
+	} else {
+		peer->session().api().request(
+			MTPaccount_SetMainProfileTab(sending)
+		).send();
+	}
+	peer->setMainProfileTab(tab);
+}
+
 void TabsHost::syncStripTitles() {
 	auto stripTabs = std::vector<StripTab>();
 	stripTabs.reserve(_tabs.size());
-	for (auto i = 0; i != int(_tabs.size()); ++i) {
+	for (const auto i : _order) {
 		if (!_tabsShown[i]) {
 			continue;
 		}
@@ -184,14 +299,7 @@ void TabsHost::syncStripTitles() {
 }
 
 void TabsHost::ensureActiveVisible() {
-	const auto firstVisible = [&] {
-		for (auto i = 0; i != int(_tabs.size()); ++i) {
-			if (_tabsShown[i]) {
-				return i;
-			}
-		}
-		return -1;
-	}();
+	const auto firstVisible = firstVisibleIndex();
 	const auto activeIndex = _activeId.isEmpty()
 		? -1
 		: int(ranges::find(_tabs, _activeId, &MediaTabDescriptor::id)
@@ -246,10 +354,15 @@ Fn<void()> TabsHost::prepareSwitch(bool toNextTab) {
 	if (active >= int(_tabs.size())) {
 		return nullptr;
 	}
+	const auto position = displayPosition(active);
+	if (position >= int(_order.size())) {
+		return nullptr;
+	}
 	const auto delta = toNextTab ? 1 : -1;
-	for (auto i = active + delta
-		; i >= 0 && i < int(_tabs.size())
-		; i += delta) {
+	for (auto p = position + delta
+		; p >= 0 && p < int(_order.size())
+		; p += delta) {
+		const auto i = _order[p];
 		if (!_tabsShown[i]) {
 			continue;
 		}
@@ -380,7 +493,8 @@ void TabsHost::activateTab(const QString &id, bool animated) {
 			startSlideAnimation(
 				std::move(wasCache),
 				active,
-				previousIndex > int(it - begin(_tabs)));
+				displayPosition(previousIndex)
+					> displayPosition(int(it - begin(_tabs))));
 		}
 		previous->widget()->hide();
 	}

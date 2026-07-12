@@ -14,6 +14,7 @@ class PeerData;
 namespace Data {
 class ForumTopic;
 class SavedSublist;
+enum class ProfileTab : uchar;
 } // namespace Data
 
 namespace Ui {
@@ -64,6 +65,7 @@ struct MediaTabDescriptor {
 	rpl::producer<QString> title;
 	rpl::producer<bool> shown;
 	Fn<std::unique_ptr<MediaTabContent>(MediaTabContext)> factory;
+	Data::ProfileTab profileTab = {};
 };
 
 } // namespace Info::Profile
