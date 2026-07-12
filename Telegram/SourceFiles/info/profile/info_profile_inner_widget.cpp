@@ -61,6 +61,19 @@ namespace Profile {
 
 namespace {
 
+constexpr auto kMembersInlineMax = 5;
+
+[[nodiscard]] rpl::producer<bool> MembersInTabValue(not_null<PeerData*> peer) {
+	const auto channel = peer->asChannel();
+	return MembersCountValue(
+		peer
+	) | rpl::filter([=](int count) {
+		return (count > 0) && (!channel || channel->membersCountKnown());
+	}) | rpl::map([](int count) {
+		return (count > kMembersInlineMax);
+	}) | rpl::take(1);
+}
+
 void AddSavedMusic(
 		not_null<Ui::VerticalLayout*> layout,
 		not_null<Controller*> controller,
@@ -264,7 +277,9 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
 			&& !_peer->isMonoforum()
 			&& !_topic
 			&& !_sublist) {
-			tabs.push_back(MakeMembersTabDescriptor(_peer));
+			tabs.push_back(MakeMembersTabDescriptor(
+				_peer,
+				MembersInTabValue(_peer)));
 		}
 		if (!_topic) {
 			tabs.push_back(MakeStoriesTabDescriptor(tabsPeer));
@@ -351,45 +366,63 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
 			.shown = rpl::single(true),
 		});
 	}
+	if ((_peer->isChat() || _peer->isMegagroup())
+		&& !_peer->isMonoforum()) {
+		auto shown = [&]() -> rpl::producer<bool> {
+			if (!tabs) {
+				return rpl::single(true);
+			}
+			return MembersInTabValue(_peer) | rpl::map([](bool inTab) {
+				return !inTab;
+			});
+		}();
+		stack.addPlainSeparator();
+		stack.add(makeMembersSection(result.data(), std::move(shown)));
+	}
 	if (tabs) {
 		addTabsHost();
-	} else if ((_peer->isChat() || _peer->isMegagroup())
-		&& !_peer->isMonoforum()) {
-		stack.addPlainSeparator();
-		stack.add(makeMembersSection(result.data()));
 	}
 	stack.finalize();
 	return result;
 }
 
-Section InnerWidget::makeMembersSection(not_null<QWidget*> parent) {
+Section InnerWidget::makeMembersSection(
+		not_null<QWidget*> parent,
+		rpl::producer<bool> shown) {
 	auto wrap = object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
 		parent,
 		object_ptr<Ui::VerticalLayout>(parent));
 	const auto raw = wrap.data();
 	const auto inner = raw->entity();
-	_members = inner->add(object_ptr<Members>(inner, _controller));
-	_members->scrollToRequests(
-	) | rpl::on_next([this](Ui::ScrollToRequest request) {
-		auto min = (request.ymin < 0)
-			? request.ymin
-			: MapFrom(this, _members, QPoint(0, request.ymin)).y();
-		auto max = (request.ymin < 0)
-			? MapFrom(this, _members, QPoint()).y()
-			: (request.ymax < 0)
-			? request.ymax
-			: MapFrom(this, _members, QPoint(0, request.ymax)).y();
-		_scrollToRequests.fire({ min, max });
-	}, _members->lifetime());
-	_members->onlineCountValue(
-	) | rpl::on_next([=](int count) {
-		_onlineCount.fire_copy(count);
-	}, _members->lifetime());
+	const auto toggled = raw->lifetime().make_state<rpl::variable<bool>>();
+	raw->toggleOn(toggled->value(), anim::type::instant);
 
 	using namespace rpl::mappers;
-	raw->toggleOn(
-		_members->fullCountValue() | rpl::map(_1 > 0),
-		anim::type::instant);
+	std::move(
+		shown
+	) | rpl::filter(_1) | rpl::take(1) | rpl::on_next([=] {
+		_members = inner->add(object_ptr<Members>(inner, _controller));
+		_members->scrollToRequests(
+		) | rpl::on_next([this](Ui::ScrollToRequest request) {
+			auto min = (request.ymin < 0)
+				? request.ymin
+				: MapFrom(this, _members, QPoint(0, request.ymin)).y();
+			auto max = (request.ymin < 0)
+				? MapFrom(this, _members, QPoint()).y()
+				: (request.ymax < 0)
+				? request.ymax
+				: MapFrom(this, _members, QPoint(0, request.ymax)).y();
+			_scrollToRequests.fire({ min, max });
+		}, _members->lifetime());
+		_members->onlineCountValue(
+		) | rpl::on_next([=](int count) {
+			_onlineCount.fire_copy(count);
+		}, _members->lifetime());
+		_members->fullCountValue(
+		) | rpl::on_next([=](int count) {
+			*toggled = (count > 0);
+		}, _members->lifetime());
+	}, raw->lifetime());
 	return Section{
 		.widget = std::move(wrap),
 		.shown = raw->toggledValue(),

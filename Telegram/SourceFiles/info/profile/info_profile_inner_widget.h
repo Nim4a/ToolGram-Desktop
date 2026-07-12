@@ -82,7 +82,9 @@ private:
 	object_ptr<RpWidget> setupContent(
 		not_null<RpWidget*> parent,
 		Origin origin);
-	[[nodiscard]] Section makeMembersSection(not_null<QWidget*> parent);
+	[[nodiscard]] Section makeMembersSection(
+		not_null<QWidget*> parent,
+		rpl::producer<bool> shown);
 
 	int countDesiredHeight() const;
 	void updateDesiredHeight() {
