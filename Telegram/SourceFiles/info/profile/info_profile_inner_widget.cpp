@@ -273,6 +273,12 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
 					_migrated,
 					type) | rpl::map(_1 > 0)));
 		};
+		if (!_topic) {
+			tabs.push_back(MakeStoriesTabDescriptor(tabsPeer));
+			if (!_sublist) {
+				tabs.push_back(MakeGiftsTabDescriptor(_peer));
+			}
+		}
 		if ((_peer->isChat() || _peer->isMegagroup())
 			&& !_peer->isMonoforum()
 			&& !_topic
@@ -281,18 +287,14 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
 				_peer,
 				MembersInTabValue(_peer)));
 		}
-		if (!_topic) {
-			tabs.push_back(MakeStoriesTabDescriptor(tabsPeer));
-			if (!_sublist) {
-				tabs.push_back(MakeGiftsTabDescriptor(_peer));
-			}
-			tabs.push_back(MakeSavedTabDescriptor(tabsPeer));
-		}
 		addTab(Storage::SharedMediaType::Photo);
 		addTab(Storage::SharedMediaType::Video);
+		if (!_topic) {
+			tabs.push_back(MakeSavedTabDescriptor(tabsPeer));
+		}
 		addTab(Storage::SharedMediaType::File);
-		addTab(Storage::SharedMediaType::MusicFile);
 		addTab(Storage::SharedMediaType::Link);
+		addTab(Storage::SharedMediaType::MusicFile);
 		tabs.push_back(MakePollsTabDescriptor(SharedMediaCountValue(
 			tabsPeer,
 			topicRootId,
