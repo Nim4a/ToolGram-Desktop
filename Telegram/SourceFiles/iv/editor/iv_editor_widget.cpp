@@ -4724,12 +4724,12 @@ void Widget::applyToolbarFormatAction(ToolbarFormatAction action) {
 		if (inlineToolbarModeActive() && escapeActiveBlockBodyFromToolbar()) {
 			return;
 		}
-		if (const auto fullHeadingSpan = visibleFullHeadingFieldTextSpan()) {
+		if (const auto fullSpan = visibleFullDemotableFieldTextSpan()) {
 			const auto full = ConvertEditorTagsToRichText(
 				_field->getTextWithAppliedMarkdown());
 			const auto cursor = _field->textCursor();
 			const auto length = int(full.text.size());
-			const auto restoreLeaf = fullHeadingSpan->leaf;
+			const auto restoreLeaf = fullSpan->leaf;
 			const auto restoreAnchorOffset = std::clamp(
 				richOffsetForFieldOffset(full, cursor.anchor()),
 				0,
@@ -4751,7 +4751,7 @@ void Widget::applyToolbarFormatAction(ToolbarFormatAction action) {
 				hideInlineField();
 				clearInlineFieldEditSession();
 				const auto result = _state->applyFormattingToTextSpans(
-					{ *fullHeadingSpan },
+					{ *fullSpan },
 					TextFormattingAction::PlainText);
 				if (result == ApplyResult::Failed) {
 					return MutationTransactionResult{
@@ -8512,7 +8512,7 @@ Widget::activatePreparedMediaPasteTarget(PreparedMediaPasteTarget target) {
 }
 
 std::optional<State::TextNodeSpan>
-Widget::visibleFullHeadingFieldTextSpan() const {
+Widget::visibleFullDemotableFieldTextSpan() const {
 	if (_settingField
 		|| _field->isHidden()
 		|| (_activeSegmentIndex < 0)
@@ -8524,7 +8524,9 @@ Widget::visibleFullHeadingFieldTextSpan() const {
 		return std::nullopt;
 	}
 	const auto owner = BlockFromPath(_state->richPage(), leaf->block);
-	if (!owner || (owner->kind != RichPage::BlockKind::Heading)) {
+	if (!owner
+		|| ((owner->kind != RichPage::BlockKind::Heading)
+			&& (owner->kind != RichPage::BlockKind::Footer))) {
 		return std::nullopt;
 	}
 	const auto full = ConvertEditorTagsToRichText(

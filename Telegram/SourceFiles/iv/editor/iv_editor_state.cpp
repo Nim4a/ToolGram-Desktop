@@ -103,6 +103,7 @@ constexpr auto kMaxCommittedFieldLength = 256 * 1024;
 	case InsertBlockType::Blockquote:
 	case InsertBlockType::Pullquote:
 	case InsertBlockType::Code:
+	case InsertBlockType::Footer:
 		return true;
 	default:
 		return false;
@@ -1972,16 +1973,18 @@ State::ApplyResult State::applyFormattingToTextSpans(
 					RemoveTagFromSelection(&converted.text.tags, *tag);
 				}
 			}
-			auto demotedHeading = false;
+			auto demoted = false;
 			if (action == TextFormattingAction::PlainText
 				&& span.leaf.kind == LeafKind::BlockText
 				&& before.text.isEmpty()
 				&& after.text.isEmpty()) {
 				if (const auto owner = candidate.block(span.leaf.block);
-					owner && owner->kind == BlockKind::Heading) {
+					owner
+					&& (owner->kind == BlockKind::Heading
+						|| owner->kind == BlockKind::Footer)) {
 					owner->kind = BlockKind::Paragraph;
 					owner->headingLevel = 0;
-					demotedHeading = true;
+					demoted = true;
 				}
 			}
 			auto updated = JoinText(
@@ -1992,7 +1995,7 @@ State::ApplyResult State::applyFormattingToTextSpans(
 				current->text = std::move(updated);
 				changed = true;
 			}
-			if (demotedHeading) {
+			if (demoted) {
 				changed = true;
 			}
 		}
@@ -6836,6 +6839,7 @@ bool State::replaceStructuralSelectionWithBlock(
 			switch (type) {
 			case InsertBlockType::Heading:
 			case InsertBlockType::Code:
+			case InsertBlockType::Footer:
 				return true;
 			default:
 				return false;
@@ -6859,7 +6863,8 @@ bool State::replaceStructuralSelectionWithBlock(
 		const auto owner = candidate.block(leaf.block);
 		if (!owner
 			|| ((owner->kind != BlockKind::Paragraph)
-				&& (owner->kind != BlockKind::Heading))
+				&& (owner->kind != BlockKind::Heading)
+				&& (owner->kind != BlockKind::Footer))
 			|| (candidate.textNodeOrdinal(leaf) < 0)) {
 			return std::nullopt;
 		}
@@ -7740,7 +7745,8 @@ bool State::insertBlocksAfterActiveWithContextUnchecked(
 			owner
 			&& context.before.text.isEmpty()
 			&& ((owner->kind == BlockKind::Paragraph)
-				|| (owner->kind == BlockKind::Heading))) {
+				|| (owner->kind == BlockKind::Heading)
+				|| (owner->kind == BlockKind::Footer))) {
 			removeSource = true;
 			container = target->leaf.block.container;
 			insertAt = target->leaf.block.index;
