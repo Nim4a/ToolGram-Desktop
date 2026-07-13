@@ -180,6 +180,16 @@ void EmojiStatusPanel::hideFast() {
 	}
 }
 
+void EmojiStatusPanel::hideAnimated() {
+	if (_panel) {
+		_panel->hideAnimated();
+	}
+}
+
+bool EmojiStatusPanel::shown() const {
+	return _panel && !_panel->isHidden();
+}
+
 bool EmojiStatusPanel::hasFocus() const {
 	return _panel && Ui::InFocusChain(_panel.get());
 }

@@ -72,6 +72,7 @@ private:
 	void setupAccounts();
 	void setupAccountsToggle();
 	void setupSetEmojiStatus();
+	void setupEmojiStatusDismiss();
 	void setupArchive();
 	void setupMenu();
 	void updateControlsGeometry();
@@ -113,6 +114,7 @@ private:
 
 	rpl::variable<bool> _showFinished = false;
 	bool _insideEventRedirect = false;
+	bool _emojiStatusDismissSetup = false;
 
 };
 
