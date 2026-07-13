@@ -59,6 +59,7 @@ public:
 		bool withCollectibles = false;
 	};
 	void show(Descriptor &&descriptor);
+	void hideFast();
 	void repaint();
 
 	struct CustomChosen {

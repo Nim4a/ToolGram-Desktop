@@ -174,6 +174,12 @@ void EmojiStatusPanel::show(Descriptor &&descriptor) {
 	_panel->toggleAnimated();
 }
 
+void EmojiStatusPanel::hideFast() {
+	if (_panel) {
+		_panel->hideFast();
+	}
+}
+
 bool EmojiStatusPanel::hasFocus() const {
 	return _panel && Ui::InFocusChain(_panel.get());
 }

@@ -846,6 +846,10 @@ bool MainMenu::eventHook(QEvent *event) {
 	return RpWidget::eventHook(event);
 }
 
+void MainMenu::hideEvent(QHideEvent *e) {
+	_emojiStatusPanel->hideFast();
+}
+
 void MainMenu::paintEvent(QPaintEvent *e) {
 	auto p = Painter(this);
 	const auto clip = e->rect();
