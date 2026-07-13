@@ -9627,7 +9627,7 @@ bool Widget::handleFieldKey(QKeyEvent *e) {
 					.changed = true,
 				};
 			} else if (const auto target
-				= _state->submitActiveSingleLineField()) {
+				= _state->submitActiveSingleLineField(enter)) {
 				refreshPreparedContentAndActivate(*target, 0);
 				handled = true;
 				return MutationTransactionResult{

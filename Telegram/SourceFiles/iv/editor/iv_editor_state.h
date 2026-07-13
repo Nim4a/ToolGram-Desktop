@@ -282,7 +282,6 @@ public:
 	[[nodiscard]] bool activeLeafUsesQuotePlaceholderColor() const;
 	[[nodiscard]] bool activeBlockBodyCanEscape() const;
 	[[nodiscard]] std::optional<int> moveActiveSpecialBlockDown();
-	[[nodiscard]] std::optional<int> submitActiveSingleLineField();
 	[[nodiscard]] std::optional<int> escapeActiveBlockBody();
 	[[nodiscard]] BoundaryTarget removeTemporaryDownParagraphAndMove();
 	enum class EnterPosition : uchar {
@@ -295,6 +294,8 @@ public:
 		TextWithEntities head;
 		TextWithEntities tail;
 	};
+	[[nodiscard]] std::optional<int> submitActiveSingleLineField(
+		const ActiveEnterContext &context);
 	[[nodiscard]] std::optional<int> handleActiveHeadingEnter(
 		const ActiveEnterContext &context);
 	[[nodiscard]] std::optional<int> handleActiveFooterEnter(
@@ -776,7 +777,8 @@ private:
 	[[nodiscard]] std::optional<int> insertLeadingParagraphActiveUnchecked(
 		bool focusInserted);
 	[[nodiscard]] std::optional<int> moveActiveSpecialBlockDownUnchecked();
-	[[nodiscard]] std::optional<int> submitActiveSingleLineFieldUnchecked();
+	[[nodiscard]] std::optional<int> submitActiveSingleLineFieldUnchecked(
+		const ActiveEnterContext &context);
 	[[nodiscard]] std::optional<int> escapeActiveBlockBodyUnchecked();
 	[[nodiscard]] std::optional<BlockPath> activeBlockBodyEscapeBlock() const;
 	[[nodiscard]] BoundaryTarget boundaryTargetForLeaf(

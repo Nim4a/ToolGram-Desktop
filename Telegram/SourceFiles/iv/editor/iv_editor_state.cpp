@@ -5839,9 +5839,11 @@ std::optional<int> State::moveActiveSpecialBlockDown() {
 	});
 }
 
-std::optional<int> State::submitActiveSingleLineField() {
-	return applyCheckedMutation(std::optional<int>(), [](State &candidate) {
-		const auto result = candidate.submitActiveSingleLineFieldUnchecked();
+std::optional<int> State::submitActiveSingleLineField(
+		const ActiveEnterContext &context) {
+	return applyCheckedMutation(std::optional<int>(), [=](State &candidate) {
+		const auto result = candidate.submitActiveSingleLineFieldUnchecked(
+			context);
 		return CheckedMutationResult<std::optional<int>>{
 			.apply = result.has_value(),
 			.result = result,
@@ -5924,7 +5926,8 @@ std::optional<int> State::moveActiveSpecialBlockDownUnchecked() {
 	return activateRebuiltLeaf(*target);
 }
 
-std::optional<int> State::submitActiveSingleLineFieldUnchecked() {
+std::optional<int> State::submitActiveSingleLineFieldUnchecked(
+		const ActiveEnterContext &context) {
 	const auto descriptor = textNode(_activeTextOrdinal);
 	if (!descriptor) {
 		return std::nullopt;
@@ -5949,6 +5952,22 @@ std::optional<int> State::submitActiveSingleLineFieldUnchecked() {
 		}
 		return std::nullopt;
 	};
+	const auto paragraphBeforeBlock = [&]() -> std::optional<int> {
+		const auto blocks = blockContainer(leaf.block.container);
+		if (!blocks
+			|| leaf.block.index < 0
+			|| leaf.block.index >= int(blocks->size())) {
+			return std::nullopt;
+		}
+		clearTemporaryDownParagraph();
+		blocks->insert(
+			blocks->begin() + leaf.block.index,
+			MakeParagraphBlock());
+		auto shifted = leaf;
+		++shifted.block.index;
+		rebuild();
+		return activateRebuiltLeaf(shifted);
+	};
 	if (leaf.kind == LeafKind::BlockCaption) {
 		switch (owner->kind) {
 		case BlockKind::Quote:
@@ -5957,12 +5976,25 @@ std::optional<int> State::submitActiveSingleLineFieldUnchecked() {
 		case BlockKind::Audio:
 		case BlockKind::Map:
 		case BlockKind::GroupedMedia:
+			if (context.position == EnterPosition::Middle) {
+				return std::nullopt;
+			} else if (context.position == EnterPosition::Beginning) {
+				return paragraphBeforeBlock();
+			}
 			return paragraphAfterBlock();
 		default:
 			return std::nullopt;
 		}
 	}
 	if (leaf.kind == LeafKind::BlockText) {
+		if (owner->kind == BlockKind::Details
+			|| owner->kind == BlockKind::Table) {
+			if (context.position == EnterPosition::Middle) {
+				return std::nullopt;
+			} else if (context.position == EnterPosition::Beginning) {
+				return paragraphBeforeBlock();
+			}
+		}
 		if (owner->kind == BlockKind::Details) {
 			const auto bodyContainer = BlockChildrenContainer(leaf.block);
 			auto target = std::optional<LeafPath>();
