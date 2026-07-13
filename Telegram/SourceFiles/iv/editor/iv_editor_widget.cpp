@@ -7750,8 +7750,12 @@ Widget::InlineFieldStyleKey Widget::inlineFieldStyleKey(
 void Widget::ensureInlineFieldForSegment(int segmentIndex) {
 	_revivedRetainedField = false;
 	refreshInlineFieldTextColorOverride();
-	const auto data = normalizedInlineFieldStyle(
-		inlineFieldStyleForSegment(segmentIndex));
+	auto leafStyle = inlineFieldStyleForSegment(segmentIndex);
+	if (!leafStyle.valid()) {
+		ensureArticleLayoutForInlineField(widthNoMargins());
+		leafStyle = inlineFieldStyleForSegment(segmentIndex);
+	}
+	const auto data = normalizedInlineFieldStyle(leafStyle);
 	const auto key = inlineFieldStyleKey(data);
 	const auto mode = _state->activeFieldMode();
 	const auto leaf = _state->activeLeafPath();
@@ -7772,6 +7776,8 @@ void Widget::ensureInlineFieldForSegment(int segmentIndex) {
 				*leaf,
 				mode,
 				key)) {
+			const auto wasHidden = _field->isHidden();
+			const auto hadFocus = _field->hasFocus();
 			_field = std::move(revived);
 			_activeFieldStyleKey = key;
 			_fieldMode = mode;
@@ -7781,6 +7787,13 @@ void Widget::ensureInlineFieldForSegment(int segmentIndex) {
 			_fieldRedoAvailable = _field->isRedoAvailable();
 			_revivedRetainedField = true;
 			clearFieldUndoRedoNoopState();
+			if (!wasHidden) {
+				_field->show();
+				_field->raise();
+				if (hadFocus) {
+					_field->setFocusFast();
+				}
+			}
 			return;
 		}
 	}
