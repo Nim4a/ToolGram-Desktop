@@ -2728,7 +2728,7 @@ bool OverlayWidget::radialAnimationCallback(crl::time now) {
 	return true;
 }
 
-void OverlayWidget::zoomIn() {
+void OverlayWidget::zoomIn(std::optional<QPoint> anchor) {
 	auto newZoom = _zoom;
 	const auto full = _fullScreenVideo ? _zoomToScreen : _zoomToDefault;
 	if (newZoom == kZoomToScreenLevel) {
@@ -2742,10 +2742,10 @@ void OverlayWidget::zoomIn() {
 			++newZoom;
 		}
 	}
-	zoomUpdate(newZoom);
+	zoomUpdate(newZoom, anchor);
 }
 
-void OverlayWidget::zoomOut() {
+void OverlayWidget::zoomOut(std::optional<QPoint> anchor) {
 	auto newZoom = _zoom;
 	const auto full = _fullScreenVideo ? _zoomToScreen : _zoomToDefault;
 	if (newZoom == kZoomToScreenLevel) {
@@ -2759,7 +2759,7 @@ void OverlayWidget::zoomOut() {
 			--newZoom;
 		}
 	}
-	zoomUpdate(newZoom);
+	zoomUpdate(newZoom, anchor);
 }
 
 void OverlayWidget::zoomReset() {
@@ -2793,13 +2793,15 @@ void OverlayWidget::zoomReset() {
 	zoomUpdate(newZoom);
 }
 
-void OverlayWidget::zoomUpdate(int32 &newZoom) {
+void OverlayWidget::zoomUpdate(
+		int32 &newZoom,
+		std::optional<QPoint> anchor) {
 	if (newZoom != kZoomToScreenLevel) {
 		while ((newZoom < 0 && (-newZoom + 1) > _w) || (-newZoom + 1) > _h) {
 			++newZoom;
 		}
 	}
-	setZoomLevel(newZoom);
+	setZoomLevel(newZoom, false, anchor);
 }
 
 void OverlayWidget::clearSession() {
@@ -7238,19 +7240,20 @@ void OverlayWidget::handleWheelEvent(not_null<QWheelEvent*> e) {
 	const auto acceptForJump = !_stories
 		&& ((e->source() == Qt::MouseEventNotSynthesized)
 			|| (e->source() == Qt::MouseEventSynthesizedBySystem));
+	const auto anchor = zoomAnchor(e->globalPosition());
 	_verticalWheelDelta += angle.y();
 	while (qAbs(_verticalWheelDelta) >= step) {
 		if (_verticalWheelDelta < 0) {
 			_verticalWheelDelta += step;
 			if (e->modifiers().testFlag(Qt::ControlModifier)) {
-				zoomOut();
+				zoomOut(anchor);
 			} else if (acceptForJump) {
 				moveToNext(1);
 			}
 		} else {
 			_verticalWheelDelta -= step;
 			if (e->modifiers().testFlag(Qt::ControlModifier)) {
-				zoomIn();
+				zoomIn(anchor);
 			} else if (acceptForJump) {
 				moveToNext(-1);
 			}
@@ -7327,19 +7330,27 @@ bool OverlayWidget::handleNativeGesture(not_null<QNativeGestureEvent*> e) {
 			base::Platform::Haptic();
 		}
 	};
+	const auto anchor = zoomAnchor(e->globalPosition());
 	_pinchZoomAccumulated += e->value();
 	while (_pinchZoomAccumulated >= kPinchZoomStep) {
 		_pinchZoomAccumulated -= kPinchZoomStep;
-		stepZoom([&] { zoomIn(); });
+		stepZoom([&] { zoomIn(anchor); });
 	}
 	while (_pinchZoomAccumulated <= -kPinchZoomStep) {
 		_pinchZoomAccumulated += kPinchZoomStep;
-		stepZoom([&] { zoomOut(); });
+		stepZoom([&] { zoomOut(anchor); });
 	}
 	return true;
 }
 
-void OverlayWidget::setZoomLevel(int newZoom, bool force) {
+QPoint OverlayWidget::zoomAnchor(QPointF globalPosition) const {
+	return _widget->mapFromGlobal(globalPosition.toPoint());
+}
+
+void OverlayWidget::setZoomLevel(
+		int newZoom,
+		bool force,
+		std::optional<QPoint> anchor) {
 	if (_stories
 		|| (!force && _zoom == newZoom)
 		|| (_fullScreenVideo && newZoom != kZoomToScreenLevel)) {
@@ -7351,30 +7362,34 @@ void OverlayWidget::setZoomLevel(int newZoom, bool force) {
 	const auto contentSize = videoShown()
 		? style::ConvertScale(videoSize())
 		: QSize(_width, _height);
+	const auto anchorX = anchor ? float64(anchor->x()) : (width() / 2.);
+	const auto anchorY = anchor
+		? float64(anchor->y())
+		: (_availableHeight / 2.);
 	_oldGeometry = contentGeometry();
 	_geometryAnimation.stop();
 
 	_w = contentSize.width();
 	_h = contentSize.height();
 	if (z >= 0) {
-		nx = (_x - width() / 2.) / (z + 1);
-		ny = (_y - _availableHeight / 2.) / (z + 1);
+		nx = (_x - anchorX) / (z + 1);
+		ny = (_y - anchorY) / (z + 1);
 	} else {
-		nx = (_x - width() / 2.) * (-z + 1);
-		ny = (_y - _availableHeight / 2.) * (-z + 1);
+		nx = (_x - anchorX) * (-z + 1);
+		ny = (_y - anchorY) * (-z + 1);
 	}
 	_zoom = newZoom;
 	z = (_zoom == kZoomToScreenLevel) ? full : _zoom;
 	if (z > 0) {
 		_w = qRound(_w * (z + 1));
 		_h = qRound(_h * (z + 1));
-		_x = qRound(nx * (z + 1) + width() / 2.);
-		_y = qRound(ny * (z + 1) + _availableHeight / 2.);
+		_x = qRound(nx * (z + 1) + anchorX);
+		_y = qRound(ny * (z + 1) + anchorY);
 	} else {
 		_w = qRound(_w / (-z + 1));
 		_h = qRound(_h / (-z + 1));
-		_x = qRound(nx / (-z + 1) + width() / 2.);
-		_y = qRound(ny / (-z + 1) + _availableHeight / 2.);
+		_x = qRound(nx / (-z + 1) + anchorX);
+		_y = qRound(ny / (-z + 1) + anchorY);
 	}
 	snapXY();
 	if (_opengl) {
