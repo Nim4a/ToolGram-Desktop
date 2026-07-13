@@ -58,10 +58,20 @@ TabsStrip::TabsStrip(QWidget *parent, const style::ProfileTabsStrip &st)
 , _shadow(st::infoProfileTabsShadow) {
 	setObjectName(u"profileTabsStrip"_q);
 	setMouseTracking(true);
+
+	style::PaletteChanged() | rpl::on_next([=] {
+		invalidate();
+	}, lifetime());
 }
 
 void TabsStrip::setTextContext(Ui::Text::MarkedContext context) {
 	_context = std::move(context);
+	_context.repaint = [=] { invalidate(); };
+}
+
+void TabsStrip::invalidate() {
+	_contentValid = false;
+	update();
 }
 
 void TabsStrip::setTabs(std::vector<StripTab> tabs) {
@@ -111,7 +121,7 @@ void TabsStrip::setTabs(std::vector<StripTab> tabs) {
 			+ _st.skip
 			+ _st.margin.right()));
 	resizeToWidth(width());
-	update();
+	invalidate();
 }
 
 void TabsStrip::setActiveTab(const QString &id) {
@@ -187,7 +197,7 @@ void TabsStrip::setActive(int index) {
 	if (index < 0) {
 		_activeAnimation.stop();
 		_wasActive = -1;
-		update();
+		invalidate();
 		return;
 	}
 	const auto to = highlightRect(index);
@@ -202,14 +212,14 @@ void TabsStrip::setActive(int index) {
 		_activeTo = to;
 		_wasActive = previous;
 		_activeAnimation.start(
-			[=] { update(); },
+			[=] { invalidate(); },
 			0.,
 			1.,
 			_st.duration,
 			anim::easeOutQuint);
 	}
 	scrollToTab(index);
-	update();
+	invalidate();
 }
 
 void TabsStrip::scrollToTab(int index) {
@@ -233,7 +243,7 @@ void TabsStrip::scrollTo(float64 value) {
 	_scrollTo = std::clamp(value, 0., _scrollMax * 1.);
 	_scrollAnimation.start([=] {
 		_scroll = _scrollAnimation.value(_scrollTo);
-		update();
+		invalidate();
 	}, _scroll, _scrollTo, kScrollDuration, anim::easeOutCirc);
 }
 
@@ -271,7 +281,7 @@ void TabsStrip::mouseMoveEvent(QMouseEvent *e) {
 			_dragscroll + _dragx - mousex,
 			0.,
 			_scrollMax * 1.);
-		update();
+		invalidate();
 		return;
 	} else if (_pressx > 0 && std::abs(_pressx - mousex) > drag) {
 		_dragx = _pressx;
@@ -303,7 +313,7 @@ void TabsStrip::addRipple(int index, QPoint position) {
 		button.ripple = std::make_unique<Ui::RippleAnimation>(
 			_st.ripple,
 			Ui::RippleAnimation::RoundRectMask(size, size.height() / 2),
-			[=] { update(); });
+			[=] { invalidate(); });
 	}
 	const auto highlight = highlightRect(index).translated(
 		contentOrigin());
@@ -352,7 +362,7 @@ void TabsStrip::wheelEvent(QWheelEvent *e) {
 		e->accept();
 		_scrollAnimation.stop();
 		_scroll = std::clamp(_scroll - delta.x(), 0., _scrollMax * 1.);
-		update();
+		invalidate();
 	} else if (_locked == Qt::Horizontal) {
 		e->accept();
 	} else if (wheelScrollsTabs(phase)) {
@@ -414,7 +424,7 @@ void TabsStrip::paintEvent(QPaintEvent *e) {
 	p.drawRoundedRect(island, radius, radius);
 	PaintIslandOutline(p, QRectF(island), radius, _st.bg);
 
-	paintContent(island);
+	validateContent(island);
 
 	auto clip = QPainterPath();
 	clip.addRoundedRect(QRectF(island), radius, radius);
@@ -422,13 +432,16 @@ void TabsStrip::paintEvent(QPaintEvent *e) {
 	p.drawImage(island.topLeft(), _content);
 }
 
-void TabsStrip::paintContent(QRect island) {
+void TabsStrip::validateContent(QRect island) {
 	const auto ratio = style::DevicePixelRatio();
 	const auto size = island.size() * ratio;
-	if (_content.size() != size) {
+	if (_contentValid && _content.size() == size) {
+		return;
+	} else if (_content.size() != size) {
 		_content = QImage(size, QImage::Format_ARGB32_Premultiplied);
 		_content.setDevicePixelRatio(ratio);
 	}
+	_contentValid = true;
 	_content.fill(Qt::transparent);
 
 	auto p = QPainter(&_content);

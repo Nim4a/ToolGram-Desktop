@@ -56,7 +56,8 @@ private:
 	void paintEvent(QPaintEvent *e) override;
 	bool eventHook(QEvent *e) override;
 
-	void paintContent(QRect island);
+	void validateContent(QRect island);
+	void invalidate();
 
 	void setSelected(int index);
 	void setActive(int index);
@@ -98,6 +99,7 @@ private:
 	int _pressed = -1;
 	int _active = -1;
 	int _wasActive = -1;
+	bool _contentValid = false;
 	bool _pointerAimed = false;
 
 };

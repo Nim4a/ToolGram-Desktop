@@ -61,7 +61,6 @@ TabsHost::TabsHost(not_null<QWidget*> parent, Descriptor descriptor)
 , _body(Ui::CreateChild<Ui::RpWidget>(this)) {
 	_strip->setTextContext(Core::TextContext({
 		.session = &_context.peer->session(),
-		.repaint = [strip = _strip] { strip->update(); },
 		.customEmojiLoopLimit = 1,
 	}));
 	_strip->show();
