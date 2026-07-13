@@ -6221,9 +6221,11 @@ State::BoundaryTarget State::removeTemporaryDownParagraphAndMoveUnchecked() {
 	return materialized;
 }
 
-std::optional<int> State::handleActiveHeadingEnter() {
-	return applyCheckedMutation(std::optional<int>(), [](State &candidate) {
-		const auto result = candidate.handleActiveHeadingEnterUnchecked();
+std::optional<int> State::handleActiveHeadingEnter(
+		const ActiveEnterContext &context) {
+	return applyCheckedMutation(std::optional<int>(), [=](State &candidate) {
+		const auto result = candidate.handleActiveHeadingEnterUnchecked(
+			context);
 		return CheckedMutationResult<std::optional<int>>{
 			.apply = result.has_value(),
 			.result = result,
@@ -6231,13 +6233,16 @@ std::optional<int> State::handleActiveHeadingEnter() {
 	});
 }
 
-std::optional<int> State::handleActiveHeadingEnterUnchecked() {
-	return handleActiveBlockEnterUnchecked(BlockKind::Heading);
+std::optional<int> State::handleActiveHeadingEnterUnchecked(
+		const ActiveEnterContext &context) {
+	return handleActiveBlockEnterUnchecked(BlockKind::Heading, context);
 }
 
-std::optional<int> State::handleActiveFooterEnter() {
-	return applyCheckedMutation(std::optional<int>(), [](State &candidate) {
-		const auto result = candidate.handleActiveFooterEnterUnchecked();
+std::optional<int> State::handleActiveFooterEnter(
+		const ActiveEnterContext &context) {
+	return applyCheckedMutation(std::optional<int>(), [=](State &candidate) {
+		const auto result = candidate.handleActiveFooterEnterUnchecked(
+			context);
 		return CheckedMutationResult<std::optional<int>>{
 			.apply = result.has_value(),
 			.result = result,
@@ -6245,13 +6250,16 @@ std::optional<int> State::handleActiveFooterEnter() {
 	});
 }
 
-std::optional<int> State::handleActiveFooterEnterUnchecked() {
-	return handleActiveBlockEnterUnchecked(BlockKind::Footer);
+std::optional<int> State::handleActiveFooterEnterUnchecked(
+		const ActiveEnterContext &context) {
+	return handleActiveBlockEnterUnchecked(BlockKind::Footer, context);
 }
 
-std::optional<int> State::handleActiveParagraphEnter() {
-	return applyCheckedMutation(std::optional<int>(), [](State &candidate) {
-		const auto result = candidate.handleActiveParagraphEnterUnchecked();
+std::optional<int> State::handleActiveParagraphEnter(
+		const ActiveEnterContext &context) {
+	return applyCheckedMutation(std::optional<int>(), [=](State &candidate) {
+		const auto result = candidate.handleActiveParagraphEnterUnchecked(
+			context);
 		return CheckedMutationResult<std::optional<int>>{
 			.apply = result.has_value(),
 			.result = result,
@@ -6259,11 +6267,14 @@ std::optional<int> State::handleActiveParagraphEnter() {
 	});
 }
 
-std::optional<int> State::handleActiveParagraphEnterUnchecked() {
-	return handleActiveBlockEnterUnchecked(BlockKind::Paragraph);
+std::optional<int> State::handleActiveParagraphEnterUnchecked(
+		const ActiveEnterContext &context) {
+	return handleActiveBlockEnterUnchecked(BlockKind::Paragraph, context);
 }
 
-std::optional<int> State::handleActiveBlockEnterUnchecked(BlockKind kind) {
+std::optional<int> State::handleActiveBlockEnterUnchecked(
+		BlockKind kind,
+		const ActiveEnterContext &context) {
 	const auto descriptor = textNode(_activeTextOrdinal);
 	if (!descriptor || descriptor->leaf.kind != LeafKind::BlockText) {
 		return std::nullopt;
@@ -6276,12 +6287,34 @@ std::optional<int> State::handleActiveBlockEnterUnchecked(BlockKind kind) {
 		|| (*blocks)[path.index].kind != kind) {
 		return std::nullopt;
 	}
+	if (context.position == EnterPosition::Beginning) {
+		clearTemporaryDownParagraph();
+		blocks->insert(blocks->begin() + path.index, MakeParagraphBlock());
+		const auto target = LeafPath{
+			.kind = LeafKind::BlockText,
+			.block = {
+				.container = path.container,
+				.index = path.index + 1,
+			},
+		};
+		rebuild();
+		return activateRebuiltLeaf(target);
+	}
 	const auto insertAt = path.index + 1;
 	if (insertAt < 0 || insertAt > int(blocks->size())) {
 		return std::nullopt;
 	}
+	auto &owner = (*blocks)[path.index];
+	const auto split = (context.position == EnterPosition::Middle)
+		&& (context.head.text.size() + context.tail.text.size()
+			== owner.text.text.text.size());
 	clearTemporaryDownParagraph();
-	blocks->insert(blocks->begin() + insertAt, MakeParagraphBlock());
+	auto paragraph = MakeParagraphBlock();
+	if (split) {
+		owner.text.text = context.head;
+		paragraph.text.text = context.tail;
+	}
+	blocks->insert(blocks->begin() + insertAt, std::move(paragraph));
 	const auto target = LeafPath{
 		.kind = LeafKind::BlockText,
 		.block = {

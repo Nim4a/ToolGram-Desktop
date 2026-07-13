@@ -285,10 +285,23 @@ public:
 	[[nodiscard]] std::optional<int> submitActiveSingleLineField();
 	[[nodiscard]] std::optional<int> escapeActiveBlockBody();
 	[[nodiscard]] BoundaryTarget removeTemporaryDownParagraphAndMove();
-	[[nodiscard]] std::optional<int> handleActiveHeadingEnter();
-	[[nodiscard]] std::optional<int> handleActiveFooterEnter();
+	enum class EnterPosition : uchar {
+		End,
+		Beginning,
+		Middle,
+	};
+	struct ActiveEnterContext {
+		EnterPosition position = EnterPosition::End;
+		TextWithEntities head;
+		TextWithEntities tail;
+	};
+	[[nodiscard]] std::optional<int> handleActiveHeadingEnter(
+		const ActiveEnterContext &context);
+	[[nodiscard]] std::optional<int> handleActiveFooterEnter(
+		const ActiveEnterContext &context);
 	[[nodiscard]] std::optional<int> handleActiveListEnter();
-	[[nodiscard]] std::optional<int> handleActiveParagraphEnter();
+	[[nodiscard]] std::optional<int> handleActiveParagraphEnter(
+		const ActiveEnterContext &context);
 	[[nodiscard]] std::optional<int> removeActiveOwnerAndSelectAdjacent(
 		bool forward);
 	[[nodiscard]] std::optional<int> removeStructuralSelection(
@@ -777,12 +790,16 @@ private:
 	[[nodiscard]] BoundaryTarget materializeBoundaryTarget(
 		const RebuiltBoundaryTarget &target) const;
 	[[nodiscard]] BoundaryTarget removeTemporaryDownParagraphAndMoveUnchecked();
-	[[nodiscard]] std::optional<int> handleActiveHeadingEnterUnchecked();
-	[[nodiscard]] std::optional<int> handleActiveFooterEnterUnchecked();
+	[[nodiscard]] std::optional<int> handleActiveHeadingEnterUnchecked(
+		const ActiveEnterContext &context);
+	[[nodiscard]] std::optional<int> handleActiveFooterEnterUnchecked(
+		const ActiveEnterContext &context);
 	[[nodiscard]] std::optional<int> handleActiveListEnterUnchecked();
-	[[nodiscard]] std::optional<int> handleActiveParagraphEnterUnchecked();
+	[[nodiscard]] std::optional<int> handleActiveParagraphEnterUnchecked(
+		const ActiveEnterContext &context);
 	[[nodiscard]] std::optional<int> handleActiveBlockEnterUnchecked(
-		RichPage::BlockKind kind);
+		RichPage::BlockKind kind,
+		const ActiveEnterContext &context);
 	[[nodiscard]] bool insertBlocksAfterActiveUnchecked(
 		std::vector<RichPage::Block> blocks,
 		std::optional<ActiveTextInsertContext> context = std::nullopt);

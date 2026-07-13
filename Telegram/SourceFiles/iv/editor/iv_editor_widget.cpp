@@ -1384,6 +1384,29 @@ struct InlineFieldTrimResult {
 	return offset - delta;
 }
 
+[[nodiscard]] bool HasRealEnterContent(const QString &text) {
+	for (const auto &ch : text) {
+		if (ch == QChar('\n') || !ch.isSpace()) {
+			return true;
+		}
+	}
+	return false;
+}
+
+[[nodiscard]] State::ActiveEnterContext MakeActiveEnterContext(
+		std::optional<State::ActiveTextInsertContext> context) {
+	if (!context || !HasRealEnterContent(context->after.text)) {
+		return {};
+	} else if (!HasRealEnterContent(context->before.text)) {
+		return { .position = State::EnterPosition::Beginning };
+	}
+	return {
+		.position = State::EnterPosition::Middle,
+		.head = std::move(context->before),
+		.tail = std::move(context->after),
+	};
+}
+
 [[nodiscard]] auto ClipboardPasteInsertContext(
 		std::optional<State::ActiveTextInsertContext> context)
 -> std::optional<State::ActiveTextInsertContext> {
@@ -9535,6 +9558,8 @@ bool Widget::handleFieldKey(QKeyEvent *e) {
 			return false;
 		}
 		recordMutationTransaction([&] {
+			const auto enter = MakeActiveEnterContext(
+				activeTextInsertContext());
 			const auto committed = commitInlineField();
 			// At the very start of the very first text node of a block that
 			// is not a top-level paragraph or heading (a table, a list, ...)
@@ -9568,14 +9593,8 @@ bool Widget::handleFieldKey(QKeyEvent *e) {
 					.committed = committed,
 					.changed = true,
 				};
-			} else if (const auto target = _state->handleActiveHeadingEnter()) {
-				refreshPreparedContentAndActivate(*target, 0);
-				handled = true;
-				return MutationTransactionResult{
-					.committed = committed,
-					.changed = true,
-				};
-			} else if (const auto target = _state->handleActiveFooterEnter()) {
+			} else if (const auto target
+				= _state->handleActiveHeadingEnter(enter)) {
 				refreshPreparedContentAndActivate(*target, 0);
 				handled = true;
 				return MutationTransactionResult{
@@ -9583,7 +9602,15 @@ bool Widget::handleFieldKey(QKeyEvent *e) {
 					.changed = true,
 				};
 			} else if (const auto target
-				= _state->handleActiveParagraphEnter()) {
+				= _state->handleActiveFooterEnter(enter)) {
+				refreshPreparedContentAndActivate(*target, 0);
+				handled = true;
+				return MutationTransactionResult{
+					.committed = committed,
+					.changed = true,
+				};
+			} else if (const auto target
+				= _state->handleActiveParagraphEnter(enter)) {
 				refreshPreparedContentAndActivate(*target, 0);
 				handled = true;
 				return MutationTransactionResult{
