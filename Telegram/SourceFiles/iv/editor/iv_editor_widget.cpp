@@ -4158,7 +4158,7 @@ bool Widget::fieldMonospaceShortcutUsesCodeBlock() const {
 		&& _field
 		&& _field->isVisible()
 		&& (_field->selectionMarkdownTagForToggle(
-			Ui::InputField::kTagCode) == Ui::InputField::kTagPre);
+			Ui::InputField::kTagCode) != Ui::InputField::kTagCode);
 }
 
 bool Widget::structuralMonospaceShortcutTargetsCodeBlock() const {
