@@ -203,6 +203,10 @@ Widget::Widget(
 		host->trackVerticalScroll(rpl::merge(
 			scroll()->scrollTopChanges() | rpl::to_empty,
 			wheels->events()));
+		scroll()->scrollTopValue(
+		) | rpl::on_next([=](int scrollTop) {
+			host->setScrolledToTop(scrollTop <= 0);
+		}, lifetime());
 	}
 
 	setupTabsStripFloat();

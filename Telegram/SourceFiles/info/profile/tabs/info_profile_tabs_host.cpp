@@ -83,8 +83,8 @@ TabsHost::TabsHost(not_null<QWidget*> parent, Descriptor descriptor)
 		_userChosenTab = true;
 		_pendingRestoreId = QString();
 		if (id == _activeId) {
-			// The viewport filler grows after the first scroll collapses
-			// the cover, so settle with a second queued pass.
+			// The scroll range changes while the cover collapses,
+			// so settle the exact position with a second queued pass.
 			const auto fire = [this] {
 				_scrollToRequests.fire({ 0, -1 });
 			};
@@ -731,18 +731,21 @@ void TabsHost::setVisibleRegion(int top, int bottom) {
 	if (_visibleTop == top && _visibleBottom == bottom) {
 		return;
 	}
-	const auto heightChanged = ((_visibleBottom - _visibleTop)
-		!= (bottom - top));
 	_visibleTop = top;
 	_visibleBottom = bottom;
 	pushViewportToActive();
-	if (heightChanged) {
-		const auto want = std::max(
-			_stripHeight + _body->height(),
-			bottom - top);
-		if (want != height()) {
-			scheduleHeightSync();
-		}
+	if (_keepMinHeight) {
+		scheduleHeightSync();
+	}
+}
+
+void TabsHost::setScrolledToTop(bool scrolledToTop) {
+	if (_scrolledToTop == scrolledToTop) {
+		return;
+	}
+	_scrolledToTop = scrolledToTop;
+	if (_keepMinHeight && scrolledToTop) {
+		scheduleHeightSync();
 	}
 }
 
@@ -762,13 +765,13 @@ int TabsHost::resizeGetHeight(int newWidth) {
 	_body->moveToLeft(0, bodyTop);
 
 	const auto natural = bodyTop + _body->height();
-	const auto viewport = _visibleBottom - _visibleTop;
 	if (_keepMinHeight
 		&& ((natural >= _keepMinHeight)
-			|| (_visibleBottom <= std::max(natural, viewport)))) {
+			|| (natural >= _visibleBottom)
+			|| _scrolledToTop)) {
 		_keepMinHeight = 0;
 	}
-	return std::max({ natural, viewport, _keepMinHeight });
+	return std::max(natural, _keepMinHeight);
 }
 
 } // namespace Info::Profile

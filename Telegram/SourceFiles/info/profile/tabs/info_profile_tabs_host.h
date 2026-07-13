@@ -46,6 +46,7 @@ public:
 	void returnStrip();
 	void trackVerticalScroll(rpl::producer<> scrolls);
 	void setVisibleRegion(int top, int bottom);
+	void setScrolledToTop(bool scrolledToTop);
 
 	[[nodiscard]] QString activeId() const {
 		return _activeId;
@@ -116,6 +117,7 @@ private:
 	bool _userChosenTab = false;
 	bool _bodySyncQueued = false;
 	bool _heightSyncQueued = false;
+	bool _scrolledToTop = true;
 	int _keepMinHeight = 0;
 	rpl::variable<MediaTabContent*> _activeTab = nullptr;
 
