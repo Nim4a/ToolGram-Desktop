@@ -1162,7 +1162,9 @@ void AdoptAnchor(QString *anchorId, RichText *text) {
 }
 
 void AdoptLeadingParagraphListItemText(ListItem *item) {
-	if (item->blocks.empty()
+	// List items hold either inline text or a list of blocks, never both,
+	// so adopt the paragraph text only if it is the single item block.
+	if (item->blocks.size() != 1
 		|| item->blocks.front().kind != BlockKind::Paragraph) {
 		return;
 	}

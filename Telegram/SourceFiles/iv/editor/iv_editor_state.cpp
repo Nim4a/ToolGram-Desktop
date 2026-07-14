@@ -6855,8 +6855,10 @@ std::vector<Block> State::takeListItemBlocksForUnwrap(ListItem *item) {
 }
 
 void State::adoptLeadingParagraphListItemText(ListItem *item) const {
+	// List items hold either inline text or a list of blocks, never both,
+	// so adopt the paragraph text only if it is the single item block.
 	if (!item
-		|| item->blocks.empty()
+		|| (item->blocks.size() != 1)
 		|| item->blocks.front().kind != BlockKind::Paragraph) {
 		return;
 	}
