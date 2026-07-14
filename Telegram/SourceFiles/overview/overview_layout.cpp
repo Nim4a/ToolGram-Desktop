@@ -695,16 +695,25 @@ void Video::paint(
 	const auto radial = isRadialAnimation();
 	const auto radialOpacity = radial ? _radial->opacity() : 0.;
 
-	if ((blurred || thumbnail || good)
-		&& ((_pix.width() != _width * style::DevicePixelRatio())
-			|| (_pixBlurred && (thumbnail || good)))) {
-		auto img = good
-			? good->original()
-			: thumbnail
-			? thumbnail->original()
-			: Images::Blur(blurred->original());
-		_pix = CropMediaFrame(std::move(img), _width, _height);
-		_pixBlurred = !(thumbnail || good);
+	const auto widthChanged = (_pix.width()
+		!= _width * style::DevicePixelRatio());
+	if (widthChanged) {
+		_pix = QImage();
+		_pixBlurred = true;
+		_goodRequested = false;
+	}
+	const auto better = good ? good : thumbnail;
+	if (_pix.isNull()) {
+		if (const auto source = blurred ? blurred : better) {
+			auto img = (source == blurred)
+				? Images::Blur(source->original())
+				: source->original();
+			_pix = CropMediaFrame(std::move(img), _width, _height);
+			_pixBlurred = (source == blurred);
+		}
+	}
+	if (better && _pixBlurred) {
+		requestGoodPix(better);
 	}
 
 	if (_pix.isNull()) {
@@ -815,6 +824,34 @@ void Video::paint(
 
 bool Video::elementsAnimating() const {
 	return RadialProgressItem::elementsAnimating() || (_spoiler != nullptr);
+}
+
+void Video::requestGoodPix(not_null<Image*> image) {
+	if (_goodRequested || !_width || !_height) {
+		return;
+	}
+	_goodRequested = true;
+
+	const auto width = _width;
+	const auto height = _height;
+	const auto id = ++_goodRequestId;
+	const auto weak = base::make_weak(this);
+	crl::async([=, original = image->original()]() mutable {
+		auto result = CropMediaFrame(std::move(original), width, height);
+		crl::on_main(weak, [=, result = std::move(result)]() mutable {
+			weak->goodPixReady(std::move(result), id);
+		});
+	});
+}
+
+void Video::goodPixReady(QImage image, uint32 id) {
+	if (id != _goodRequestId) {
+		return;
+	}
+	_goodRequested = false;
+	_pix = std::move(image);
+	_pixBlurred = false;
+	delegate()->repaintItem(this);
 }
 
 void Video::ensureDataMediaCreated() const {

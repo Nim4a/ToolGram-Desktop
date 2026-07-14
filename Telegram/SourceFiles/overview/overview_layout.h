@@ -350,6 +350,8 @@ protected:
 private:
 	void ensureDataMediaCreated() const;
 	void updateStatusText();
+	void requestGoodPix(not_null<Image*> image);
+	void goodPixReady(QImage image, uint32 id);
 
 	const not_null<DocumentData*> _data;
 	PhotoData *_videoCover = nullptr;
@@ -361,9 +363,11 @@ private:
 	int _durationw = 0;
 	std::unique_ptr<Ui::SpoilerAnimation> _spoiler;
 
+	uint32 _goodRequestId = 0;
 	QImage _pix;
 	QImage _hiddenBgCache;
 	bool _pixBlurred : 1 = true;
+	bool _goodRequested : 1 = false;
 	bool _sensitiveSpoiler : 1 = false;
 	bool _story : 1 = false;
 	bool _storyPinned : 1 = false;
