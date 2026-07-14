@@ -7343,7 +7343,7 @@ bool OverlayWidget::handleNativeGesture(not_null<QNativeGestureEvent*> e) {
 			base::Platform::Haptic();
 		}
 	};
-	const auto anchor = zoomAnchor(e->globalPosition());
+	const auto anchor = zoomAnchor(e->globalPos());
 	_pinchZoomAccumulated += e->value();
 	while (_pinchZoomAccumulated >= kPinchZoomStep) {
 		_pinchZoomAccumulated -= kPinchZoomStep;
