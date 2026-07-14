@@ -1247,7 +1247,9 @@ ItemPreview MediaFile::toPreview(ToPreviewOptions options) const {
 			return WithEntities(tr::lng_in_dlg_audio(tr::now));
 		} else if (const auto name = FormatSongNameFor(_document).string();
 				!name.isEmpty()) {
-			typeIcon = &st::dialogsMiniAudioIcon;
+			typeIcon = (_document->isSong() || _document->isAudioFile())
+				? &st::dialogsMiniAudioIcon
+				: &st::dialogsMiniFileIcon;
 			return WithEntities(name);
 		} else if (_document->isAudioFile()) {
 			typeIcon = &st::dialogsMiniAudioIcon;
