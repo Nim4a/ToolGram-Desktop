@@ -516,7 +516,7 @@ Fn<void()> SavePreparedTheme(
 		done();
 
 		const auto cloud = result.match([&](const MTPDtheme &data) {
-			const auto result = Data::CloudTheme::Parse(session, data);
+			const auto result = Data::CloudTheme::Parse(session, data, true);
 			session->data().cloudThemes().savedFromEditor(result);
 			return result;
 		});
