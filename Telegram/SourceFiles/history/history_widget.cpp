@@ -1289,6 +1289,8 @@ void HistoryWidget::initVoiceRecordBar() {
 	) | rpl::on_next([=](const auto &data) {
 		if (!_history) {
 			return;
+		} else if (data.progress >= 0 && suppressSendAction()) {
+			return;
 		}
 		session().sendProgressManager().update(
 			_history,
@@ -1543,7 +1545,9 @@ void HistoryWidget::initTabbedSelector() {
 		}
 		const auto type = Api::SendProgressType::ChooseSticker;
 		if (data != Selector::Action::Cancel) {
-			session().sendProgressManager().update(_history, type);
+			if (!suppressSendAction()) {
+				session().sendProgressManager().update(_history, type);
+			}
 		} else {
 			session().sendProgressManager().cancel(_history, type);
 		}
@@ -1833,7 +1837,7 @@ void HistoryWidget::initFieldAutocomplete() {
 		},
 		.sendMenuDetails = [=] { return sendMenuDetails(); },
 		.stickerChoosing = [=] {
-			if (_history) {
+			if (_history && !suppressSendAction()) {
 				session().sendProgressManager().update(
 					_history,
 					Api::SendProgressType::ChooseSticker);
@@ -2087,6 +2091,17 @@ Ui::ChatTheme *HistoryWidget::customChatTheme() const {
 	return _list ? _list->theme().get() : nullptr;
 }
 
+bool HistoryWidget::suppressSendAction() const {
+	if (!_history) {
+		return false;
+	}
+	auto &ephemeral = session().ephemeralMessages();
+	return ephemeral.isEphemeralBotReply(replyTo().messageId)
+		|| (_peer && ephemeral.hasEphemeralCommand(
+			_peer,
+			_field->getLastText()));
+}
+
 void HistoryWidget::fieldChanged() {
 	const auto updateTyping = (_textUpdateEvents
 		& TextUpdateEvent::SendTyping);
@@ -2097,7 +2112,8 @@ void HistoryWidget::fieldChanged() {
 			&& !_inlineBot
 			&& !_editMsgId
 			&& (!_autocomplete || !_autocomplete->stickersEmoji())
-			&& updateTyping) {
+			&& updateTyping
+			&& !suppressSendAction()) {
 			session().sendProgressManager().update(
 				_history,
 				Api::SendProgressType::Typing);

@@ -2742,10 +2742,22 @@ void ComposeControls::updateSilentBroadcast() {
 	}
 }
 
+bool ComposeControls::suppressSendAction() const {
+	if (!_history) {
+		return false;
+	}
+	auto &ephemeral = session().ephemeralMessages();
+	return ephemeral.isEphemeralBotReply(replyingToMessage().messageId)
+		|| ephemeral.hasEphemeralCommand(
+			_history->peer,
+			_field->getLastText());
+}
+
 void ComposeControls::fieldChanged() {
 	const auto typing = (!_inlineBot
 		&& !_header->isEditingMessage()
-		&& (_textUpdateEvents & TextUpdateEvent::SendTyping));
+		&& (_textUpdateEvents & TextUpdateEvent::SendTyping)
+		&& !suppressSendAction());
 	updateSendButtonType();
 	_hasSendText = _field->isVisible() && HasSendText(_field);
 	if (updateBotCommandShown() || updateLikeShown()) {
@@ -3171,7 +3183,10 @@ void ComposeControls::cancelForward() {
 rpl::producer<SendActionUpdate> ComposeControls::sendActionUpdates() const {
 	return rpl::merge(
 		_sendActionUpdates.events(),
-		_voiceRecordBar->sendActionUpdates());
+		_voiceRecordBar->sendActionUpdates()
+	) | rpl::filter([=](const SendActionUpdate &update) {
+		return update.cancel || !suppressSendAction();
+	});
 }
 
 void ComposeControls::initTabbedSelector() {

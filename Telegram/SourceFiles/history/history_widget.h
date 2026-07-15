@@ -415,6 +415,7 @@ private:
 	void setTabbedPanel(std::unique_ptr<TabbedPanel> panel);
 	void updateField();
 	void fieldChanged();
+	[[nodiscard]] bool suppressSendAction() const;
 	void fieldFocused();
 	void fieldResized();
 
