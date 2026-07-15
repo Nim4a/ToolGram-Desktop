@@ -342,6 +342,19 @@ bool EphemeralMessages::hasEphemeralCommand(
 	return findCommandBot(peer, text.trimmed()) != nullptr;
 }
 
+bool EphemeralMessages::wouldSendMedia(
+		not_null<PeerData*> peer,
+		FullReplyTo replyTo,
+		const QString &caption) const {
+	if (isEphemeralBotReply(replyTo.messageId)) {
+		return true;
+	}
+	const auto topicRoot = replyTo.topicRootId;
+	const auto realReply = replyTo.messageId
+		&& !(topicRoot && replyTo.messageId.msg == topicRoot);
+	return !realReply && hasEphemeralCommand(peer, caption);
+}
+
 bool EphemeralMessages::isEphemeralBotReply(FullMsgId replyToId) const {
 	const auto target = _session->data().message(replyToId);
 	return target && target->isEphemeral() && !target->out();
