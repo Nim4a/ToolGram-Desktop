@@ -20,7 +20,7 @@ namespace {
 		const Ui::Text::String &leaf,
 		const QRect &textRect,
 		const style::TextStyle &style) {
-	const auto lines = leaf.countLinesGeometry(textRect.width(), true);
+	const auto lines = leaf.countLinesGeometry(textRect.width());
 	return textRect.y() + (lines.empty()
 		? TextLineBaseline(style)
 		: lines.front().baseline);
@@ -382,7 +382,7 @@ void ClearBlockGeometry(LaidOutBlock *block) {
 		const style::TextStyle &textStyle,
 		int width) {
 	return std::max(
-		leaf.countHeight(width, true),
+		leaf.countHeight(width),
 		TextLineHeight(textStyle));
 }
 
@@ -2826,7 +2826,7 @@ int LayoutBlocks(
 	} else if (ordered) {
 		markerTextWidth = std::max(block->marker.maxWidth(), 1);
 		markerTextHeight = std::max(
-			block->marker.countHeight(markerTextWidth, true),
+			block->marker.countHeight(markerTextWidth),
 			bodyLineHeight);
 	}
 	ClearBlockGeometry(block);

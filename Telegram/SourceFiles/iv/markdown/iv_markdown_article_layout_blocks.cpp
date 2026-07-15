@@ -683,7 +683,7 @@ void PopulateCodeBlockLeaf(
 		const style::TextStyle &textStyle,
 		int width) {
 	return std::max(
-		leaf.countHeight(width, true),
+		leaf.countHeight(width),
 		TextLineHeight(textStyle));
 }
 
@@ -1467,7 +1467,7 @@ bool LayoutMediaCaptionGeometry(
 		block->textWidth,
 		ResolveEditableHeight(
 			std::max(
-				block->leaf.countHeight(block->textWidth, true),
+				block->leaf.countHeight(block->textWidth),
 				TextLineHeight(st.body)),
 			context));
 	*bottom = block->textRect.y() + block->textRect.height();
@@ -1642,9 +1642,8 @@ int ResolveEditableHeight(
 [[nodiscard]] int LeafFirstLineBaseline(
 		const Ui::Text::String &leaf,
 		const QRect &textRect,
-		const style::TextStyle &style,
-		bool breakEverywhere = true) {
-	const auto lines = leaf.countLinesGeometry(textRect.width(), breakEverywhere);
+		const style::TextStyle &style) {
+	const auto lines = leaf.countLinesGeometry(textRect.width());
 	return textRect.y() + (lines.empty()
 		? TextLineBaseline(style)
 		: lines.front().baseline);
@@ -1673,9 +1672,7 @@ int HorizontalMarginsWidth(QMargins margins) {
 }
 
 Ui::Text::GeometryDescriptor TextGeometry(int width) {
-	auto result = Ui::Text::SimpleGeometry(std::max(width, 1), 0, 0, false);
-	result.breakEverywhere = true;
-	return result;
+	return Ui::Text::SimpleGeometry(std::max(width, 1), 0, 0, false);
 }
 
 int TextMinResizeWidth(int width) {
@@ -3931,7 +3928,7 @@ LaidOutBlock LayoutGroupedMediaBlock(
 			block->textWidth,
 			ResolveEditableHeight(
 				std::max(
-					displayLeaf.countHeight(block->textWidth, true),
+					displayLeaf.countHeight(block->textWidth),
 					TextLineHeight(st.body)),
 				context));
 		block->firstLineBaseline = LeafFirstLineBaseline(
@@ -4249,7 +4246,7 @@ LaidOutBlock LayoutGroupedMediaBlock(
 		1);
 	block->labelWidth = contentWidth;
 	const auto labelHeight = std::max(
-		block->labelLeaf.countHeight(contentWidth, true),
+		block->labelLeaf.countHeight(contentWidth),
 		TextLineHeight(style.labelStyle));
 	const auto mediaHeight = std::max(
 		style.minHeight,
