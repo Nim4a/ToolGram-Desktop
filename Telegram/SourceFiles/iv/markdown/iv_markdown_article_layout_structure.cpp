@@ -386,22 +386,6 @@ void ClearBlockGeometry(LaidOutBlock *block) {
 		TextLineHeight(textStyle));
 }
 
-[[nodiscard]] bool TextNeedsRetainedLeaf(const QString &text) {
-	for (const auto ch : text) {
-		if (!Ui::Text::IsTrimmed(ch)
-			&& !Ui::Text::IsReplacedBySpace(ch)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-[[nodiscard]] bool MissingRetainedLeaf(
-		const QString &text,
-		const Ui::Text::String &leaf) {
-	return TextNeedsRetainedLeaf(text) && leaf.isEmpty();
-}
-
 struct WidthAnalysisNode {
 	std::vector<WidthAnalysisNode> children;
 	int contentMinimumWidth = 1;

@@ -891,22 +891,6 @@ void ResetTableRowGeometry(LaidOutTableRow *row) {
 	}
 }
 
-[[nodiscard]] bool TextNeedsRetainedLeaf(const QString &text) {
-	for (const auto ch : text) {
-		if (!Ui::Text::IsTrimmed(ch)
-			&& !Ui::Text::IsReplacedBySpace(ch)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-[[nodiscard]] bool MissingRetainedLeaf(
-		const QString &text,
-		const Ui::Text::String &leaf) {
-	return TextNeedsRetainedLeaf(text) && leaf.isEmpty();
-}
-
 [[nodiscard]] bool MissingRetainedPlaceholderLeaf(
 		bool usePlaceholder,
 		const Ui::Text::String &leaf) {
@@ -1252,6 +1236,33 @@ void CopyBlockCachedTextLeafs(
 }
 
 } // namespace
+
+bool TextNeedsRetainedLeaf(const QString &text) {
+	const auto size = int(text.size());
+	for (auto i = 0; i != size; ++i) {
+		const auto ch = text[i];
+		if (Ui::Text::IsTrimmed(ch)
+			|| Ui::Text::IsReplacedBySpace(ch)
+			|| Ui::Text::IsDiacritic(ch)
+			|| ch.isLowSurrogate()) {
+			continue;
+		} else if (!ch.isHighSurrogate()) {
+			return true;
+		} else if (i + 1 != size && text[i + 1].isLowSurrogate()) {
+			if (QChar::surrogateToUcs4(ch, text[i + 1]) < 0xE0000) {
+				return true;
+			}
+			++i;
+		}
+	}
+	return false;
+}
+
+bool MissingRetainedLeaf(
+		const QString &text,
+		const Ui::Text::String &leaf) {
+	return TextNeedsRetainedLeaf(text) && leaf.isEmpty();
+}
 
 void BuildOrReuseMarkedTextLeaf(
 		Ui::Text::String *leaf,
@@ -2752,7 +2763,8 @@ void UpdateLaidOutLeafContent(
 	int width,
 	int logicalWidth,
 	bool scrollOwner,
-	LayoutContext context);
+	LayoutContext context,
+	bool allowMissingLeaf = false);
 [[nodiscard]] std::optional<int> LayoutCodeBlockGeometry(
 	const PreparedBlock &prepared,
 	LaidOutBlock *block,
@@ -2882,7 +2894,7 @@ LaidOutBlock LayoutFlowBlock(
 				context);
 		}
 	}
-	const auto bottom = LayoutFlowBlockGeometry(
+	auto bottom = LayoutFlowBlockGeometry(
 		prepared,
 		&block,
 		st,
@@ -2892,6 +2904,48 @@ LaidOutBlock LayoutFlowBlock(
 		logicalWidth,
 		scrollOwner,
 		context);
+	if (!bottom) {
+		if (!IsAnchorOnlyBlock(prepared)) {
+			if (MissingRetainedLeaf(prepared.text.text, block.leaf)) {
+				SetTextLeaf(
+					&block.leaf,
+					textStyle,
+					st,
+					prepared.text,
+					formulas,
+					inlineFormulaObjects,
+					mediaRuntime,
+					FlowBlockMinimumWidth(prepared, st),
+					context.repaint,
+					context.repaintRect);
+				SetTextLeafSpoilerLinkFilter(
+					&block.leaf,
+					context.spoilerLinkFilter);
+				BindLinks(&block.leaf, prepared.links);
+			}
+			const auto usePlaceholder = prepared.text.text.isEmpty()
+				&& !prepared.editPlaceholderText.isEmpty();
+			if (usePlaceholder && block.placeholderLeaf.isEmpty()) {
+				block.placeholderText = prepared.editPlaceholderText;
+				SetPlainTextLeaf(
+					&block.placeholderLeaf,
+					placeholderStyle,
+					block.placeholderText,
+					PlainTextMinResizeWidth(placeholderStyle));
+			}
+		}
+		bottom = LayoutFlowBlockGeometry(
+			prepared,
+			&block,
+			st,
+			left,
+			top,
+			width,
+			logicalWidth,
+			scrollOwner,
+			context,
+			true);
+	}
 	Expects(bottom.has_value());
 	return FinalizeLaidOutBlock(std::move(block));
 }
@@ -3553,14 +3607,18 @@ LaidOutBlock LayoutGroupedMediaBlock(
 		int width,
 		int logicalWidth,
 		bool scrollOwner,
-		LayoutContext context) {
+		LayoutContext context,
+		bool allowMissingLeaf) {
 	if (!block) {
 		return std::nullopt;
 	}
 	const auto usePlaceholder = prepared.text.text.isEmpty()
 		&& !prepared.editPlaceholderText.isEmpty();
-	if (MissingRetainedLeaf(prepared.text.text, block->leaf)
-		|| MissingRetainedPlaceholderLeaf(usePlaceholder, block->placeholderLeaf)) {
+	if (!allowMissingLeaf
+		&& (MissingRetainedLeaf(prepared.text.text, block->leaf)
+			|| MissingRetainedPlaceholderLeaf(
+				usePlaceholder,
+				block->placeholderLeaf))) {
 		return std::nullopt;
 	}
 	ClearBlockGeometry(block);
