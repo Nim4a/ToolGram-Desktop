@@ -91,7 +91,7 @@ private:
 		const auto value = countDesiredHeight();
 		if (_lastDesiredHeight != value) {
 			_lastDesiredHeight = value;
-			_desiredHeight.fire_copy(value);
+			_desiredHeight = value;
 		}
 	}
 
@@ -104,7 +104,7 @@ private:
 	bool _inResize = false;
 	int _lastDesiredHeight = -1;
 	rpl::event_stream<Ui::ScrollToRequest> _scrollToRequests;
-	rpl::event_stream<int> _desiredHeight;
+	rpl::variable<int> _desiredHeight = 0;
 
 	rpl::variable<bool> _backToggles;
 	rpl::event_stream<> _backClicks;

@@ -513,7 +513,7 @@ rpl::producer<Ui::ScrollToRequest> InnerWidget::scrollToRequests() const {
 }
 
 rpl::producer<int> InnerWidget::desiredHeightValue() const {
-	return _desiredHeight.events_starting_with(countDesiredHeight());
+	return _desiredHeight.value();
 }
 
 int InnerWidget::resizeGetHeight(int newWidth) {
