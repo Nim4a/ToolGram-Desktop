@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #pragma once
 
 #include "base/timer.h"
+#include "data/data_file_origin.h"
 
 class History;
 class HistoryItem;
@@ -56,7 +57,9 @@ public:
 		MsgId topicRootId = 0);
 	[[nodiscard]] bool sendMedia(
 		not_null<HistoryItem*> item,
-		const MTPInputMedia &media);
+		const MTPInputMedia &media,
+		Data::FileOrigin origin = {},
+		Fn<MTPInputMedia()> rebuildMedia = nullptr);
 	[[nodiscard]] bool sendSimpleMedia(
 		not_null<History*> history,
 		FullReplyTo replyTo,
@@ -90,7 +93,9 @@ private:
 		bool hasMedia,
 		int32 replyToEphemeralId,
 		MsgId topicRootId,
-		FullMsgId destroyOnResult = {});
+		FullMsgId destroyOnResult = {},
+		Data::FileOrigin origin = {},
+		Fn<MTPInputMedia()> rebuildMedia = nullptr);
 	[[nodiscard]] bool replyTargetMissing(
 		const MTPDephemeralMessage &data) const;
 	void drainPending(bool force = false);

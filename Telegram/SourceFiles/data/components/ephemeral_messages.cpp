@@ -456,7 +456,9 @@ void EphemeralMessages::send(
 
 bool EphemeralMessages::sendMedia(
 		not_null<HistoryItem*> item,
-		const MTPInputMedia &media) {
+		const MTPInputMedia &media,
+		Data::FileOrigin origin,
+		Fn<MTPInputMedia()> rebuildMedia) {
 	const auto history = item->history();
 	const auto replyTo = item->replyTo();
 	const auto target = _session->data().message(replyTo.messageId);
@@ -477,7 +479,9 @@ bool EphemeralMessages::sendMedia(
 					true,
 					0,
 					item->topicRootId(),
-					item->fullId());
+					item->fullId(),
+					origin,
+					rebuildMedia);
 				return true;
 			}
 		}
@@ -495,7 +499,9 @@ bool EphemeralMessages::sendMedia(
 				true,
 				entry->ephemeralId,
 				MsgId(0),
-				item->fullId());
+				item->fullId(),
+				origin,
+				rebuildMedia);
 			return true;
 		}
 	}
@@ -536,7 +542,9 @@ void EphemeralMessages::request(
 		bool hasMedia,
 		int32 replyToEphemeralId,
 		MsgId topicRootId,
-		FullMsgId destroyOnResult) {
+		FullMsgId destroyOnResult,
+		Data::FileOrigin origin,
+		Fn<MTPInputMedia()> rebuildMedia) {
 	const auto session = _session;
 	const auto destroyLocal = [=] {
 		if (destroyOnResult) {
@@ -567,31 +575,49 @@ void EphemeralMessages::request(
 		| (entities.v.isEmpty() ? Flag(0) : Flag::f_entities)
 		| (hasMedia ? Flag::f_media : Flag(0))
 		| (hasReplyTo ? Flag::f_reply_to : Flag(0));
-	session->api().request(MTPephemeral_SendMessage(
-		MTP_flags(flags),
-		history->peer->input(),
-		bot->inputUser(),
-		MTPlong(), // query_id
-		MTP_string(text.text),
-		entities,
-		media,
-		MTPReplyMarkup(),
-		MTPInputRichMessage(),
-		MTP_long(base::RandomValue<uint64>()),
-		replyTo
-	)).done([=](const MTPUpdates &result) {
-		_convertLocalMediaTarget = destroyOnResult;
-		session->api().applyUpdates(result);
-		if (destroyOnResult) {
-			const auto local = session->data().message(destroyOnResult);
-			if (local && !findByItem(local)) {
-				local->destroy();
+	const auto randomId = base::RandomValue<uint64>();
+	const auto send = [=](
+			const auto &send,
+			const MTPInputMedia &media,
+			int attempt) -> void {
+		session->api().request(MTPephemeral_SendMessage(
+			MTP_flags(flags),
+			history->peer->input(),
+			bot->inputUser(),
+			MTPlong(), // query_id
+			MTP_string(text.text),
+			entities,
+			media,
+			MTPReplyMarkup(),
+			MTPInputRichMessage(),
+			MTP_long(randomId),
+			replyTo
+		)).done([=](const MTPUpdates &result) {
+			_convertLocalMediaTarget = destroyOnResult;
+			session->api().applyUpdates(result);
+			if (destroyOnResult) {
+				const auto local = session->data().message(destroyOnResult);
+				if (local && !findByItem(local)) {
+					local->destroy();
+				}
 			}
-		}
-	}).fail([=](const MTP::Error &error) {
-		LOG(("API Error: send ephemeral message - %1").arg(error.type()));
-		destroyLocal();
-	}).send();
+		}).fail([=](const MTP::Error &error) {
+			if (rebuildMedia
+				&& !attempt
+				&& error.code() == 400
+				&& error.type().startsWith(u"FILE_REFERENCE_"_q)) {
+				session->api().refreshFileReference(
+					origin,
+					[=](const auto &) {
+						send(send, rebuildMedia(), 1);
+					});
+				return;
+			}
+			LOG(("API Error: send ephemeral message - %1").arg(error.type()));
+			destroyLocal();
+		}).send();
+	};
+	send(send, media, 0);
 }
 
 void EphemeralMessages::deleteMessage(not_null<HistoryItem*> item) {

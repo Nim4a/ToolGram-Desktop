@@ -280,7 +280,11 @@ void SendExistingMedia(
 		.mediaSpoiler = action.options.mediaSpoiler,
 	}, media, caption);
 
-	if (session->ephemeralMessages().sendMedia(item, inputMedia())) {
+	if (session->ephemeralMessages().sendMedia(
+			item,
+			inputMedia(),
+			origin,
+			inputMedia)) {
 		api->finishForwarding(action);
 		return;
 	}
