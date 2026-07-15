@@ -4159,11 +4159,16 @@ void ComposeControls::updateAiButtonVisibility() {
 }
 
 void ComposeControls::updateExpandButtonVisibility() {
+	const auto item = (_history && isEditingMessage())
+		? _history->owner().message(_header->editMsgId())
+		: nullptr;
+	const auto media = item ? item->media() : nullptr;
 	const auto hidden = !_wrap->isVisible()
 		|| _recording.current()
 		|| !_field->isVisible()
 		|| !hasEnoughLinesForExpand()
 		|| textExceedsMaxSize()
+		|| (media && !media->webpage())
 		|| !Iv::Editor::CanAuthorRichMessages(&_show->session());
 	if (_expand->isHidden() != hidden) {
 		_expand->setVisible(!hidden);

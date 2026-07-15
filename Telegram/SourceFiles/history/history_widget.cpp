@@ -2790,6 +2790,7 @@ bool HistoryWidget::applyDraft(FieldHistoryAction fieldHistoryAction) {
 		if (!_replyEditMsg) {
 			requestMessageData(_editMsgId);
 		}
+		updateExpandButtonVisibility();
 		if (editDraft && editDraft->suggest) {
 			using namespace HistoryView;
 			applySuggestOptions(editDraft->suggest, SuggestMode::Change);
@@ -7062,6 +7063,10 @@ void HistoryWidget::updateExpandButtonVisibility() {
 		|| _voiceRecordBar->isActive()
 		|| !hasEnoughLinesForExpand()
 		|| (textExceedsMaxSize() && !editingMessage())
+		|| (_editMsgId
+			&& _replyEditMsg
+			&& _replyEditMsg->media()
+			&& !_replyEditMsg->media()->webpage())
 		|| !Iv::Editor::CanAuthorRichMessages(&session());
 	if (_expand->isHidden() != hidden) {
 		_expand->setVisible(!hidden);
