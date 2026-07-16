@@ -172,7 +172,7 @@ enum class ToolbarActionId : uchar {
 	case ToolbarActionId::Math:
 		return tr::lng_article_insert_math(tr::now);
 	case ToolbarActionId::Blockquote:
-		return tr::lng_article_insert_blockquote(tr::now);
+		return tr::lng_menu_formatting_blockquote(tr::now);
 	case ToolbarActionId::Pullquote:
 		return tr::lng_article_insert_pullquote(tr::now);
 	case ToolbarActionId::CodeBlock:
@@ -958,7 +958,7 @@ void Toolbar::fillBlockStyleMenu(not_null<Ui::PopupMenu*> menu) {
 	Menu::AddActiveColorAction(
 		menu,
 		WithTabShortcut(
-			tr::lng_article_insert_blockquote(tr::now),
+			tr::lng_menu_formatting_blockquote(tr::now),
 			Ui::kBlockquoteSequence),
 		[=] { insertType(State::InsertBlockType::Blockquote); },
 		&st::ivEditorToolbarBlockquoteIcon,
