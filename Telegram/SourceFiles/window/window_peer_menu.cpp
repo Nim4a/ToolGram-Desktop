@@ -4519,6 +4519,11 @@ void ForwardToSelf(
 						.text = std::move(phrase),
 						.filter = ChatHelpers::ForwardedToSavedMessagesFilter(
 							session),
+						.iconLottie = ChatHelpers::ForwardedMessagePhraseIcon({
+							.toCount = 1,
+							.to1 = session->user(),
+						}),
+						.iconLottieSize = st::toastLottieIconSize,
 					});
 				}
 			});
