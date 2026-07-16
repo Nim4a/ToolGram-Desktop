@@ -11076,6 +11076,9 @@ void Widget::updateArticleSelection(
 			return;
 		}
 		auto cursor = _field->textCursor();
+		if (!_articleSelectionDrag.interruptedFieldAnchor) {
+			_articleSelectionDrag.interruptedFieldAnchor = cursor.anchor();
+		}
 		if (!cursor.hasSelection()) {
 			return;
 		}
@@ -11913,6 +11916,28 @@ bool Widget::handleFieldMouseEvent(QEvent *event) {
 			&& (_articleSelectionDrag.mode == DragSelectionMode::Structural)) {
 			clearArticleSelection();
 			_articleSelectionDrag.mode = DragSelectionMode::Text;
+		}
+		if ((operation == ArticleSelectionOperation::GrowSelection)
+			&& _articleSelectionDrag.interruptedFieldAnchor) {
+			const auto raw = _field->rawTextEdit();
+			const auto pointerCursor = raw->cursorForPosition(
+				raw->viewport()->mapFromGlobal(globalPoint));
+			const auto size = int(_field->getLastText().size());
+			const auto anchor = std::clamp(
+				*_articleSelectionDrag.interruptedFieldAnchor,
+				0,
+				size);
+			const auto position = std::clamp(
+				pointerCursor.position(),
+				0,
+				size);
+			auto cursor = _field->textCursor();
+			cursor.setPosition(anchor);
+			if (position != anchor) {
+				cursor.setPosition(position, QTextCursor::KeepAnchor);
+			}
+			_field->setTextCursor(cursor);
+			_articleSelectionDrag.interruptedFieldAnchor = std::nullopt;
 		}
 		if (type == QEvent::MouseButtonRelease) {
 			clearArticleDropTarget();

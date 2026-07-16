@@ -358,6 +358,7 @@ private:
 		Markdown::PreparedEditHit anchorHit;
 		int textSegment = -1;
 		int textOffset = 0;
+		std::optional<int> interruptedFieldAnchor;
 		ArticleSelectionOperation operation
 			= ArticleSelectionOperation::None;
 		DragSelectionMode mode = DragSelectionMode::None;
