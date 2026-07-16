@@ -4491,6 +4491,10 @@ rpl::producer<bool> InnerWidget::changeSearchFromArchiveRequests() const {
 	return _changeSearchFromArchiveRequests.events();
 }
 
+rpl::producer<> InnerWidget::resetSearchRestrictionsRequests() const {
+	return _resetSearchRestrictionsRequests.events();
+}
+
 rpl::producer<> InnerWidget::cancelSearchRequests() const {
 	return _cancelSearchRequests.events();
 }
@@ -4814,8 +4818,7 @@ void InnerWidget::refreshEmpty() {
 		} else if (_searchEmptyState != _searchState) {
 			_searchEmptyState = _searchState;
 			_searchEmpty = MakeSearchEmpty(this, _searchState, [=] {
-				_changeSearchFilterRequests.fire(ChatTypeFilter::All);
-				_changeSearchFromArchiveRequests.fire(true);
+				_resetSearchRestrictionsRequests.fire({});
 			});
 			if (_controller->session().data().chatsListLoaded()) {
 				_searchEmpty->animate();

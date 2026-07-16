@@ -549,6 +549,17 @@ Widget::Widget(
 		copy.fromArchive = fromArchive;
 		applySearchState(copy);
 	}, lifetime());
+	_inner->resetSearchRestrictionsRequests(
+	) | rpl::filter([=] {
+		return (_searchState.tab == ChatSearchTab::MyMessages)
+			&& ((_searchState.filter != ChatTypeFilter::All)
+				|| !_searchState.fromArchive);
+	}) | rpl::on_next([=] {
+		auto copy = _searchState;
+		copy.filter = ChatTypeFilter::All;
+		copy.fromArchive = true;
+		applySearchState(copy);
+	}, lifetime());
 	_inner->cancelSearchRequests(
 	) | rpl::on_next([=] {
 		cancelSearch({
