@@ -6368,6 +6368,13 @@ bool Widget::showMediaMenuFromHit(
 			== Markdown::MediaActivationKind::None) {
 			return false;
 		}
+		if (clickKind == MediaClickKind::Left) {
+			const auto block = BlockFromPath(_state->richPage(), *path);
+			if (block && (block->kind == RichPage::BlockKind::Photo)) {
+				editPhotoBlock(*path);
+				return true;
+			}
+		}
 		showSimpleMediaMenu(*path, globalPos);
 		return true;
 	} else if (const auto path = groupedMediaBlockPathFromHit(hit)) {
@@ -6743,9 +6750,6 @@ Widget::PressedMediaControl Widget::mediaControlHitTest(
 			return { MediaControl::ThreeDots, *path };
 		} else if (layout.plus.contains(articlePoint)) {
 			return { MediaControl::Plus, *path };
-		} else if ((block->kind == RichPage::BlockKind::Photo)
-			&& geo.visibleMediaRect.contains(articlePoint)) {
-			return { MediaControl::MediaPixels, *path };
 		}
 	}
 	return {};
@@ -7282,9 +7286,6 @@ void Widget::mouseReleaseEvent(QMouseEvent *e) {
 				break;
 			case MediaControl::Plus:
 				addToCollageFromBlock(pressed.path);
-				break;
-			case MediaControl::MediaPixels:
-				editPhotoBlock(pressed.path);
 				break;
 			case MediaControl::UploadRadial:
 				if (pressed.itemIndex >= 0) {

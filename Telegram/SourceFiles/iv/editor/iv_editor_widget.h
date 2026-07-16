@@ -273,7 +273,6 @@ private:
 		None,
 		ThreeDots,
 		Plus,
-		MediaPixels,
 		UploadRadial,
 		LayoutSwitch,
 	};
