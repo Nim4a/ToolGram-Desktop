@@ -52,15 +52,11 @@ constexpr auto kPanelDuration = crl::time(320);
 constexpr auto kBounceDuration = crl::time(400);
 
 [[nodiscard]] int PullThreshold() {
-#ifdef Q_OS_MAC
-	// The macOS pull sides stretch with a soft linear stiffness that
-	// reaches a given height in about half the finger travel of the
-	// log curve used on other platforms, so a higher threshold keeps
-	// a comparable gesture length and avoids accidental triggers.
+	// The pull sides stretch with a soft linear stiffness that reaches
+	// a given height in about half the finger travel of the log curve
+	// used before, so a doubled threshold keeps a comparable gesture
+	// length and avoids accidental triggers.
 	return st::historyPullNextThreshold * 2;
-#else // Q_OS_MAC
-	return st::historyPullNextThreshold;
-#endif // Q_OS_MAC
 }
 
 [[nodiscard]] History *FindInList(
