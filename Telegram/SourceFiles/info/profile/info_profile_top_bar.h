@@ -206,6 +206,7 @@ private:
 	void refreshTabSubtitle();
 	void paintTabSubtitle(QPainter &p);
 	void updateRightButtonsPosition();
+	void updateTabGroupActive();
 	[[nodiscard]] bool tabSwapActive() const;
 	void setTabSelectedItems(SelectedItems &&items);
 	void createTabSelectionBar();
@@ -277,6 +278,9 @@ private:
 	bool _tabSearchAvailable = false;
 	bool _tabSearchShown = false;
 	Fn<void(QString)> _tabApplySearch;
+	Fn<void(bool)> _tabSetGroup;
+	bool _tabGroupActive = false;
+	bool _tabGroupAvailable = false;
 	object_ptr<Ui::FlatLabel> _status;
 	std::unique_ptr<StatusLabel> _statusLabel;
 	rpl::variable<int> _statusShift = 0;
@@ -328,6 +332,7 @@ private:
 	base::unique_qptr<Ui::IconButton> _topBarButton;
 	base::unique_qptr<Ui::FadeWrap<Ui::IconButton>> _tabMenuToggle;
 	base::unique_qptr<Ui::FadeWrap<Ui::IconButton>> _tabSearchToggle;
+	base::unique_qptr<Ui::FadeWrap<Ui::IconButton>> _tabGroupToggle;
 	base::unique_qptr<Ui::PopupMenu> _peerMenu;
 
 	Ui::RpWidget *_actionMore = nullptr;

@@ -2055,6 +2055,27 @@ void TopBar::applyTabBindings(TabTopBarBindings &&bindings) {
 			}
 		}, _tabBindingsLifetime);
 	}
+	_tabSetGroup = std::move(bindings.setGroupByRole);
+	_tabGroupActive = false;
+	if (bindings.groupByRoleState) {
+		std::move(
+			bindings.groupByRoleState
+		) | rpl::on_next([=](bool grouped) {
+			_tabGroupActive = grouped;
+			updateTabGroupActive();
+			updateTabSwapVisibility();
+		}, _tabBindingsLifetime);
+	}
+	_tabGroupAvailable = false;
+	if (bindings.groupByRoleAvailable) {
+		std::move(
+			bindings.groupByRoleAvailable
+		) | rpl::on_next([=](bool available) {
+			_tabGroupAvailable = available;
+			updateTabSwapVisibility();
+		}, _tabBindingsLifetime);
+	}
+	updateTabGroupActive();
 	updateTabSwapVisibility();
 }
 
@@ -2396,6 +2417,19 @@ void TopBar::updateTabSwapVisibility() {
 			togglesChanged = true;
 		}
 	}
+	if (_tabGroupToggle) {
+		const auto shown = swap
+			&& !_tabSearchShown
+			&& (_tabSetGroup != nullptr)
+			&& _tabGroupAvailable;
+		if (_tabGroupToggle->toggled() != shown) {
+			if (shown) {
+				updateTabGroupActive();
+			}
+			_tabGroupToggle->toggle(shown, anim::type::normal);
+			togglesChanged = true;
+		}
+	}
 	if (togglesChanged) {
 		updateRightButtonsPosition();
 		updateTitlePosition(_progress.current());
@@ -2440,6 +2474,19 @@ void TopBar::updateRightButtonsPosition() {
 		_tabSearchToggle->moveToRight(right, 0);
 		right += _tabSearchToggle->width();
 	}
+	if (_tabGroupToggle && _tabGroupToggle->toggled()) {
+		_tabGroupToggle->moveToRight(right, 0);
+		right += _tabGroupToggle->width();
+	}
+}
+
+void TopBar::updateTabGroupActive() {
+	if (!_tabGroupToggle) {
+		return;
+	}
+	const auto entity = _tabGroupToggle->entity();
+	entity->setForceRippled(false, anim::type::instant);
+	entity->setForceRippled(_tabGroupActive, anim::type::instant);
 }
 
 void TopBar::applyTabSwapProgress(float64 progress) {
@@ -2751,6 +2798,33 @@ void TopBar::setupButtons(
 		_tabSearchToggle->entity()->addClickHandler([=] {
 			showTabSearch();
 		});
+
+		_tabGroupToggle = base::make_unique_q<Ui::FadeWrap<Ui::IconButton>>(
+			this,
+			object_ptr<Ui::IconButton>(
+				this,
+				shouldUseColored
+					? st::infoTopBarColoredGroup
+					: st::infoTopBarBlackGroup),
+			st::infoTopBarScale);
+		_tabGroupToggle->QWidget::show();
+		_tabGroupToggle->setDuration(st::infoTopBarDuration);
+		_tabGroupToggle->toggle(false, anim::type::instant);
+		_tabGroupToggle->entity()->setAccessibleName(
+			tr::lng_profile_participants_section(tr::now));
+		_tabGroupToggle->entity()->addClickHandler([=] {
+			if (_tabSetGroup) {
+				_tabSetGroup(!_tabGroupActive);
+			}
+		});
+		_tabGroupToggle->entity()->shownValue(
+		) | rpl::filter([](bool shown) {
+			return shown;
+		}) | rpl::on_next([=] {
+			updateTabGroupActive();
+		}, _tabGroupToggle->lifetime());
+		updateTabGroupActive();
+
 		widthValue() | rpl::on_next([=] {
 			updateRightButtonsPosition();
 		}, _tabSearchToggle->lifetime());
