@@ -443,10 +443,21 @@ void TopBarSuggestionContent::setRightBadge(rpl::producer<int> count) {
 
 void TopBarSuggestionContent::draw(QPainter &p) {
 	const auto outer = Ui::RpWidget::rect();
-	if (TopBarSuggestionNarrow(width())) {
-		if (_leadingWidget) {
-			_leadingWidget->hide();
+	const auto setControlsVisible = [&](bool visible) {
+		const auto widgets = std::array<Ui::RpWidget*, 4>{
+			_leadingWidget.data(),
+			_rightHide.get(),
+			_rightArrow.get(),
+			_rightButton.get(),
+		};
+		for (const auto widget : widgets) {
+			if (widget) {
+				widget->setVisible(visible);
+			}
 		}
+	};
+	if (TopBarSuggestionNarrow(width())) {
+		setControlsVisible(false);
 		PaintNarrowSuggestionBubble(
 			p,
 			outer,
@@ -454,9 +465,7 @@ void TopBarSuggestionContent::draw(QPainter &p) {
 			_geometry.cornerRadius);
 		return;
 	}
-	if (_leadingWidget) {
-		_leadingWidget->show();
-	}
+	setControlsVisible(true);
 	const auto &margins = st::dialogsTopBarSuggestionMargins;
 	const auto pill = outer - margins;
 
