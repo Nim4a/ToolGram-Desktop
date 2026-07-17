@@ -5914,7 +5914,10 @@ void Widget::fillTableChangeMenu(
 	if (!info.valid) {
 		return;
 	}
-	menu->addAction(
+	auto addCells = std::make_unique<Ui::PopupMenu>(
+		menu,
+		st::popupMenuWithIcons);
+	addCells->addAction(
 		tr::lng_article_table_add_row_above(tr::now),
 		[=] {
 			applyTableChange([=] {
@@ -5922,7 +5925,7 @@ void Widget::fillTableChangeMenu(
 			});
 		},
 		&st::ivEditorTableAddRowAboveIcon);
-	menu->addAction(
+	addCells->addAction(
 		tr::lng_article_table_add_row_below(tr::now),
 		[=] {
 			applyTableChange([=] {
@@ -5930,7 +5933,8 @@ void Widget::fillTableChangeMenu(
 			});
 		},
 		&st::ivEditorTableAddRowBelowIcon);
-	menu->addAction(
+	addCells->addSeparator();
+	addCells->addAction(
 		tr::lng_article_table_add_column_left(tr::now),
 		[=] {
 			applyTableChange([=] {
@@ -5938,7 +5942,7 @@ void Widget::fillTableChangeMenu(
 			});
 		},
 		&st::ivEditorTableAddColumnLeftIcon);
-	menu->addAction(
+	addCells->addAction(
 		tr::lng_article_table_add_column_right(tr::now),
 		[=] {
 			applyTableChange([=] {
@@ -5946,6 +5950,11 @@ void Widget::fillTableChangeMenu(
 			});
 		},
 		&st::ivEditorTableAddColumnRightIcon);
+	menu->addAction(
+		tr::lng_article_table_add_cells(tr::now),
+		std::move(addCells),
+		&st::ivEditorTableAddCellsIcon,
+		&st::ivEditorTableAddCellsIcon);
 	menu->addSeparator();
 	Menu::AddCheckedAction(
 		menu,
@@ -5960,8 +5969,12 @@ void Widget::fillTableChangeMenu(
 			: &st::ivEditorTableHeaderIcon,
 		info.allHeader);
 	menu->addSeparator();
-	Menu::AddCheckedAction(
+	auto alignment = std::make_unique<Ui::PopupMenu>(
 		menu,
+		st::popupMenuWithIcons);
+	const auto raw = not_null<Ui::PopupMenu*>(alignment.get());
+	Menu::AddCheckedAction(
+		raw,
 		tr::lng_article_table_align_left(tr::now),
 		[=] {
 			applyTableChange([=] {
@@ -5973,7 +5986,7 @@ void Widget::fillTableChangeMenu(
 		&st::ivEditorTableAlignLeftIcon,
 		info.allAlignLeft);
 	Menu::AddCheckedAction(
-		menu,
+		raw,
 		tr::lng_article_table_align_center(tr::now),
 		[=] {
 			applyTableChange([=] {
@@ -5985,7 +5998,7 @@ void Widget::fillTableChangeMenu(
 		&st::ivEditorTableAlignCenterIcon,
 		info.allAlignCenter);
 	Menu::AddCheckedAction(
-		menu,
+		raw,
 		tr::lng_article_table_align_right(tr::now),
 		[=] {
 			applyTableChange([=] {
@@ -5996,9 +6009,9 @@ void Widget::fillTableChangeMenu(
 		},
 		&st::ivEditorTableAlignRightIcon,
 		info.allAlignRight);
-	menu->addSeparator();
+	raw->addSeparator();
 	Menu::AddCheckedAction(
-		menu,
+		raw,
 		tr::lng_article_table_align_top(tr::now),
 		[=] {
 			applyTableChange([=] {
@@ -6010,7 +6023,7 @@ void Widget::fillTableChangeMenu(
 		&st::ivEditorTableAlignTopIcon,
 		info.allAlignTop);
 	Menu::AddCheckedAction(
-		menu,
+		raw,
 		tr::lng_article_table_align_middle(tr::now),
 		[=] {
 			applyTableChange([=] {
@@ -6022,7 +6035,7 @@ void Widget::fillTableChangeMenu(
 		&st::ivEditorTableAlignMiddleIcon,
 		info.allAlignMiddle);
 	Menu::AddCheckedAction(
-		menu,
+		raw,
 		tr::lng_article_table_align_bottom(tr::now),
 		[=] {
 			applyTableChange([=] {
@@ -6033,6 +6046,11 @@ void Widget::fillTableChangeMenu(
 		},
 		&st::ivEditorTableAlignBottomIcon,
 		info.allAlignBottom);
+	menu->addAction(
+		tr::lng_article_table_alignment(tr::now),
+		std::move(alignment),
+		&st::ivEditorTableAlignmentIcon,
+		&st::ivEditorTableAlignmentIcon);
 	if (info.canSplitCell) {
 		menu->addSeparator();
 		menu->addAction(
