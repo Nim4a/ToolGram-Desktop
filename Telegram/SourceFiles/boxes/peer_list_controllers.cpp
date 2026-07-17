@@ -62,16 +62,15 @@ namespace {
 constexpr auto kSortByOnlineThrottle = 3 * crl::time(1000);
 constexpr auto kSearchPerPage = 50;
 
-[[nodiscard]] Data::CommunityInfo *JoinedCommunityChats(
-		not_null<PeerData*> peer) {
+} // namespace
+
+Data::CommunityInfo *JoinedCommunityChats(not_null<PeerData*> peer) {
 	const auto channel = peer->asChannel();
 	const auto info = (channel && channel->isCommunity())
 		? channel->communityInfo()
 		: nullptr;
 	return (info && !info->histories().empty()) ? info : nullptr;
 }
-
-} // namespace
 
 object_ptr<Ui::BoxContent> PrepareContactsBox(
 		not_null<Window::SessionController*> window) {

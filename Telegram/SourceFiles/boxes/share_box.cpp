@@ -68,19 +68,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QGuiApplication>
 #include <QtGui/QClipboard>
 
-namespace {
-
-[[nodiscard]] Data::CommunityInfo *JoinedCommunityChats(
-		not_null<PeerData*> peer) {
-	const auto channel = peer->asChannel();
-	const auto info = (channel && channel->isCommunity())
-		? channel->communityInfo()
-		: nullptr;
-	return (info && !info->histories().empty()) ? info : nullptr;
-}
-
-} // namespace
-
 class ShareBox::Inner final : public Ui::RpWidget {
 public:
 	Inner(

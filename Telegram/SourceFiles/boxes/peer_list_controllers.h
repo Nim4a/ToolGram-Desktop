@@ -455,6 +455,9 @@ private:
 
 };
 
+[[nodiscard]] Data::CommunityInfo *JoinedCommunityChats(
+	not_null<PeerData*> peer);
+
 class ChooseCommunityChatBoxController final
 	: public PeerListController
 	, public base::has_weak_ptr {

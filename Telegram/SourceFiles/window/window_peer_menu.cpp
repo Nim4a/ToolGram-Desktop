@@ -2808,9 +2808,11 @@ object_ptr<Ui::BoxContent> PrepareChooseRecipientBox(
 			const auto count = delegate()->peerListSelectedRowsCount();
 			const auto forum = row->peer()->isForum();
 			const auto monoforum = row->peer()->isMonoforum();
-			if (showLockedError(row) || (count && (forum || monoforum))) {
+			const auto community = JoinedCommunityChats(row->peer());
+			if (showLockedError(row)
+				|| (count && (forum || monoforum || community))) {
 				return;
-			} else if (forum || monoforum) {
+			} else if (forum || monoforum || community) {
 				ChooseRecipientBoxController::rowClicked(row);
 			} else {
 				delegate()->peerListSetRowChecked(row, !row->checked());
@@ -2828,7 +2830,8 @@ object_ptr<Ui::BoxContent> PrepareChooseRecipientBox(
 			}
 			if (!row->checked()
 				&& !row->peer()->isForum()
-				&& !row->peer()->isMonoforum()) {
+				&& !row->peer()->isMonoforum()
+				&& !JoinedCommunityChats(row->peer())) {
 				auto menu = base::make_unique_q<Ui::PopupMenu>(
 					parent,
 					st::popupMenuWithIcons);
@@ -3125,9 +3128,11 @@ base::weak_qptr<Ui::BoxContent> ShowForwardMessagesBox(
 			const auto count = delegate()->peerListSelectedRowsCount();
 			const auto forum = row->peer()->isForum();
 			const auto monoforum = row->peer()->isMonoforum();
-			if (showLockedError(row) || (count && (forum || monoforum))) {
+			const auto community = JoinedCommunityChats(row->peer());
+			if (showLockedError(row)
+				|| (count && (forum || monoforum || community))) {
 				return;
-			} else if (!count || forum || monoforum) {
+			} else if (!count || forum || monoforum || community) {
 				ChooseRecipientBoxController::rowClicked(row);
 			} else if (count) {
 				delegate()->peerListSetRowChecked(row, !row->checked());
@@ -3140,7 +3145,8 @@ base::weak_qptr<Ui::BoxContent> ShowForwardMessagesBox(
 				not_null<PeerListRow*> row) override final {
 			if (!row->checked()
 				&& !row->peer()->isForum()
-				&& !row->peer()->isMonoforum()) {
+				&& !row->peer()->isMonoforum()
+				&& !JoinedCommunityChats(row->peer())) {
 				auto menu = base::make_unique_q<Ui::PopupMenu>(
 					parent,
 					st::popupMenuWithIcons);
