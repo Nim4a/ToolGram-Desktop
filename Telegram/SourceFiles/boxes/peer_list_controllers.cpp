@@ -1458,8 +1458,6 @@ ChooseCommunityChatBoxController::ChooseCommunityChatBoxController(
 : _community(community)
 , _callback(std::move(callback))
 , _filter(std::move(filter)) {
-	setStyleOverrides(&st::chooseTopicList);
-
 	_community->linkedPeersValue(
 	) | rpl::skip(1) | rpl::on_next([=] {
 		refreshRows();
@@ -1522,7 +1520,7 @@ void ChooseCommunityChatBoxController::rowClicked(not_null<PeerListRow*> row) {
 
 void ChooseCommunityChatBoxController::prepare() {
 	delegate()->peerListSetTitle(tr::lng_forward_choose());
-	setSearchNoResultsText(tr::lng_topics_not_found(tr::now));
+	setSearchNoResultsText(tr::lng_blocked_list_not_found(tr::now));
 	delegate()->peerListSetSearchMode(PeerListSearchMode::Enabled);
 	refreshRows(true);
 }
@@ -1585,7 +1583,6 @@ auto ChooseCommunityChatBoxController::createRow(not_null<History*> history)
 		return nullptr;
 	}
 	auto result = std::make_unique<PeerListRow>(history->peer);
-	result->setCustomStatus(QString());
 	return result;
 }
 
