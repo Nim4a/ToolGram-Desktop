@@ -9,8 +9,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #ifdef _DEBUG
 
+#include "api/api_authorizations.h"
+#include "apiwrap.h"
 #include "base/call_delayed.h"
-#include "data/data_authorization.h"
+#include "base/random.h"
+#include "base/unixtime.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
 #include "dialogs/dialogs_inner_widget.h"
@@ -67,6 +70,17 @@ void Widget::setupTopBarSuggestionTestHotkeys() {
 		});
 	};
 
+	const auto injectTestAuth = [this] {
+		using Flag = MTPDupdateNewAuthorization::Flag;
+		session().api().authorizations().apply(
+			MTP_updateNewAuthorization(
+				MTP_flags(Flag::f_unconfirmed),
+				MTP_long(base::RandomValue<uint64>()),
+				MTP_int(base::unixtime::now()),
+				MTP_string("Test Device"),
+				MTP_string("Test Location")));
+	};
+
 	const auto regularShortcut = new QShortcut(
 		QKeySequence(u"Ctrl+Shift+T"_q),
 		this);
@@ -113,29 +127,7 @@ void Widget::setupTopBarSuggestionTestHotkeys() {
 		authShortcut,
 		&QShortcut::activated,
 		this,
-		[=, this] {
-			auto fake = std::vector<Data::UnreviewedAuth>();
-			fake.push_back({
-				.hash = 0,
-				.unconfirmed = true,
-				.device = u"Test Device"_q,
-				.location = u"Test Location"_q,
-			});
-			const auto auth = CreateUnconfirmedAuthContent(
-				this,
-				rpl::single(std::move(fake)),
-				[=](bool) { hideAndCleanup(); },
-				_childListShown.value());
-			_prepareTopBarSnapshot.events(
-			) | rpl::on_next([auth] {
-				auth->prepareCollapseSnapshot();
-			}, auth->lifetime());
-			const auto wrap = Ui::CreateChild<
-				Ui::SlideWrap<Ui::RpWidget>>(
-					this,
-					object_ptr<Ui::RpWidget>::fromRaw(auth));
-			install(wrap);
-		});
+		injectTestAuth);
 }
 
 } // namespace Dialogs
