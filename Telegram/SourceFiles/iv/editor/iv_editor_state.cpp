@@ -8031,7 +8031,7 @@ State::TextSelectionDropResult State::moveTextSelectionToDropTarget(
 		}
 		const auto block = std::get_if<Markdown::PreparedEditBlockDropTarget>(
 			&target);
-		const auto container = block
+		auto container = block
 			? candidate.convertBlockContainerPath(block->container)
 			: std::nullopt;
 		const auto destination = container
@@ -8045,17 +8045,66 @@ State::TextSelectionDropResult State::moveTextSelectionToDropTarget(
 				.result = result,
 			};
 		}
-		auto paragraph = MakeParagraphBlock();
-		paragraph.text.text = std::move(moved);
+		const auto &sourceLeaf = source.front().leaf;
+		const auto owner = (sourceLeaf.kind == LeafKind::BlockText)
+			? candidate.block(sourceLeaf.block)
+			: nullptr;
+		const auto textOnly = owner && JoinableTextBlockKind(owner->kind);
+		const auto removeSource = textOnly
+			&& StringIsEmpty(sourceRewrites.front().text.text);
+		auto insertIndex = block->insertIndex;
+		if (removeSource) {
+			const auto &sourcePath = sourceLeaf.block;
+			if (*container == sourcePath.container) {
+				if (insertIndex >= sourcePath.index
+					&& insertIndex <= sourcePath.index + 1) {
+					result.result = ApplyResult::Unchanged;
+					return CheckedMutationResult<TextSelectionDropResult>{
+						.apply = false,
+						.result = result,
+					};
+				} else if (insertIndex > sourcePath.index) {
+					--insertIndex;
+				}
+			}
+			if (!ShiftBlockContainerPathAfterRemovedBlock(
+					*container,
+					sourcePath)) {
+				result.result = ApplyResult::Unchanged;
+				return CheckedMutationResult<TextSelectionDropResult>{
+					.apply = false,
+					.result = result,
+				};
+			}
+		}
+		auto inserted = MakeParagraphBlock();
+		if (textOnly) {
+			inserted.kind = owner->kind;
+			inserted.headingLevel = owner->headingLevel;
+		}
+		inserted.text.text = std::move(moved);
 		auto blocks = std::vector<Block>();
-		blocks.push_back(std::move(paragraph));
+		blocks.push_back(std::move(inserted));
 		if (!applySourceRewrites(std::move(sourceRewrites))) {
 			return CheckedMutationResult<TextSelectionDropResult>{
 				.apply = false,
 				.result = result,
 			};
 		}
-		auto insertIndex = block->insertIndex;
+		if (removeSource) {
+			const auto sourceBlocks = candidate.blockContainer(
+				sourceLeaf.block.container);
+			if (!sourceBlocks
+				|| sourceLeaf.block.index < 0
+				|| sourceLeaf.block.index >= int(sourceBlocks->size())) {
+				return CheckedMutationResult<TextSelectionDropResult>{
+					.apply = false,
+					.result = result,
+				};
+			}
+			sourceBlocks->erase(
+				sourceBlocks->begin() + sourceLeaf.block.index);
+		}
 		if (!candidate.insertPreparedBlocksAtExplicitPosition(
 				std::move(blocks),
 				*container,

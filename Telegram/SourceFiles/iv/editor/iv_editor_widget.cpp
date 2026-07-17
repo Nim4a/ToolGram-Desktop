@@ -11173,6 +11173,8 @@ void Widget::updateArticleDropTarget(QPoint articlePoint) {
 	auto location = (_articleSelectionDrag.mode == DragSelectionMode::Structural
 			&& structuralSource)
 		? _article->editStructuralDropTarget(articlePoint, *structuralSource)
+		: _articleSelectionDrag.fromField
+		? _article->editBlockDropTarget(articlePoint)
 		: _article->editDropTarget(articlePoint);
 	auto supported = false;
 	if (location.valid()) {
@@ -11979,6 +11981,11 @@ bool Widget::handleFieldMouseEvent(QEvent *event) {
 					cursor.setPosition(position, QTextCursor::KeepAnchor);
 					_field->setTextCursor(cursor);
 				}
+				mouse->accept();
+				return true;
+			}
+			if (operation == ArticleSelectionOperation::DragSelection) {
+				clearArticleDropTarget();
 				mouse->accept();
 				return true;
 			}
