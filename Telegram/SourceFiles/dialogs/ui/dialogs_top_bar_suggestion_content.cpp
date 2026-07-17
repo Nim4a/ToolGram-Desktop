@@ -84,31 +84,6 @@ namespace {
 	return (width < st::columnMinimalWidthLeft / 2);
 }
 
-void PaintNarrowSuggestionBubble(
-		QPainter &p,
-		QRect outer,
-		const Ui::BoxShadow &shadow,
-		int cornerRadius) {
-	const auto &margins = st::dialogsTopBarSuggestionMargins;
-	const auto pill = outer - margins;
-	PaintSuggestionBubbleBackground(p, outer, shadow, cornerRadius);
-	if (pill.isEmpty()) {
-		return;
-	}
-	const auto accentSide = st::dialogsRequestsBubbleIconSize;
-	const auto accent = QRect(
-		pill.x() + (pill.width() - accentSide) / 2,
-		pill.y() + (pill.height() - accentSide) / 2,
-		accentSide,
-		accentSide);
-	auto hq = PainterHighQualityEnabler(p);
-	auto background = Ui::RoundRect(
-		st::dialogsRequestsBubbleIconRadius,
-		st::dialogsRequestsBubbleIconBg);
-	background.paint(p, accent);
-	st::dialogsRequestsBubbleIcon.paintInCenter(p, accent);
-}
-
 } // namespace
 
 void PaintBottomFade(
@@ -330,6 +305,23 @@ TopBarSuggestionContent::TopBarSuggestionContent(
 , _emojiPaused(std::move(emojiPaused)) {
 	_leftPadding = st::dialogsTopBarLeftPadding;
 	setRightIcon(RightIcon::Close);
+	Ui::AbstractButton::setClickedCallback([=] {
+		if (TopBarSuggestionNarrow(width())) {
+			if (_narrowExpandCallback) {
+				_narrowExpandCallback();
+			}
+		} else if (_suggestionClickCallback) {
+			_suggestionClickCallback();
+		}
+	});
+}
+
+void TopBarSuggestionContent::setClickedCallback(Fn<void()> callback) {
+	_suggestionClickCallback = std::move(callback);
+}
+
+void TopBarSuggestionContent::setNarrowExpandCallback(Fn<void()> callback) {
+	_narrowExpandCallback = std::move(callback);
 }
 
 void TopBarSuggestionContent::setRightIcon(RightIcon icon) {
@@ -458,11 +450,33 @@ void TopBarSuggestionContent::draw(QPainter &p) {
 	};
 	if (TopBarSuggestionNarrow(width())) {
 		setControlsVisible(false);
-		PaintNarrowSuggestionBubble(
+		const auto &margins = st::dialogsTopBarSuggestionMargins;
+		const auto pill = outer - margins;
+		const auto radius = PaintSuggestionBubbleBackground(
 			p,
 			outer,
 			_shadow,
 			_geometry.cornerRadius);
+		if (pill.isEmpty()) {
+			return;
+		}
+		auto clipPath = QPainterPath();
+		clipPath.addRoundedRect(pill, radius, radius);
+		p.setClipPath(clipPath);
+		Ui::RippleButton::paintRipple(p, 0, 0);
+		p.setClipping(false);
+		const auto accentSide = st::dialogsRequestsBubbleIconSize;
+		const auto accent = QRect(
+			pill.x() + (pill.width() - accentSide) / 2,
+			pill.y() + (pill.height() - accentSide) / 2,
+			accentSide,
+			accentSide);
+		auto hq = PainterHighQualityEnabler(p);
+		auto background = Ui::RoundRect(
+			st::dialogsRequestsBubbleIconRadius,
+			st::dialogsRequestsBubbleIconBg);
+		background.paint(p, accent);
+		st::dialogsRequestsBubbleIcon.paintInCenter(p, accent);
 		return;
 	}
 	setControlsVisible(true);
