@@ -2333,11 +2333,13 @@ void TopBar::showTabSearch() {
 			}
 		}, _tabSearchField->lifetime());
 
-		const auto cancel = Ui::CreateChild<Ui::CrossButton>(
+		const auto cancel = Ui::CreateChild<Ui::IconButton>(
 			inner,
-			_st.searchRow.fieldCancel);
+			_closeColored
+				? st::infoTopBarColoredClose
+				: st::infoTopBarBlackClose);
 		cancel->setAccessibleName(tr::lng_sr_cancel_search(tr::now));
-		cancel->show(anim::type::instant);
+		cancel->show();
 		cancel->addClickHandler([=] {
 			if (_tabSearchField->getLastText().isEmpty()) {
 				hideTabSearch();
@@ -2348,10 +2350,7 @@ void TopBar::showTabSearch() {
 		});
 		inner->widthValue(
 		) | rpl::on_next([=](int newWidth) {
-			cancel->moveToRight(
-				0,
-				(QWidget::minimumHeight() - cancel->height()) / 2,
-				newWidth);
+			cancel->moveToRight(0, 0, newWidth);
 		}, cancel->lifetime());
 
 		_tabSearchField->show();
@@ -2758,6 +2757,7 @@ void TopBar::setupButtons(
 			&& (kMinContrast > Ui::CountContrast(
 				st::boxTitleCloseFg->c,
 				*edgeColor));
+		_closeColored = shouldUseColored;
 		_back = base::make_unique_q<Ui::FadeWrap<Ui::IconButton>>(
 			this,
 			object_ptr<Ui::IconButton>(
