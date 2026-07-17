@@ -748,14 +748,7 @@ void PeerListRow::refreshStatus() {
 	} else if (const auto channel = peer()->asChannel()) {
 		if (channel->isCommunity()) {
 			const auto info = channel->communityInfo();
-			auto count = 0;
-			if (info) {
-				for (const auto &linked : info->linkedPeers()) {
-					if (Data::CommunityChatJoined(linked.peer)) {
-						++count;
-					}
-				}
-			}
+			const auto count = info ? int(info->histories().size()) : 0;
 			setStatusText(count
 				? tr::lng_community_chats(tr::now, lt_count, count)
 				: tr::lng_community_status(tr::now));
