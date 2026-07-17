@@ -981,14 +981,7 @@ void Toolbar::fillBlockStyleMenu(not_null<Ui::PopupMenu*> menu) {
 	Menu::AddActiveColorAction(
 		menu,
 		tr::lng_article_insert_footer(tr::now),
-		[=] {
-			if (kind != Kind::Footer) {
-				insertType(State::InsertBlockType::Footer);
-			} else if (_editor) {
-				_editor->applyToolbarFormatAction(
-					Widget::ToolbarFormatAction::PlainText);
-			}
-		},
+		[=] { insertType(State::InsertBlockType::Footer); },
 		&st::ivEditorToolbarFooterIcon,
 		(kind == Kind::Footer),
 		starSize);
@@ -1019,9 +1012,13 @@ void Toolbar::applyBlockText() {
 		_editor->insertBlock({ .type = State::InsertBlockType::Code });
 		break;
 	case Kind::Heading:
+		_editor->insertBlock({
+			.type = State::InsertBlockType::Heading,
+			.headingLevel = info.headingLevel,
+		});
+		break;
 	case Kind::Footer:
-		_editor->applyToolbarFormatAction(
-			Widget::ToolbarFormatAction::PlainText);
+		_editor->insertBlock({ .type = State::InsertBlockType::Footer });
 		break;
 	default:
 		break;

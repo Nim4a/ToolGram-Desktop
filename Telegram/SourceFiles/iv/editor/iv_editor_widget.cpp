@@ -3223,6 +3223,14 @@ void Widget::syncInlineFieldGeometry() {
 void Widget::insertBlock(State::InsertAction action) {
 	recordMutationTransaction([&] {
 		const auto context = activeTextInsertContext();
+		const auto reversedFieldSelection = [&] {
+			if (!context) {
+				return false;
+			}
+			const auto cursor = _field->textCursor();
+			return cursor.hasSelection()
+				&& (cursor.anchor() > cursor.position());
+		}();
 		const auto restoreField = context.has_value();
 		const auto restoreLeaf = restoreField
 			? _fieldLeaf
@@ -3304,8 +3312,7 @@ void Widget::insertBlock(State::InsertAction action) {
 				&destination);
 		} else if (restoreField
 			&& context
-			&& (action.type == State::InsertBlockType::Blockquote
-				|| action.type == State::InsertBlockType::Code)) {
+			&& State::BlockConversionExpandsToActiveLine(action.type)) {
 			activeBlockResult = _state->applyActiveTextBlockAction(
 				action,
 				*context);
@@ -3354,10 +3361,12 @@ void Widget::insertBlock(State::InsertAction action) {
 				const auto ordinal = _state->textOrdinalForLeafPath(
 					*activeBlockResult->destinationLeaf);
 				if (ordinal >= 0) {
+					const auto from = activeBlockResult->selectionFrom;
+					const auto to = activeBlockResult->selectionTo;
 					activateTextOrdinal(
 						ordinal,
-						activeBlockResult->selectionFrom,
-						activeBlockResult->selectionTo);
+						reversedFieldSelection ? to : from,
+						reversedFieldSelection ? from : to);
 					restoredActiveBlock = true;
 				}
 			}
@@ -4747,59 +4756,24 @@ void Widget::applyToolbarFormatAction(ToolbarFormatAction action) {
 		if (inlineToolbarModeActive() && escapeActiveBlockBodyFromToolbar()) {
 			return;
 		}
-		if (const auto fullSpan = visibleFullDemotableFieldTextSpan()) {
-			const auto full = ConvertEditorTagsToRichText(
-				_field->getTextWithAppliedMarkdown());
-			const auto cursor = _field->textCursor();
-			const auto length = int(full.text.size());
-			const auto restoreLeaf = fullSpan->leaf;
-			const auto restoreAnchorOffset = std::clamp(
-				richOffsetForFieldOffset(full, cursor.anchor()),
-				0,
-				length);
-			const auto restoreCursorOffset = std::clamp(
-				richOffsetForFieldOffset(full, cursor.position()),
-				0,
-				length);
-			recordMutationTransaction([&] {
-				const auto committed = commitInlineField();
-				if (committed == ApplyResult::Failed) {
-					return MutationTransactionResult{
-						.committed = committed,
-						.failed = true,
-					};
-				}
-				_pendingOrdinal = -1;
-				_pendingCursorOffset = 0;
-				hideInlineField();
-				clearInlineFieldEditSession();
-				const auto result = _state->applyFormattingToTextSpans(
-					{ *fullSpan },
-					TextFormattingAction::PlainText);
-				if (result == ApplyResult::Failed) {
-					return MutationTransactionResult{
-						.committed = committed,
-						.failed = true,
-					};
-				}
-				refreshPreparedContent();
-				const auto ordinal = _state->textOrdinalForLeafPath(restoreLeaf);
-				if (ordinal >= 0) {
-					activateTextOrdinal(
-						ordinal,
-						restoreAnchorOffset,
-						restoreCursorOffset);
-				} else {
-					setFocus();
-					notifyToolbarStateChanged();
-				}
-				return MutationTransactionResult{
-					.committed = committed,
-					.changed = (result == ApplyResult::Changed)
-						|| (committed == ApplyResult::Changed),
-				};
-			});
-			return;
+		if (!_settingField
+			&& !_field->isHidden()
+			&& (_activeSegmentIndex >= 0)
+			&& (_state->activeFieldMode() != State::FieldMode::Raw)) {
+			const auto leaf = _state->activeLeafPath();
+			const auto owner = (leaf && leaf->kind == StateLeafKind::BlockText)
+				? BlockFromPath(_state->richPage(), leaf->block)
+				: nullptr;
+			if (owner && (owner->kind == RichPage::BlockKind::Heading)) {
+				insertBlock({
+					.type = State::InsertBlockType::Heading,
+					.headingLevel = owner->headingLevel,
+				});
+				return;
+			} else if (owner && (owner->kind == RichPage::BlockKind::Footer)) {
+				insertBlock({ .type = State::InsertBlockType::Footer });
+				return;
+			}
 		}
 	}
 	if (inlineToolbarModeActive()) {
@@ -8545,48 +8519,6 @@ Widget::activatePreparedMediaPasteTarget(PreparedMediaPasteTarget target) {
 		.resolved = true,
 		.context = std::move(target.context),
 	};
-}
-
-std::optional<State::TextNodeSpan>
-Widget::visibleFullDemotableFieldTextSpan() const {
-	if (_settingField
-		|| _field->isHidden()
-		|| (_activeSegmentIndex < 0)
-		|| (_state->activeFieldMode() == State::FieldMode::Raw)) {
-		return std::nullopt;
-	}
-	const auto leaf = _state->activeLeafPath();
-	if (!leaf || (leaf->kind != StateLeafKind::BlockText)) {
-		return std::nullopt;
-	}
-	const auto owner = BlockFromPath(_state->richPage(), leaf->block);
-	if (!owner
-		|| ((owner->kind != RichPage::BlockKind::Heading)
-			&& (owner->kind != RichPage::BlockKind::Footer))) {
-		return std::nullopt;
-	}
-	const auto full = ConvertEditorTagsToRichText(
-		_field->getTextWithAppliedMarkdown());
-	const auto length = int(full.text.size());
-	const auto cursor = _field->textCursor();
-	if (!cursor.hasSelection()) {
-		return TextNodeSpan{
-			.leaf = *leaf,
-			.from = 0,
-			.till = length,
-		};
-	}
-	auto from = richOffsetForFieldOffset(full, cursor.selectionStart());
-	auto till = richOffsetForFieldOffset(full, cursor.selectionEnd());
-	from = std::clamp(from, 0, length);
-	till = std::clamp(till, from, length);
-	return (from == 0) && (till == length)
-		? std::make_optional(TextNodeSpan{
-			.leaf = *leaf,
-			.from = 0,
-			.till = length,
-		})
-		: std::nullopt;
 }
 
 std::optional<Widget::MathEditRequest> Widget::activeMathEditRequest() const {

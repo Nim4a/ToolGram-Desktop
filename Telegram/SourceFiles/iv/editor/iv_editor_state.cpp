@@ -97,19 +97,6 @@ constexpr auto kMaxCommittedFieldLength = 256 * 1024;
 	return before;
 }
 
-[[nodiscard]] bool BlockConversionExpandsToActiveLine(InsertBlockType type) {
-	switch (type) {
-	case InsertBlockType::Heading:
-	case InsertBlockType::Blockquote:
-	case InsertBlockType::Pullquote:
-	case InsertBlockType::Code:
-	case InsertBlockType::Footer:
-		return true;
-	default:
-		return false;
-	}
-}
-
 void ExpandInsertContextToActiveLine(State::ActiveTextInsertContext &context) {
 	if (!context.selected.text.isEmpty()) {
 		return;
@@ -5441,19 +5428,19 @@ auto State::resolveActiveTextInsertTarget()
 	};
 }
 
-auto State::activeNonPullquoteQuote() const
--> std::optional<State::ActiveNonPullquoteQuote> {
+auto State::activeQuote(bool pullquote) const
+-> std::optional<State::ActiveQuote> {
 	const auto descriptor = textNode(_activeTextOrdinal);
 	if (!descriptor) {
 		return std::nullopt;
 	}
 	const auto direct = block(descriptor->leaf.block);
 	if (direct && direct->kind == BlockKind::Quote) {
-		return direct->pullquote
-			? std::nullopt
-			: std::make_optional(ActiveNonPullquoteQuote{
+		return (direct->pullquote == pullquote)
+			? std::make_optional(ActiveQuote{
 				.path = descriptor->leaf.block,
-			});
+			})
+			: std::nullopt;
 	}
 	auto container = descriptor->leaf.block.container;
 	while (!container.steps.empty()) {
@@ -5470,7 +5457,7 @@ auto State::activeNonPullquoteQuote() const
 		if (!owner || owner->kind != BlockKind::Quote) {
 			continue;
 		}
-		if (owner->pullquote) {
+		if (owner->pullquote != pullquote) {
 			return std::nullopt;
 		}
 		const auto body = BlockChildrenContainer(path);
@@ -5482,7 +5469,7 @@ auto State::activeNonPullquoteQuote() const
 				break;
 			}
 		}
-		return ActiveNonPullquoteQuote{
+		return ActiveQuote{
 			.path = path,
 			.activeLeafIsLastEditableBodyLeaf = lastBodyLeaf,
 		};
@@ -5557,11 +5544,12 @@ bool State::unwrapActiveCodeBlockUnchecked(
 	return true;
 }
 
-bool State::unwrapActiveBlockquoteUnchecked(
+bool State::unwrapActiveQuoteUnchecked(
+		bool pullquote,
 		const ActiveTextInsertContext &context,
 		ActiveTextSelectionTarget *target) {
 	const auto descriptor = textNode(_activeTextOrdinal);
-	const auto quote = activeNonPullquoteQuote();
+	const auto quote = activeQuote(pullquote);
 	if (!descriptor || !quote) {
 		return false;
 	}
@@ -5575,7 +5563,9 @@ bool State::unwrapActiveBlockquoteUnchecked(
 		break;
 	}
 	auto *owner = block(quote->path);
-	if (!owner || owner->kind != BlockKind::Quote || owner->pullquote) {
+	if (!owner
+		|| owner->kind != BlockKind::Quote
+		|| owner->pullquote != pullquote) {
 		return false;
 	}
 	auto *activeText = richText(descriptor->leaf);
@@ -5653,6 +5643,50 @@ bool State::unwrapActiveBlockquoteUnchecked(
 			.leaf = *destinationLeaf,
 			.selectionFrom = selectionFrom,
 			.selectionTo = selectionTo,
+		};
+	}
+	return true;
+}
+
+bool State::convertActiveHeadingOrFooterUnchecked(
+		InsertAction action,
+		const ActiveTextInsertContext &context,
+		ActiveTextSelectionTarget *target) {
+	const auto descriptor = textNode(_activeTextOrdinal);
+	if (!descriptor || descriptor->leaf.kind != LeafKind::BlockText) {
+		return false;
+	}
+	auto *owner = block(descriptor->leaf.block);
+	if (!owner) {
+		return false;
+	}
+	const auto heading = (action.type == InsertBlockType::Heading);
+	const auto required = heading ? BlockKind::Heading : BlockKind::Footer;
+	if (owner->kind != required) {
+		return false;
+	}
+	const auto level = std::clamp(action.headingLevel, 1, 6);
+	if (heading && std::clamp(owner->headingLevel, 1, 6) != level) {
+		owner->headingLevel = level;
+	} else {
+		owner->kind = BlockKind::Paragraph;
+		owner->headingLevel = 0;
+	}
+	owner->text.text = JoinText(
+		context.before,
+		context.selected,
+		context.after);
+	clearTemporaryDownParagraph();
+	rebuild();
+	if (!activateRebuiltLeaf(descriptor->leaf)) {
+		return false;
+	}
+	if (target) {
+		const auto selectionFrom = int(context.before.text.size());
+		*target = {
+			.leaf = descriptor->leaf,
+			.selectionFrom = selectionFrom,
+			.selectionTo = selectionFrom + int(context.selected.text.size()),
 		};
 	}
 	return true;
@@ -5971,7 +6005,7 @@ std::optional<int> State::moveActiveSpecialBlockDownUnchecked() {
 	}
 	auto target = std::optional<LeafPath>();
 	auto trackTemporary = false;
-	if (const auto quote = activeNonPullquoteQuote()) {
+	if (const auto quote = activeQuote(false)) {
 		if (descriptor->leaf.kind == LeafKind::BlockCaption
 			&& descriptor->leaf.block == quote->path) {
 			if (const auto paragraph = reuseOrInsertParagraph(
@@ -8130,6 +8164,19 @@ bool State::insertBlocksAfterActiveWithContextUnchecked(
 	return true;
 }
 
+bool State::BlockConversionExpandsToActiveLine(InsertBlockType type) {
+	switch (type) {
+	case InsertBlockType::Heading:
+	case InsertBlockType::Blockquote:
+	case InsertBlockType::Pullquote:
+	case InsertBlockType::Code:
+	case InsertBlockType::Footer:
+		return true;
+	default:
+		return false;
+	}
+}
+
 State::ActiveTextBlockActionResult State::applyActiveTextBlockAction(
 		InsertAction action,
 		ActiveTextInsertContext context) {
@@ -8152,9 +8199,14 @@ State::ActiveTextBlockActionResult State::applyActiveTextBlockAction(
 				.result = result,
 			};
 		};
-		if (action.type == InsertBlockType::Blockquote) {
-			if (candidate.activeNonPullquoteQuote()) {
-				if (candidate.unwrapActiveBlockquoteUnchecked(context, &target)) {
+		if (action.type == InsertBlockType::Blockquote
+			|| action.type == InsertBlockType::Pullquote) {
+			const auto pullquote = (action.type == InsertBlockType::Pullquote);
+			if (candidate.activeQuote(pullquote)) {
+				if (candidate.unwrapActiveQuoteUnchecked(
+						pullquote,
+						context,
+						&target)) {
 					return changed();
 				}
 				return CheckedMutationResult<ActiveTextBlockActionResult>{
@@ -8166,7 +8218,23 @@ State::ActiveTextBlockActionResult State::applyActiveTextBlockAction(
 			&& candidate.unwrapActiveCodeBlockUnchecked(context, &target)) {
 			return changed();
 		}
+		if ((action.type == InsertBlockType::Heading
+				|| action.type == InsertBlockType::Footer)
+			&& candidate.convertActiveHeadingOrFooterUnchecked(
+				action,
+				context,
+				&target)) {
+			return changed();
+		}
+		const auto hadSelection = !context.selected.text.isEmpty();
+		const auto beforeSize = int(context.before.text.size());
+		const auto lineStart = hadSelection
+			? -1
+			: int(context.before.text.lastIndexOf('\n'));
 		ExpandInsertContextToActiveLine(context);
+		const auto cursorInLine = hadSelection
+			? 0
+			: (beforeSize - (lineStart + 1));
 		auto blocks = std::vector<Block>();
 		blocks.push_back(candidate.makeBlock(action));
 		const auto applied = candidate.insertBlocksAfterActiveUnchecked(
@@ -8188,8 +8256,10 @@ State::ActiveTextBlockActionResult State::applyActiveTextBlockAction(
 			.result = {
 				.result = ApplyResult::Changed,
 				.destinationLeaf = descriptor->leaf,
-				.selectionFrom = 0,
-				.selectionTo = int(context.selected.text.size()),
+				.selectionFrom = (hadSelection ? 0 : cursorInLine),
+				.selectionTo = (hadSelection
+					? int(context.selected.text.size())
+					: cursorInLine),
 			},
 		};
 	});

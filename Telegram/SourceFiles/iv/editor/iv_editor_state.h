@@ -63,6 +63,9 @@ public:
 		double longitude = 0.;
 	};
 
+	[[nodiscard]] static bool BlockConversionExpandsToActiveLine(
+		InsertBlockType type);
+
 	enum class BlockContainerKind : uchar {
 		Root,
 		BlockChildren,
@@ -576,7 +579,7 @@ private:
 		int columnTill = -1;
 	};
 
-	struct ActiveNonPullquoteQuote {
+	struct ActiveQuote {
 		BlockPath path;
 		bool activeLeafIsLastEditableBodyLeaf = false;
 	};
@@ -742,8 +745,8 @@ private:
 		int index);
 	[[nodiscard]] auto resolveActiveTextInsertTarget()
 	-> std::optional<ActiveTextInsertTarget>;
-	[[nodiscard]] auto activeNonPullquoteQuote() const
-	-> std::optional<ActiveNonPullquoteQuote>;
+	[[nodiscard]] auto activeQuote(bool pullquote) const
+	-> std::optional<ActiveQuote>;
 	[[nodiscard]] auto activeListItemSurface() const
 	-> std::optional<ActiveListItemSurface>;
 	[[nodiscard]] std::optional<LeafPath> leafAfterUnwrappingBlockChildren(
@@ -752,7 +755,12 @@ private:
 	[[nodiscard]] bool unwrapActiveCodeBlockUnchecked(
 		const ActiveTextInsertContext &context,
 		ActiveTextSelectionTarget *target);
-	[[nodiscard]] bool unwrapActiveBlockquoteUnchecked(
+	[[nodiscard]] bool unwrapActiveQuoteUnchecked(
+		bool pullquote,
+		const ActiveTextInsertContext &context,
+		ActiveTextSelectionTarget *target);
+	[[nodiscard]] bool convertActiveHeadingOrFooterUnchecked(
+		InsertAction action,
 		const ActiveTextInsertContext &context,
 		ActiveTextSelectionTarget *target);
 	[[nodiscard]] bool joinActiveParagraphBoundaryUnchecked(

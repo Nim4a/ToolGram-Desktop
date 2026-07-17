@@ -509,8 +509,6 @@ private:
 		std::vector<RichPage::Block> blocks,
 		std::optional<State::ActiveTextInsertContext> context,
 		bool useStructuralSelection = true);
-	[[nodiscard]] std::optional<State::TextNodeSpan>
-	visibleFullDemotableFieldTextSpan() const;
 	[[nodiscard]] std::optional<MathEditRequest> activeMathEditRequest() const;
 	[[nodiscard]] MathEditRequest newDisplayMathRequest() const;
 	[[nodiscard]] int richOffsetForFieldOffset(
