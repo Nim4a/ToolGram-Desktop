@@ -458,6 +458,14 @@ HistoryInner::HistoryInner(
 	) | rpl::on_next(
 		[this](auto item) { itemRemoved(item); },
 		lifetime());
+	session().data().newItemAdded(
+	) | rpl::filter([=](not_null<HistoryItem*> item) {
+		const auto history = item->history();
+		return (history == _history)
+			|| (_migrated && history == _migrated);
+	}) | rpl::on_next([=] {
+		checkAnnounceFirstMessages();
+	}, lifetime());
 	setupThanosEffect();
 	session().data().viewRemoved(
 	) | rpl::on_next(
@@ -840,13 +848,7 @@ void HistoryInner::messagesReceived(
 			_migrated->addNewerSlice(QVector<MTPMessage>());
 		}
 	}
-	if (_announceFirstMessages && hasFocus()) {
-		InvokeQueued(this, [=] {
-			if (_announceFirstMessages && hasFocus()) {
-				announceAccessibilityFocusedChild();
-			}
-		});
-	}
+	checkAnnounceFirstMessages();
 }
 
 void HistoryInner::messagesReceivedDown(
@@ -6626,17 +6628,30 @@ auto HistoryInner::computeActiveColumns(int row) const
 	return _activeColumns;
 }
 
+void HistoryInner::checkAnnounceFirstMessages() {
+	if (_announceFirstMessages && hasFocus()) {
+		InvokeQueued(this, [=] {
+			if (_announceFirstMessages && hasFocus()) {
+				announceAccessibilityFocusedChild();
+			}
+		});
+	}
+}
+
 void HistoryInner::announceAccessibilityFocusedChild() {
 	const auto count = accessibilityChildCount();
 	if (count <= 0) {
-		// One-shot for chats focused before their first page arrived:
+		// One-shot for chats focused before their first messages arrived:
 		// while the empty list holds focus, remember that the first
-		// received slice should announce the focused message. Fired
-		// (queued) from messagesReceived and disarmed by any real
-		// announcement below or in a later focus-in.
-		if (Ui::ScreenReaderModeActive()) {
-			_announceFirstMessages = true;
-		}
+		// received slice (or the first live-added message in a genuinely
+		// empty chat) should announce the focused message. Fired (queued)
+		// from checkAnnounceFirstMessages and disarmed by any real
+		// announcement below or in a later focus-in. Deliberately not
+		// gated by the screen-reader-mode detector: it may still be false
+		// during startup or for valid clients that are not on its
+		// allowlist, while the deferred announcement is a no-op without
+		// an accessibility client and never moves ordinary keyboard focus.
+		_announceFirstMessages = true;
 		return;
 	}
 	_announceFirstMessages = false;
