@@ -3299,7 +3299,8 @@ bool HistoryItem::canStopPoll() const {
 }
 
 bool HistoryItem::forbidsForward() const {
-	return (_flags & MessageFlag::NoForwards);
+	return false; // ToolGram: allow forwarding from no-forwards channels
+	(void)(_flags & MessageFlag::NoForwards);
 }
 
 bool HistoryItem::forbidsSaving() const {
