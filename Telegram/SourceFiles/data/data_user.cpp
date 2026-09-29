@@ -665,8 +665,8 @@ bool UserData::readDatesPrivate() const {
 }
 
 bool UserData::allowsForwarding() const {
-	return !(flags() & Flag::NoForwardsMyEnabled)
-		&& !(flags() & Flag::NoForwardsPeerEnabled);
+	return true; // ToolGram: bypass NoForwards flags
+	(void)(flags() & (Flag::NoForwardsMyEnabled | Flag::NoForwardsPeerEnabled));
 }
 
 void UserData::setNoForwardsFlags(bool myEnabled, bool peerEnabled) {

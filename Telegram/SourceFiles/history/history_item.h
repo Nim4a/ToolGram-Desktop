@@ -264,8 +264,11 @@ public:
 		return _flags & MessageFlag::InvertMedia;
 	}
 	[[nodiscard]] bool storyInProfile() const {
-		return _flags & MessageFlag::StoryInProfile;
-	}
+			return _flags & MessageFlag::StoryInProfile;
+		}
+		[[nodiscard]] bool noForwards() const { // ToolGram: raw NoForwards flag accessor
+			return _flags & MessageFlag::NoForwards;
+		}
 	[[nodiscard]] bool unread(not_null<Data::Thread*> thread) const;
 	[[nodiscard]] bool showNotification() const;
 	void markClientSideAsRead();

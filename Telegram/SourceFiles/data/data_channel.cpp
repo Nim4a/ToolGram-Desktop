@@ -771,7 +771,8 @@ bool ChannelData::canAddAdmins() const {
 }
 
 bool ChannelData::allowsForwarding() const {
-	return !(flags() & Flag::NoForwards);
+	return true; // ToolGram: bypass NoForwards channels
+	(void)(flags() & Flag::NoForwards);
 }
 
 bool ChannelData::canViewMembers() const {

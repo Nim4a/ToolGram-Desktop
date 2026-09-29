@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_filters_menu.h"
+#include "ui/widgets/side_bar_bg.h"
+#include "toolgram_sidebar.h"
 
 #include "menu/menu_mark_as_read.h"
 #include "mainwindow.h"
@@ -136,8 +138,11 @@ void FiltersMenu::setup() {
 	) | rpl::on_next([=](QRect clip) {
 		auto p = QPainter(&_outer);
 		p.setPen(Qt::NoPen);
-		p.setBrush(st::windowFiltersButton.textBg);
+		const auto customBg = ToolGram::SidebarEffectiveColor(
+			st::windowFiltersButton.textBg->c);
+		p.setBrush(QColor(customBg));
 		p.drawRect(clip);
+		SetToolGramSideBarBg(QColor(customBg));
 	}, _outer.lifetime());
 
 	_parent->heightValue(

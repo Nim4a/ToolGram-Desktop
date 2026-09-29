@@ -3869,14 +3869,28 @@ void ApiWrap::forwardMessages(
 	auto &histories = _session->data().histories();
 
 	for (auto i = begin(draft.items); i != end(draft.items);) {
-		const auto item = *i;
-		if (item->isSavedMusicItem()) {
-			SendExistingDocument(MessageToSend(action), item->media()->document());
-			i = draft.items.erase(i);
-		} else {
-			++i;
+			const auto item = *i;
+			if (item->isSavedMusicItem()) {
+				SendExistingDocument(MessageToSend(action), item->media()->document());
+				i = draft.items.erase(i);
+			} else if (item->noForwards() || !item->history()->peer->allowsForwarding()) {
+							// ToolGram: no-forwards bypass — send a content copy instead of a real forward.
+											const auto media = item->media();
+											const auto original = item->originalText();
+											auto message = MessageToSend(action);
+											message.textWithTags.text = original.text;
+				if (media && media->document()) {
+					SendExistingDocument(std::move(message), media->document());
+				} else if (media && media->photo()) {
+					SendExistingPhoto(std::move(message), media->photo());
+				} else {
+									sendMessage(std::move(message));
+								}
+				i = draft.items.erase(i);
+			} else {
+				++i;
+			}
 		}
-	}
 	if (draft.items.empty()) {
 		if (successCallback) {
 			successCallback();

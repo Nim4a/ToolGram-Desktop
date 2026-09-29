@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_experimental.h"
 #include "settings/sections/settings_shortcuts.h"
 #include "boxes/abstract_box.h"
+#include "toolgram_sidebar_box.h"
 #include "boxes/peers/edit_peer_color_box.h"
 #include "boxes/connection_box.h"
 #include "boxes/auto_download_box.h"
@@ -1135,6 +1136,17 @@ void BuildArchiveSection(SectionBuilder &builder) {
 	if (controller) {
 		PreloadArchiveSettings(session);
 	}
+
+	builder.addButton({
+		.id = u"chat/toolgram-sidebar-color"_q,
+		.title = rpl::single(u"رنگ نوار سمت چپ"_q),
+		.icon = { &st::menuIconPalette },
+		.onClick = [=] {
+			controller->show(
+				Box<Ui::GenericBox>(ToolGramSidebarColorBox, controller));
+		},
+		.keywords = { u"sidebar"_q, u"color"_q, u"folder"_q, u"رنگ"_q },
+	});
 
 	builder.addButton({
 		.id = u"chat/archive-settings"_q,
