@@ -150,12 +150,12 @@ PRIVATE
     api/api_filter_updates.h
     api/api_global_privacy.cpp
     api/api_global_privacy.h
+    api/api_hash.cpp
+    api/api_hash.h
     toolgram_sidebar.cpp
     toolgram_sidebar.h
     toolgram_sidebar_box.cpp
     toolgram_sidebar_box.h
-    api/api_hash.cpp
-    api/api_hash.h
     api/api_invite_links.cpp
     api/api_invite_links.h
     api/api_media.cpp
