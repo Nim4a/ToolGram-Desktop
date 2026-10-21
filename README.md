@@ -1,3 +1,50 @@
+<p align="center">
+  <b>ToolGram</b> — a personal patched build of Telegram Desktop, built by CI.<br>
+  <sub>Upstream README follows unchanged below.</sub>
+</p>
+
+<table>
+<tr>
+<td valign="top" width="50%">
+
+### What this fork is
+
+- Telegram Desktop source, patched and built on GitHub Actions
+- Reproducible Windows build via a staged CMake pipeline
+- Artifacts published as GitHub Releases
+
+</td>
+<td valign="top" width="50%">
+
+### How it builds
+
+```
+push to dev
+    │
+    ▼
+GitHub Actions  →  clone upstream tdesktop
+    │
+    ▼
+apply patch set  →  cmake --build (Release)
+    │
+    ▼
+package  →  Release artifact
+```
+
+</td>
+</tr>
+</table>
+
+| File | Role |
+|---|---|
+| `.github/workflows/` | CI: fetch upstream, patch, build, package |
+| `Telegram/` | Upstream client source (patched in place) |
+| `tools/` | Build helpers and staging scripts |
+
+Install the latest build from [Releases](https://github.com/Nim4a/ToolGram-Desktop/releases).
+
+---
+
 # [Telegram Desktop][telegram_desktop] – Official Messenger
 
 This is the complete source code and the build instructions for the official [Telegram][telegram] messenger desktop client, based on the [Telegram API][telegram_api] and the [MTProto][telegram_proto] secure protocol.
